@@ -409,7 +409,8 @@ main { width: min(1260px, 94vw); padding-top: 34px; }
   .roulette-result span { font-size: 6px; }
 }
 
-/* Virtual PLN presentation: readable values with a casino-chip treatment. */
+/* Virtual $FGT currency presentation: readable values with a casino-chip treatment. */
+.fgt-chip,
 .pln-chip {
   width: 34px;
   height: 34px;
@@ -424,26 +425,37 @@ main { width: min(1260px, 94vw); padding-top: 34px; }
   box-shadow: inset 0 0 0 2px rgba(103,61,10,.45), inset 0 2px 4px rgba(255,255,255,.55), 0 3px 10px rgba(0,0,0,.4);
   transform: rotate(-8deg);
 }
+.fgt-chip::before,
 .pln-chip::before {
   content: "";
   position: absolute;
-  inset: 5px;
+  inset: 4px;
   border: 1px solid rgba(88,53,11,.55);
   border-radius: 50%;
 }
-.pln-chip > span {
-  position: relative;
-  font: 800 .64rem/1 Arial, sans-serif;
-  letter-spacing: -.06em;
+.fgt-chip::after,
+.pln-chip::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3b8 0%, #dfb455 55%, #8e5c14 100%);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.35);
 }
+.fgt-chip.small::after,
+.pln-chip.small::after {
+  inset: 6px;
+}
+.fgt-chip.small,
 .pln-chip.small { width: 25px; height: 25px; flex-basis: 25px; }
-.pln-chip.small > span { font-size: .48rem; }
 .balance { gap: 9px; }
 .balance strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .balance > span { color: #b7c1cf; font-size: .68rem; }
 .bet-control > label { display: flex; align-items: center; gap: 7px; }
+.bonus-orb .fgt-chip,
 .bonus-orb .pln-chip { width: 50px; height: 50px; flex-basis: 50px; margin: 0 auto; transform: rotate(-8deg) scale(1.1); }
-.bonus-orb .pln-chip > span { font-size: .82rem; }
+.bonus-orb .fgt-chip > span,
+.bonus-orb .pln-chip > span { font-size: .72rem; }
 
 /* Blackjack deal/reveal choreography. New cards enter from the shoe; the
    stagger is driven by the card index so a hit and a dealer reveal feel like

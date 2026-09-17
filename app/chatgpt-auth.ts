@@ -1,90 +1,74 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { parseCookie, verifySession } from "@/lib/auth/session";
 
-export type ChatGPTUser = {
+export type AuthUser = {
   userId: string;
   displayName: string;
   email: string;
   fullName: string | null;
+  firstName?: string | null;
 };
 
-const USER_ID_HEADER = "oai-authenticated-user-id";
-const USER_EMAIL_HEADER = "oai-authenticated-user-email";
-const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
-const USER_FULL_NAME_ENCODING_HEADER =
-  "oai-authenticated-user-full-name-encoding";
-const PERCENT_ENCODED_UTF8 = "percent-encoded-utf-8";
-const SIGN_IN_PATH = "/signin-with-chatgpt";
-const SIGN_OUT_PATH = "/signout-with-chatgpt";
-const CALLBACK_PATH = "/callback";
+export type ChatGPTUser = AuthUser;
+
+const SIGN_IN_PATH = "/api/auth/login";
+const SIGN_OUT_PATH = "/api/auth/logout";
+
+/**
+ * Returns currently authenticated user via OIDC session cookie.
+ */
+export async function getAuthUser(): Promise<AuthUser | null> {
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get("cookie");
+  const sessionToken = parseCookie(cookieHeader, "casino_session");
+
+  if (sessionToken) {
+    const session = await verifySession(sessionToken);
+    if (session) {
+      const parsedFirstName =
+        session.firstName ||
+        (session.fullName ? session.fullName.trim().split(/\s+/)[0] : null) ||
+        session.nick;
+      return {
+        userId: session.userId,
+        displayName: parsedFirstName || session.email.split("@")[0],
+        email: session.email,
+        fullName: session.fullName || null,
+        firstName: parsedFirstName,
+      };
+    }
+  }
+
+  return null;
+}
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get(USER_ID_HEADER);
-  const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!userId || !email) return null;
-
-  const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get(USER_FULL_NAME_ENCODING_HEADER) === PERCENT_ENCODED_UTF8
-      ? safeDecodeURIComponent(encodedFullName)
-      : null;
-
-  return {
-    userId,
-    displayName: fullName ?? email,
-    email,
-    fullName,
-  };
+  return getAuthUser();
 }
 
-export async function requireChatGPTUser(
-  returnTo: string,
-): Promise<ChatGPTUser> {
-  const user = await getChatGPTUser();
+export async function requireAuthUser(): Promise<AuthUser> {
+  const user = await getAuthUser();
   if (user) return user;
-
-  redirect(chatGPTSignInPath(returnTo));
+  redirect(SIGN_IN_PATH);
 }
 
-export function chatGPTSignInPath(returnTo: string): string {
-  const safeReturnTo = safeRelativeReturnPath(returnTo);
-  return `${SIGN_IN_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
+export async function requireChatGPTUser(): Promise<ChatGPTUser> {
+  return requireAuthUser();
 }
 
-export function chatGPTSignOutPath(returnTo = "/"): string {
-  const safeReturnTo = safeRelativeReturnPath(returnTo);
-  return `${SIGN_OUT_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
+export function authSignInPath(): string {
+  return SIGN_IN_PATH;
 }
 
-function safeRelativeReturnPath(value: string): string {
-  if (!value.startsWith("/") || value.startsWith("//")) return "/";
-
-  let url: URL;
-  try {
-    url = new URL(value, "https://app.local");
-  } catch {
-    return "/";
-  }
-  if (url.origin !== "https://app.local") return "/";
-  if (isReservedAuthPath(url.pathname)) return "/";
-
-  return `${url.pathname}${url.search}${url.hash}`;
+export function authSignOutPath(): string {
+  return SIGN_OUT_PATH;
 }
 
-function isReservedAuthPath(pathname: string): boolean {
-  return (
-    pathname === SIGN_IN_PATH ||
-    pathname === SIGN_OUT_PATH ||
-    pathname === CALLBACK_PATH
-  );
+export function chatGPTSignInPath(_returnTo?: string): string {
+  return SIGN_IN_PATH;
 }
 
-function safeDecodeURIComponent(value: string): string | null {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return null;
-  }
+export function chatGPTSignOutPath(_returnTo?: string): string {
+  return SIGN_OUT_PATH;
 }

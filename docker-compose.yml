@@ -1,0 +1,36 @@
+services:
+  kasyno:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kasyno_2fgt
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - SESSION_SECRET=${SESSION_SECRET:-kasyno-2fgt-secret-key-replace-in-env-production-32-chars}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER}
+      - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
+      - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
+      - AUTHENTIK_REDIRECT_URI=${AUTHENTIK_REDIRECT_URI}
+      - AUTHENTIK_AUTH_URL=${AUTHENTIK_AUTH_URL}
+      - AUTHENTIK_TOKEN_URL=${AUTHENTIK_TOKEN_URL}
+      - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL}
+      - AUTHENTIK_END_SESSION_URL=${AUTHENTIK_END_SESSION_URL}
+    volumes:
+      - casino_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/auth/me || exit 0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  casino_data:
+    driver: local
