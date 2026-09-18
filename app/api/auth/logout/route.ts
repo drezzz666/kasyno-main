@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const config = getOidcConfig(url.origin);
+  const config = await getOidcConfig(url.origin);
 
   const clearCookie = clearSessionCookie();
   const headers = new Headers();

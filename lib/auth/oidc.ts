@@ -27,35 +27,86 @@ export interface OidcUserInfo {
   given_name?: string;
 }
 
+interface OpenIdConfiguration {
+  issuer: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  userinfo_endpoint: string;
+  end_session_endpoint?: string;
+  jwks_uri?: string;
+  token_endpoint_auth_methods_supported?: string[];
+}
+
+let cachedDiscovery: {
+  data: OpenIdConfiguration;
+  expiresAt: number;
+} | null = null;
+
 function trimTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");
 }
 
-export function getOidcConfig(origin?: string): OidcConfig {
-  const issuer = trimTrailingSlash(
-    process.env.AUTHENTIK_ISSUER || "https://authentik.example.com/application/o/kasyno"
-  );
-  const clientId = process.env.AUTHENTIK_CLIENT_ID || "kasyno-client-id";
-  const clientSecret = process.env.AUTHENTIK_CLIENT_SECRET || "kasyno-client-secret";
-  
-  const appUrl = trimTrailingSlash(
-    process.env.APP_URL || origin || "http://localhost:5173"
-  );
-  const redirectUri = process.env.AUTHENTIK_REDIRECT_URI || `${appUrl}/api/auth/callback`;
+export async function fetchDiscovery(discoveryUrl: string): Promise<OpenIdConfiguration | null> {
+  const now = Date.now();
+  if (cachedDiscovery && cachedDiscovery.expiresAt > now) {
+    return cachedDiscovery.data;
+  }
+  try {
+    const res = await fetch(discoveryUrl, {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) {
+      console.warn(`[OIDC] Failed to fetch discovery from ${discoveryUrl}: ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as OpenIdConfiguration;
+    cachedDiscovery = {
+      data,
+      expiresAt: now + 60 * 60 * 1000,
+    };
+    return data;
+  } catch (err) {
+    console.warn(`[OIDC] Discovery fetch error for ${discoveryUrl}:`, err);
+    return null;
+  }
+}
 
-  // Standard Authentik endpoints
+export async function getOidcConfig(origin?: string): Promise<OidcConfig> {
+  const issuerRaw =
+    process.env.AUTHENTIK_ISSUER || "https://login.2fgt.pl/application/o/kasyno/";
+  const issuer = trimTrailingSlash(issuerRaw);
+  const clientId = process.env.AUTHENTIK_CLIENT_ID || "";
+  const clientSecret = process.env.AUTHENTIK_CLIENT_SECRET || "";
+
+  const appUrl = trimTrailingSlash(
+    process.env.APP_URL || origin || "https://zagraj.2fgt.pl"
+  );
+  const redirectUri = `${appUrl}/api/auth/callback`;
+
+  const discoveryUrl = `${issuer}/.well-known/openid-configuration`;
+  const discovery = await fetchDiscovery(discoveryUrl);
+
   const authorizationEndpoint =
-    process.env.AUTHENTIK_AUTH_URL || `${issuer}/authorize/`;
+    discovery?.authorization_endpoint ||
+    process.env.AUTHENTIK_AUTH_URL ||
+    `${issuer}/authorize/`;
   const tokenEndpoint =
-    process.env.AUTHENTIK_TOKEN_URL || `${issuer}/token/`;
+    discovery?.token_endpoint ||
+    process.env.AUTHENTIK_TOKEN_URL ||
+    `${issuer}/token/`;
   const userinfoEndpoint =
-    process.env.AUTHENTIK_USERINFO_URL || `${issuer}/userinfo/`;
+    discovery?.userinfo_endpoint ||
+    process.env.AUTHENTIK_USERINFO_URL ||
+    `${issuer}/userinfo/`;
   const endSessionEndpoint =
-    process.env.AUTHENTIK_END_SESSION_URL || `${issuer}/end-session/`;
-  const jwksUri = `${issuer}/jwks/`;
+    discovery?.end_session_endpoint ||
+    process.env.AUTHENTIK_END_SESSION_URL ||
+    `${issuer}/end-session/`;
+  const jwksUri = discovery?.jwks_uri || `${issuer}/jwks/`;
 
   return {
-    issuer,
+    issuer: discovery?.issuer || issuer,
     clientId,
     clientSecret,
     redirectUri,
@@ -103,7 +154,6 @@ export async function exchangeCodeForTokens(
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
-      Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString("base64")}`,
     },
     body: body.toString(),
   });
@@ -152,3 +202,4 @@ export function parseJwtPayload<T = Record<string, unknown>>(token: string): T |
     return null;
   }
 }
+

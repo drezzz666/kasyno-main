@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = url.origin;
-  const config = getOidcConfig(origin);
+  const config = await getOidcConfig(origin);
 
   const state = crypto.randomUUID();
   const nonce = crypto.randomUUID();

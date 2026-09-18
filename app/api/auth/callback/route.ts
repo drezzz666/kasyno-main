@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
   try {
     const origin = url.origin;
-    const config = getOidcConfig(origin);
+    const config = await getOidcConfig(origin);
 
     // 1. Backchannel token exchange (Direct POST to Authentik /token/)
     const tokenRes = await exchangeCodeForTokens(config, code);
