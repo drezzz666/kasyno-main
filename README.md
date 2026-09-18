@@ -17,6 +17,18 @@ Wszystkie funkcje autoryzacji znajdują się w [`lib/auth/index.ts`](file:///hom
 - `authSignInPath()`: Zwraca ścieżkę logowania (`/api/auth/login`).
 - `authSignOutPath()`: Zwraca ścieżkę wylogowania (`/api/auth/logout`).
 
+## Konfiguracja w panelu Authentik
+
+W Authentik utwórz Provider (**OAuth2/OpenID Provider**) oraz powiązaną Aplikację:
+
+1. **Client type**: `Confidential`
+2. **Redirect URIs**: `https://zagraj.2fgt.pl/api/auth/callback`
+3. **Selected Property Mappings (Scopes)** - wymagane 3 mapowania:
+   - `authentik default OAuth Mapping: OpenID 'openid'`
+   - `authentik default OAuth Mapping: OpenID 'email'`
+   - `authentik default OAuth Mapping: OpenID 'profile'`
+4. **Application / Bindings**: Przypisz aplikację do użytkowników/grup mających mieć wstęp do kasyna.
+
 ## Konfiguracja środowiskowa (`.env`)
 
 Wszystkie endpointy OIDC (`authorize`, `token`, `userinfo`, `end-session`) są automatycznie pobierane z OpenID Configuration wystawianego przez Authentik.
