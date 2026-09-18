@@ -88,5 +88,12 @@ function initTables(sqlite: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_user_created ON ledger_entries (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_round ON ledger_entries (round_id);
+
+    INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+    SELECT lower(hex(randomblob(16))), p.user_id, 'welcome_bonus', 100, 100, p.created_at
+    FROM players p
+    WHERE p.user_id NOT IN (
+      SELECT user_id FROM ledger_entries WHERE type IN ('welcome_bonus', 'starter_bonus')
+    );
   `);
 }

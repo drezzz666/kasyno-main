@@ -11,6 +11,7 @@ import { AuthUser } from "@/lib/auth";
 import {
   CircleUserRound,
   Gift,
+  History,
   Home,
   Info,
   LogIn,
@@ -65,10 +66,24 @@ type Round = {
   result?: string;
   payload: any;
 };
+export type HistoryEntry = {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter?: number;
+  createdAt?: number;
+  created_at?: number;
+  game?: string | null;
+  result?: string | null;
+  bet?: number | null;
+  payout?: number | null;
+};
 type State = {
   player: Player;
   active: Round | null;
-  history: any[];
+  history: HistoryEntry[];
+  hasMoreHistory?: boolean;
+  roundsToday?: number;
   leaders: any[];
   today: string;
 };
@@ -81,6 +96,61 @@ const gameNames: { [k: string]: string } = {
   mines: "Mines",
   slots: "Midnight 2fgt",
 };
+
+function getHistoryDetails(item: HistoryEntry) {
+  if (item.type === "daily_bonus") {
+    return {
+      title: "Bonus dzienny",
+      subtitle: "Nagroda za logowanie",
+    };
+  }
+  if (item.type === "welcome_bonus" || item.type === "starter_bonus") {
+    return {
+      title: "Bonus powitalny",
+      subtitle: "Startowy pakiet żetonów",
+    };
+  }
+  const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");
+  if (item.type === "round") {
+    return {
+      title: gName,
+      subtitle: item.result || "Wynik rundy",
+    };
+  }
+  if (item.type === "bet") {
+    return {
+      title: `${gName} · Zakład`,
+      subtitle: "Postawienie stawki",
+    };
+  }
+  if (item.type === "double") {
+    return {
+      title: `${gName} · Podwojenie`,
+      subtitle: "Podwojenie stawki",
+    };
+  }
+  if (item.type === "payout") {
+    return {
+      title: `${gName} · Wypłata`,
+      subtitle: item.result || "Rozliczenie",
+    };
+  }
+  return {
+    title: "Operacja konta",
+    subtitle: item.result || item.type,
+  };
+}
+
+function formatHistoryTime(timestamp?: number) {
+  if (!timestamp) return "";
+  const d = new Date(timestamp);
+  return d.toLocaleDateString("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 const wheelOrder = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
   16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
@@ -190,7 +260,10 @@ export default function CasinoApp({
     [mineCount, setMineCount] = useState(5),
     [last, setLast] = useState<Round | null>(null),
     [profileOpen, setProfileOpen] = useState(false),
-    [infoOpen, setInfoOpen] = useState(false);
+    [infoOpen, setInfoOpen] = useState(false),
+    [historyOpen, setHistoryOpen] = useState(false),
+    [loadingMoreHistory, setLoadingMoreHistory] = useState(false),
+    [hasMoreHistory, setHasMoreHistory] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -266,17 +339,31 @@ export default function CasinoApp({
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
       setData((prev) => {
+        const nextHistory = j.history || [];
+        let combinedHistory = nextHistory;
+        if (prev && prev.history && prev.history.length > nextHistory.length) {
+          const freshIds = new Set(nextHistory.map((h: HistoryEntry) => h.id));
+          const older = prev.history.filter((h: HistoryEntry) => !freshIds.has(h.id));
+          combinedHistory = [...nextHistory, ...older];
+        }
         if (isPolling && isAnimatingRef.current && prev) {
           return {
             ...j,
+            history: combinedHistory,
             player: {
               ...j.player,
               balance: prev.player.balance,
             },
           };
         }
-        return j;
+        return {
+          ...j,
+          history: combinedHistory,
+        };
       });
+      if (typeof j.hasMoreHistory === "boolean") {
+        setHasMoreHistory(j.hasMoreHistory);
+      }
       if (j.active) setGame(j.active.game);
     } catch (e) {
       if (!isPolling) {
@@ -288,6 +375,39 @@ export default function CasinoApp({
       if (!isPolling) setLoading(false);
     }
   }, []);
+
+  const loadMoreHistory = async () => {
+    if (loadingMoreHistory || !data?.history?.length) return;
+    setLoadingMoreHistory(true);
+    try {
+      const res = await fetch(
+        `/api/casino/history?offset=${data.history.length}&limit=10`,
+        { cache: "no-store" },
+      );
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Błąd pobierania historii");
+      if (j.entries) {
+        setData((prev) => {
+          if (!prev) return prev;
+          const currentIds = new Set(prev.history.map((h) => h.id));
+          const uniqueEntries = j.entries.filter(
+            (h: HistoryEntry) => !currentIds.has(h.id),
+          );
+          return {
+            ...prev,
+            history: [...prev.history, ...uniqueEntries],
+          };
+        });
+        setHasMoreHistory(Boolean(j.hasMore));
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Nie udało się pobrać kolejnych wpisów",
+      );
+    } finally {
+      setLoadingMoreHistory(false);
+    }
+  };
   useEffect(() => {
     void load();
     const timer = setInterval(() => {
@@ -378,7 +498,10 @@ export default function CasinoApp({
             balance: data?.player.balance,
             level: data?.player.level,
             bonusStreak: data?.player.streak,
-            rounds: data?.history.length,
+            rounds:
+              typeof data?.roundsToday === "number"
+                ? data.roundsToday
+                : data?.history?.filter((h) => h.game).length || 0,
           }),
         },
         { signal: lifecycle.signal },
@@ -642,7 +765,7 @@ export default function CasinoApp({
                 </div>
               </header>
               <article className="hero-game">
-                <img src="/roulette-hero.png" alt="Koło europejskiej ruletki" />
+                <img src="/roulette-hero.webp" alt="Koło europejskiej ruletki" />
                 <div className="hero-shade" />
                 <div className="hero-copy">
                   <p>KLASYKA STOŁU</p>
@@ -701,6 +824,7 @@ export default function CasinoApp({
                   title="Mines"
                   label="SZYBKA GRA"
                   badge="Siatka 5×5"
+                  image="/mines-hero.webp"
                   icon={<Pickaxe />}
                   howItWorks="Wybierz 2–12 min i odkrywaj kryształy (◆). Mnożnik rośnie z każdym krokiem. Odbierz zysk zanim trafisz minę (✹)."
                   multipliers={[
@@ -722,6 +846,7 @@ export default function CasinoApp({
                   title="Blackjack"
                   label="GRA STOŁOWA"
                   badge="Stół 3:2"
+                  image="/blackjack-hero.webp"
                   icon={<Spade />}
                   howItWorks="Zbliż się do 21 pkt i pokonaj krupiera (dobiera do min. 17). Opcje: Dobierz, Pas, Podwój stawkę."
                   multipliers={[
@@ -743,6 +868,7 @@ export default function CasinoApp({
                   title="Midnight 2fgt"
                   label="AUTOMAT 5×3"
                   badge="5 bębnów"
+                  image="/slot-hero.webp"
                   icon={<span className="slot-glyph">2F</span>}
                   howItWorks="Losuje 5 bębnów z symbolami (2, F, G, T, ◆, ♛). Wygrywają układy identycznych symboli na poziomej linii środkowej."
                   multipliers={[
@@ -774,12 +900,23 @@ export default function CasinoApp({
                 <div className="progress">
                   <i
                     style={{
-                      width: `${Math.min(100, (data?.history.length || 0) * 20)}%`,
+                      width: `${Math.min(
+                        100,
+                        ((typeof data?.roundsToday === "number"
+                          ? data.roundsToday
+                          : data?.history?.filter((h) => h.game).length) || 0) * 20,
+                      )}%`,
                     }}
                   />
                 </div>
                 <small>
-                  {Math.min(5, data?.history.length || 0)} z 5 ukończone
+                  {Math.min(
+                    5,
+                    (typeof data?.roundsToday === "number"
+                      ? data.roundsToday
+                      : data?.history?.filter((h) => h.game).length) || 0,
+                  )}{" "}
+                  z 5 ukończone
                 </small>
               </article>
               <article className="panel" id="ranking">
@@ -804,31 +941,65 @@ export default function CasinoApp({
                 </ol>
               </article>
             </section>
-            <section className="section history">
+            <section className="section history" id="history">
               <header className="section-head">
                 <div>
-                  <p className="eyebrow">HISTORIA</p>
-                  <h2>Ostatnie rundy</h2>
+                  <p className="eyebrow">DZIENNIK ZMIAN</p>
+                  <h2>Historia konta</h2>
                 </div>
               </header>
               {data?.history?.length ? (
-                <div className="history-list">
-                  {data.history.map((r) => (
-                    <div key={r.id}>
-                      <span>{gameNames[r.game]}</span>
-                      <small>{r.result}</small>
-                      <b className={r.payout > r.bet ? "win" : "loss"}>
-                        {r.payout - r.bet >= 0 ? "+" : ""}
-                        {money(r.payout - r.bet)}
-                      </b>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="history-list">
+                    {data.history.slice(0, 6).map((r) => {
+                      const details = getHistoryDetails(r);
+                      const timeStr = formatHistoryTime(
+                        r.createdAt || r.created_at,
+                      );
+                      return (
+                        <div key={r.id} className="history-row">
+                          <div className="history-main">
+                            <span className="history-title">{details.title}</span>
+                            <small className="history-sub">
+                              {details.subtitle}
+                            </small>
+                          </div>
+                          <div className="history-meta">
+                            <b
+                              className={
+                                r.amount > 0
+                                  ? "win"
+                                  : r.amount < 0
+                                    ? "loss"
+                                    : "neutral"
+                              }
+                            >
+                              {r.amount > 0 ? "+" : ""}
+                              {money(r.amount)}
+                            </b>
+                            {timeStr && (
+                              <time className="history-time">{timeStr}</time>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="history-actions">
+                    <button
+                      type="button"
+                      className="btn-history-more"
+                      onClick={() => setHistoryOpen(true)}
+                    >
+                      Więcej historii
+                    </button>
+                  </div>
+                </>
               ) : (
                 <p className="empty">
                   {user
-                    ? "Pierwsza runda dopiero czeka."
-                    : "Zaloguj się, aby zobaczyć historię swoich gier."}
+                    ? "Brak zarejestrowanych operacji na koncie."
+                    : "Zaloguj się, aby zobaczyć historię swojego konta."}
                 </p>
               )}
             </section>
@@ -948,7 +1119,7 @@ export default function CasinoApp({
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="game-dialog info-dialog">
           <DialogHeader>
-            <DialogTitle>Informacje i zasady 2fgt</DialogTitle>
+            <DialogTitle>Informacje i zasady</DialogTitle>
             <DialogDescription>
               Prywatny klub gier z wirtualną walutą $FGT.
             </DialogDescription>
@@ -1025,6 +1196,32 @@ export default function CasinoApp({
                 <b>{data?.player.streak || 0} dni</b>
               </div>
             </div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setProfileOpen(false);
+                setHistoryOpen(true);
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                marginTop: "12px",
+                borderRadius: "8px",
+                cursor: "pointer",
+                background: "rgba(214, 224, 239, 0.08)",
+                border: "1px solid rgba(214, 224, 239, 0.16)",
+                color: "#d6e0ef",
+                fontSize: "0.88rem",
+                fontWeight: 500,
+              }}
+            >
+              <History size={16} /> Historia konta
+            </button>
             <div
               style={{
                 display: "flex",
@@ -1055,6 +1252,81 @@ export default function CasinoApp({
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="game-dialog history-dialog">
+          <DialogHeader>
+            <DialogTitle>Historia konta</DialogTitle>
+            <DialogDescription>
+              Rejestr wszystkich operacji, gier i bonusów $FGT
+            </DialogDescription>
+          </DialogHeader>
+          <div className="history-modal-content">
+            {data?.history?.length ? (
+              <>
+                <div className="history-list modal-history-list">
+                  {data.history.map((r) => {
+                    const details = getHistoryDetails(r);
+                    const timeStr = formatHistoryTime(
+                      r.createdAt || r.created_at,
+                    );
+                    return (
+                      <div key={r.id} className="history-row">
+                        <div className="history-main">
+                          <span className="history-title">{details.title}</span>
+                          <small className="history-sub">
+                            {details.subtitle}
+                          </small>
+                        </div>
+                        <div className="history-meta">
+                          <b
+                            className={
+                              r.amount > 0
+                                ? "win"
+                                : r.amount < 0
+                                  ? "loss"
+                                  : "neutral"
+                            }
+                          >
+                            {r.amount > 0 ? "+" : ""}
+                            {money(r.amount)}
+                          </b>
+                          {timeStr && (
+                            <time className="history-time">{timeStr}</time>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {hasMoreHistory ? (
+                  <div className="history-actions" style={{ padding: "16px 0 6px" }}>
+                    <button
+                      type="button"
+                      className="btn-history-more"
+                      onClick={loadMoreHistory}
+                      disabled={loadingMoreHistory}
+                    >
+                      {loadingMoreHistory
+                        ? "Wczytywanie..."
+                        : "Wczytaj starsze wpisy"}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="history-modal-end">
+                    To wszystkie zarejestrowane operacje.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="empty">
+                {user
+                  ? "Brak zarejestrowanych operacji na koncie."
+                  : "Zaloguj się, aby zobaczyć historię swojego konta."}
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1068,6 +1340,7 @@ function GameCard({
   title,
   label,
   icon,
+  image,
   badge,
   onClick,
   howItWorks,
@@ -1076,7 +1349,8 @@ function GameCard({
   kind: string;
   title: string;
   label: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
+  image?: string;
   badge?: string;
   onClick: () => void;
   howItWorks?: string;
@@ -1091,40 +1365,49 @@ function GameCard({
         if (e.key === "Enter") onClick();
       }}
     >
-      <div className="game-art">
-        {icon}
-        <span className="tag">GRAJ</span>
-      </div>
-      <div className="game-info">
-        <div>
-          <p>{label}</p>
-          <h3>{title}</h3>
+      {image && (
+        <div className="game-card-backdrop">
+          <img src={image} alt={title} className="game-card-img" />
+          <div className="game-card-shade" />
         </div>
-        <button aria-label={`Zagraj w ${title}`}>→</button>
-      </div>
-      <div className="game-meta">
-        <span>Min. 1 $FGT</span>
-        {badge && <span>{badge}</span>}
-      </div>
-      {howItWorks && (
-        <div className="game-card-guide">
-          <div className="guide-header">
-            <Info size={13} />
-            <span>Zasady & Mnożniki</span>
+      )}
+      <div className="game-card-inner">
+        <div className="game-card-top">
+          <span className="tag">GRAJ</span>
+          {badge && <span className="game-card-badge">{badge}</span>}
+        </div>
+        <div className="game-card-body">
+          <div className="game-info">
+            <div>
+              <p>{label}</p>
+              <h3>{title}</h3>
+            </div>
+            <button aria-label={`Zagraj w ${title}`}>→</button>
           </div>
-          <p className="guide-desc">{howItWorks}</p>
-          {multipliers && (
-            <div className="guide-multipliers">
-              {multipliers.map((m, idx) => (
-                <span className="multiplier-pill" key={idx}>
-                  <span>{m.label}</span>
-                  <b>{m.mult}</b>
-                </span>
-              ))}
+          <div className="game-meta">
+            <span>Min. 1 $FGT</span>
+          </div>
+          {howItWorks && (
+            <div className="game-card-guide">
+              <div className="guide-header">
+                <Info size={13} />
+                <span>Zasady & Mnożniki</span>
+              </div>
+              <p className="guide-desc">{howItWorks}</p>
+              {multipliers && (
+                <div className="guide-multipliers">
+                  {multipliers.map((m, idx) => (
+                    <span className="multiplier-pill" key={idx}>
+                      <span>{m.label}</span>
+                      <b>{m.mult}</b>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
     </article>
   );
 }

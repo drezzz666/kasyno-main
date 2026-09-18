@@ -62,6 +62,9 @@ async function player(): Promise<Player> {
     d.prepare(
       "INSERT INTO players (user_id,email,nick,balance,xp,level,streak,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
     ).run(userId, email, nick, 100, 0, 1, 0, t, t);
+    d.prepare(
+      "INSERT INTO ledger_entries (id,user_id,type,amount,balance_after,created_at) VALUES (?,?,'welcome_bonus',100,100,?)"
+    ).run(id(), userId, t);
     p = d.prepare("SELECT * FROM players WHERE user_id = ?").get(userId) as Player;
   }
   return p!;
@@ -121,8 +124,35 @@ export async function GET() {
       .prepare("SELECT * FROM game_rounds WHERE user_id=? AND state='active' ORDER BY created_at DESC LIMIT 1")
       .get(p.user_id) as Round | undefined;
     const history = d
-      .prepare("SELECT id,game,state,bet,payout,result,created_at FROM game_rounds WHERE user_id=? AND state='settled' ORDER BY created_at DESC LIMIT 8")
+      .prepare(`
+        SELECT 
+          l.id,
+          l.type,
+          l.amount,
+          l.balance_after AS balanceAfter,
+          l.created_at AS createdAt,
+          g.game,
+          g.result,
+          g.bet,
+          g.payout
+        FROM ledger_entries l
+        LEFT JOIN game_rounds g ON l.round_id = g.id
+        WHERE l.user_id = ?
+        ORDER BY l.created_at DESC
+        LIMIT 10
+      `)
       .all(p.user_id);
+
+    const totalHistory = (d
+      .prepare("SELECT count(*) as count FROM ledger_entries WHERE user_id = ?")
+      .get(p.user_id) as { count: number })?.count ?? 0;
+
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const roundsToday = (d
+      .prepare("SELECT count(*) as count FROM game_rounds WHERE user_id = ? AND state = 'settled' AND created_at >= ?")
+      .get(p.user_id, todayStart.getTime()) as { count: number })?.count ?? 0;
+
     const leaders = d
       .prepare("SELECT nick,balance,level FROM players ORDER BY balance DESC LIMIT 5")
       .all();
@@ -130,6 +160,8 @@ export async function GET() {
       player: p,
       active: publicActive(active),
       history,
+      hasMoreHistory: totalHistory > history.length,
+      roundsToday,
       leaders,
       today: new Date().toISOString().slice(0, 10),
     });

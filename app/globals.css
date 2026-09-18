@@ -341,32 +341,41 @@ main {
   font-size: 0.78rem;
 }
 .hero-game {
-  height: 355px;
+  min-height: 480px;
   border: 1px solid var(--line);
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 40px 42px;
 }
 .hero-game img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
+  vertical-align: middle;
 }
 .hero-shade {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background:
     linear-gradient(
       90deg,
-      rgba(5, 9, 8, 0.95),
-      rgba(5, 9, 8, 0.5) 50%,
-      rgba(5, 9, 8, 0.08)
+      rgba(5, 9, 8, 0.96) 0%,
+      rgba(5, 9, 8, 0.88) 45%,
+      rgba(5, 9, 8, 0.5) 75%,
+      rgba(5, 9, 8, 0.15) 100%
     ),
-    linear-gradient(0deg, rgba(0, 0, 0, 0.4), transparent 45%);
+    linear-gradient(0deg, rgba(0, 0, 0, 0.5), transparent 50%);
 }
 .hero-copy {
-  position: absolute;
-  top: 38px;
-  left: 42px;
+  position: relative;
+  z-index: 2;
+  max-width: 540px;
 }
 .online {
   font-size: 0.76rem;
@@ -380,13 +389,19 @@ main {
   border-radius: 50%;
   box-shadow: 0 0 8px var(--green);
 }
-.hero-copy > p,
 .game-info p {
   font-size: 0.67rem;
   letter-spacing: 0.15em;
   color: var(--gold);
   font-weight: 700;
-  margin: 28px 0 7px;
+  margin: 0 0 5px;
+}
+.hero-copy > p {
+  font-size: 0.67rem;
+  letter-spacing: 0.15em;
+  color: var(--gold);
+  font-weight: 700;
+  margin: 0 0 7px;
 }
 .hero-copy h3 {
   font: 600 2.8rem var(--display);
@@ -419,47 +434,95 @@ main {
 .game-card {
   border: 1px solid var(--line);
   background: #0d1512;
-  transition: 0.25s;
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
   cursor: pointer;
 }
 .game-card:hover,
 .game-card:focus {
   transform: translateY(-4px);
-  border-color: rgba(197, 164, 102, 0.36);
+  border-color: rgba(56, 211, 159, 0.45);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.45);
   outline: none;
 }
-.game-art {
-  height: 190px;
-  display: grid;
-  place-items: center;
-  position: relative;
+.game-card-backdrop {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
 }
-.game-art > svg {
-  width: 78px;
-  height: 78px;
-  filter: drop-shadow(0 0 22px currentColor);
+.game-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  vertical-align: middle;
+  display: block;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.game-card.mines .game-art {
-  background: radial-gradient(circle, #15533d, #09130f 68%);
-  color: #55dca9;
+.game-card:hover .game-card-img,
+.game-card:focus .game-card-img {
+  transform: scale(1.08);
 }
-.game-card.blackjack .game-art {
-  background: radial-gradient(circle, #3a3428, #10110f 68%);
-  color: #d6bd86;
+.game-card-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 9, 8, 0.25) 0%,
+    rgba(5, 9, 8, 0.55) 35%,
+    rgba(5, 9, 8, 0.92) 75%,
+    rgba(5, 9, 8, 0.98) 100%
+  );
+  pointer-events: none;
 }
-.game-card.slots .game-art {
-  background: radial-gradient(circle, #382d16, #11100b 68%);
-  color: var(--gold);
+.game-card-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  flex: 1;
 }
-.slot-glyph {
-  font: 600 5rem var(--display);
-  text-shadow: 0 0 30px rgba(197, 164, 102, 0.35);
+.game-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 0;
+}
+.game-card-top .tag {
+  position: static;
+  display: inline-block;
+  border-radius: 6px;
+  background: rgba(23, 61, 48, 0.9);
+  backdrop-filter: blur(8px);
+}
+.game-card-badge {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #c5d4e8;
+  background: rgba(13, 21, 18, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(214, 224, 239, 0.16);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.game-card-body {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
 }
 .tag {
-  position: absolute;
-  top: 13px;
-  left: 13px;
   background: #173d30;
   color: #62dfad;
   font-size: 0.62rem;
@@ -558,12 +621,51 @@ main {
   background: #0d1512;
 }
 .history-list > div {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 12px;
-  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 18px;
   border-bottom: 1px solid var(--line);
   font-size: 0.85rem;
+}
+.history-list > div:last-child {
+  border-bottom: none;
+}
+.history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.history-title {
+  font-weight: 500;
+  color: #d6e0ef;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+.history-sub {
+  color: var(--sub);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+.history-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.history-meta b {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.history-time {
+  color: var(--sub);
+  font-size: 0.74rem;
+  line-height: 1.25;
 }
 .history-list small {
   color: var(--sub);
@@ -573,6 +675,52 @@ main {
 }
 .history-list .loss {
   color: #c77676;
+}
+.history-list .neutral {
+  color: var(--sub);
+}
+.history-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+}
+.btn-history-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 22px;
+  border-radius: 8px;
+  background: rgba(214, 224, 239, 0.05);
+  border: 1px solid var(--line);
+  color: #d6e0ef;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-history-more:hover:not(:disabled) {
+  background: rgba(214, 224, 239, 0.1);
+  border-color: rgba(214, 224, 239, 0.25);
+  color: #fff;
+}
+.btn-history-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.history-modal-content {
+  max-height: min(65vh, 520px);
+  overflow-y: auto;
+  margin-top: 14px;
+  padding-right: 2px;
+}
+.modal-history-list {
+  border-radius: 10px;
+}
+.history-modal-end {
+  text-align: center;
+  color: var(--sub);
+  font-size: 0.8rem;
+  padding: 18px 0 6px;
 }
 .empty {
   color: var(--sub);
@@ -860,9 +1008,12 @@ main {
     padding: 0 15px;
   }
   .topbar nav,
-  .account .icon,
+  .account .avatar,
   .balance span {
     display: none;
+  }
+  .volume-wrap {
+    order: -1;
   }
   .brand {
     font-size: 1.55rem;
@@ -882,35 +1033,57 @@ main {
     padding-bottom: 110px;
   }
   .welcome {
-    align-items: start;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
   .welcome h1 {
     font-size: 1.7rem;
   }
   .level {
-    width: 115px;
-    margin-top: 6px;
+    width: 100%;
+    margin-top: 0;
   }
   .daily-card {
-    min-height: 360px;
-    padding: 29px 22px;
-    align-items: start;
+    min-height: auto;
+    padding: 28px 20px;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
   }
   .daily-card:before {
     inset: 9px;
   }
+  .daily-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .daily-copy .pill {
+    align-self: center;
+    margin: 0 auto 12px;
+  }
   .daily-copy h2 {
-    font-size: 2.2rem;
+    font-size: 1.55rem;
+    text-align: center;
+    margin: 0 0 8px;
+    width: 100%;
+  }
+  .daily-copy p {
+    text-align: center;
+    margin: 0 auto 18px;
+    max-width: 320px;
+    width: 100%;
+  }
+  .daily-copy .primary {
+    align-self: center;
+    margin: 0 auto;
   }
   .bonus-orb {
-    width: 96px;
-    height: 96px;
-    right: 25px;
-    bottom: 25px;
-  }
-  .bonus-orb svg {
-    width: 30px;
-    height: 30px;
+    display: none !important;
   }
   .section {
     margin-top: 45px;
@@ -919,24 +1092,96 @@ main {
     font-size: 1.5rem;
   }
   .hero-game {
-    height: 420px;
+    min-height: 440px;
+    height: auto;
+    padding: 28px 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    border-radius: 14px;
+    text-align: center;
+  }
+  .hero-game img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
+    z-index: 0;
   }
   .hero-shade {
-    background: linear-gradient(
-      0deg,
-      rgba(5, 9, 8, 0.98),
-      rgba(5, 9, 8, 0.53) 57%,
-      rgba(5, 9, 8, 0.06)
-    );
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    background:
+      linear-gradient(
+        180deg,
+        rgba(5, 9, 8, 0.72) 0%,
+        rgba(5, 9, 8, 0.84) 40%,
+        rgba(5, 9, 8, 0.95) 80%,
+        rgba(5, 9, 8, 0.98) 100%
+      ),
+      linear-gradient(0deg, rgba(0, 0, 0, 0.55), transparent 50%);
   }
   .hero-copy {
-    left: 22px;
-    right: 20px;
+    max-width: 100%;
+    position: relative;
+    z-index: 2;
+    padding: 0;
+    text-align: center;
+    left: auto;
     top: auto;
-    bottom: 32px;
+    bottom: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .hero-copy h3 {
-    font-size: 2.25rem;
+    font-size: 1.85rem;
+    margin: 0 0 12px;
+    line-height: 1.15;
+    text-align: center;
+  }
+  .hero-copy > p {
+    margin: 0 0 6px;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-align: center;
+  }
+  .hero-copy .primary {
+    margin-top: 18px;
+    width: 100%;
+    max-width: 320px;
+    justify-content: center;
+    align-self: center;
+  }
+  .hero-game-guide {
+    text-align: center;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 12px;
+    width: 100%;
+  }
+  .guide-header {
+    justify-content: center;
+  }
+  .guide-desc {
+    text-align: center;
+  }
+  .guide-multipliers {
+    justify-content: center;
+  }
+  .meta {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 7px;
   }
   .game-grid {
     display: flex;
@@ -953,10 +1198,11 @@ main {
     margin-top: 45px;
   }
   .history-list > div {
-    grid-template-columns: 1fr auto;
+    display: flex;
+    justify-content: space-between;
   }
   .history-list small {
-    display: none;
+    display: block;
   }
   .mobile-nav {
     display: flex;

@@ -239,25 +239,19 @@ main { width: min(1260px, 94vw); padding-top: 34px; }
 .section-head { margin-bottom: 14px; }
 .section-head h2 { font-size: 1.45rem; }
 .subtle { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: #10151e; }
-.hero-game { height: 242px; border-radius: 14px; border-color: rgba(214,224,239,.16); box-shadow: 0 24px 65px rgba(0,0,0,.28); }
+.hero-game { min-height: 280px; height: auto; border-radius: 14px; border-color: rgba(214,224,239,.16); box-shadow: 0 24px 65px rgba(0,0,0,.28); }
 .hero-shade { background: linear-gradient(90deg, rgba(5,8,12,.95), rgba(5,8,12,.55) 48%, rgba(5,8,12,.08)), linear-gradient(0deg, rgba(0,0,0,.48), transparent 50%); }
-.hero-copy { top: 32px; left: 32px; }
+.hero-copy { top: 0; left: 0; }
 .hero-copy h3 { font-size: 2.45rem; }
 .hero-copy>p, .game-info p { color: #e7bd6e; }
 .primary { border-radius: 8px; box-shadow: 0 8px 24px rgba(56,211,159,.16); }
 
 .game-grid { gap: 14px; }
-.game-card { border-radius: 12px; overflow: hidden; background: #10141c; box-shadow: 0 12px 35px rgba(0,0,0,.18); }
+.game-card { border-radius: 14px; overflow: hidden; background: #10141c; box-shadow: 0 12px 35px rgba(0,0,0,.18); }
 .game-card:hover { border-color: rgba(56,211,159,.5); box-shadow: 0 18px 46px rgba(0,0,0,.36); }
-.game-art { height: 165px; }
-.game-card.mines .game-art { background: radial-gradient(circle at 50% 40%, #1b7158, #0d161a 67%); }
-.game-card.blackjack .game-art { background: radial-gradient(circle at 50% 38%, #65532d, #11151c 66%); }
-.game-card.slots .game-art { background: radial-gradient(circle at 50% 38%, #745127, #151217 66%); }
-.game-art>svg { width: 66px; height: 66px; }
 .game-info { padding: 15px 16px 7px; }
 .game-info h3 { font-size: 1.2rem; }
 .game-info button { box-shadow: 0 5px 16px rgba(56,211,159,.22); }
-.tag { border-radius: 5px; background: rgba(27, 116, 88, .86); }
 .game-meta span { color: #9daabd; }
 
 .bottom-grid { gap: 14px; margin-top: 40px; }
@@ -266,6 +260,8 @@ main { width: min(1260px, 94vw); padding-top: 34px; }
 .history-list { border-radius: 12px; overflow: hidden; background: #10141c; }
 .history-list>div { padding: 13px 17px; border-bottom-color: rgba(214,224,239,.1); }
 .empty { border-radius: 10px; background: #10141c; }
+.btn-history-more { background: #141923; border: 1px solid rgba(214,224,239,.15); color: #d6e0ef; }
+.btn-history-more:hover:not(:disabled) { background: #1c2331; border-color: rgba(214,224,239,.3); color: #fff; }
 
 .game-dialog {
   width: min(800px, calc(100vw - 28px)) !important;
@@ -368,11 +364,25 @@ main { width: min(1260px, 94vw); padding-top: 34px; }
 
 @media (max-width: 800px) {
   main { width: calc(100% - 22px); padding-top: 24px; }
-  .daily-card { height: auto; min-height: 250px; padding: 24px 20px; }
-  .bonus-orb { right: 20px; }
-  .hero-game { height: 330px; }
-  .hero-copy { left: 20px; top: auto; bottom: 27px; }
-  .hero-copy h3 { font-size: 2.05rem; }
+  .welcome { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .level { width: 100%; margin-top: 0; }
+  .daily-card { height: auto; min-height: auto; padding: 28px 20px; text-align: center; justify-content: center; align-items: center; }
+  .daily-copy { align-items: center; text-align: center; width: 100%; margin: 0 auto; }
+  .daily-copy .pill { align-self: center; margin: 0 auto 12px; }
+  .daily-copy h2 { text-align: center; width: 100%; }
+  .daily-copy p { text-align: center; margin: 0 auto 18px; }
+  .daily-copy .primary { align-self: center; margin: 0 auto; }
+  .bonus-orb { display: none !important; }
+  .hero-game { height: auto; min-height: 440px; padding: 28px 20px; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-align: center; }
+  .hero-game img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero-shade { position: absolute; inset: 0; display: block; z-index: 1; }
+  .hero-copy { left: auto; top: auto; bottom: auto; padding: 0; width: 100%; max-width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .hero-copy h3 { font-size: 1.85rem; margin-bottom: 12px; text-align: center; }
+  .hero-copy > p { text-align: center; }
+  .hero-copy .primary { width: 100%; max-width: 320px; justify-content: center; align-self: center; }
+  .hero-game-guide { text-align: center; align-items: center; width: 100%; }
+  .guide-header, .guide-desc, .guide-multipliers { justify-content: center; text-align: center; }
+  .meta { justify-content: center; }
   .subtle { display: none; }
   .game-dialog {
     width: calc(100vw - 14px) !important;

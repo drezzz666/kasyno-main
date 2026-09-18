@@ -75,6 +75,9 @@ export async function GET(request: Request) {
       d.prepare(
         "INSERT INTO players (user_id, email, nick, balance, xp, level, streak, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       ).run(userId, email, finalNick, 100, 0, 1, 0, now, now);
+      d.prepare(
+        "INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at) VALUES (?, ?, 'welcome_bonus', 100, 100, ?)"
+      ).run(crypto.randomUUID(), userId, now);
     } else {
       d.prepare("UPDATE players SET email = ?, nick = ?, updated_at = ? WHERE user_id = ?").run(email, finalNick, now, userId);
     }
