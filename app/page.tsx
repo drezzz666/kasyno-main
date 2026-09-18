@@ -1,5 +1,5 @@
 import CasinoApp from "./casino-app";
-import { getAuthUser } from "./chatgpt-auth";
+import { getAuthUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 

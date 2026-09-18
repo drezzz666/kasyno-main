@@ -1,16 +1,17 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { parseCookie, verifySession } from "@/lib/auth/session";
+import { parseCookie, verifySession } from "./session";
 
-export type AuthUser = {
+export * from "./session";
+export * from "./oidc";
+
+export interface AuthUser {
   userId: string;
   displayName: string;
   email: string;
   fullName: string | null;
   firstName?: string | null;
-};
-
-export type ChatGPTUser = AuthUser;
+}
 
 const SIGN_IN_PATH = "/api/auth/login";
 const SIGN_OUT_PATH = "/api/auth/logout";
@@ -43,18 +44,10 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   return null;
 }
 
-export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
-  return getAuthUser();
-}
-
 export async function requireAuthUser(): Promise<AuthUser> {
   const user = await getAuthUser();
   if (user) return user;
   redirect(SIGN_IN_PATH);
-}
-
-export async function requireChatGPTUser(): Promise<ChatGPTUser> {
-  return requireAuthUser();
 }
 
 export function authSignInPath(): string {
@@ -62,13 +55,5 @@ export function authSignInPath(): string {
 }
 
 export function authSignOutPath(): string {
-  return SIGN_OUT_PATH;
-}
-
-export function chatGPTSignInPath(_returnTo?: string): string {
-  return SIGN_IN_PATH;
-}
-
-export function chatGPTSignOutPath(_returnTo?: string): string {
   return SIGN_OUT_PATH;
 }

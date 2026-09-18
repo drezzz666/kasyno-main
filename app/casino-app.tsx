@@ -1,6 +1,13 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AuthUser } from "./chatgpt-auth";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  useMemo,
+} from "react";
+import { AuthUser } from "@/lib/auth";
 import {
   CircleUserRound,
   Gift,
@@ -12,6 +19,7 @@ import {
   Pickaxe,
   Spade,
   Target,
+  Volume1,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -175,6 +183,7 @@ export default function CasinoApp({
   const [data, setData] = useState<State | null>(null),
     [loading, setLoading] = useState(true),
     [muted, setMuted] = useState(false),
+    [volume, setVolume] = useState(0.2),
     [game, setGame] = useState<string | null>(null),
     [bet, setBet] = useState(5),
     [choice, setChoice] = useState("red"),
@@ -182,7 +191,71 @@ export default function CasinoApp({
     [last, setLast] = useState<Round | null>(null),
     [profileOpen, setProfileOpen] = useState(false),
     [infoOpen, setInfoOpen] = useState(false);
-  const load = useCallback(async () => {
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    const audio = new Audio("/audio/bgm.m4a");
+    audio.loop = true;
+    audio.volume = muted ? 0 : volume;
+    audioRef.current = audio;
+
+    const startAudio = () => {
+      if (user && !muted && volume > 0 && audio.paused) {
+        audio.play().catch(() => {});
+      }
+    };
+
+    window.addEventListener("click", startAudio, { once: true });
+    window.addEventListener("keydown", startAudio, { once: true });
+
+    if (!muted && volume > 0) {
+      audio.play().catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener("click", startAudio);
+      window.removeEventListener("keydown", startAudio);
+      audio.pause();
+      audio.src = "";
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = muted ? 0 : volume;
+    if (!user || muted || volume === 0) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [user, muted, volume]);
+
+  const isAnimatingRef = useRef(false);
+
+  const syncBalance = useCallback((newBalance: number) => {
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            player: {
+              ...prev.player,
+              balance: newBalance,
+            },
+          }
+        : prev,
+    );
+  }, []);
+
+  const load = useCallback(async (isPolling = false) => {
+    if (isPolling && isAnimatingRef.current) return;
     try {
       const r = await fetch("/api/casino", { cache: "no-store" });
       if (r.status === 401) {
@@ -192,22 +265,41 @@ export default function CasinoApp({
       }
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
-      setData(j);
+      setData((prev) => {
+        if (isPolling && isAnimatingRef.current && prev) {
+          return {
+            ...j,
+            player: {
+              ...j.player,
+              balance: prev.player.balance,
+            },
+          };
+        }
+        return j;
+      });
       if (j.active) setGame(j.active.game);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Nie udało się pobrać danych",
-      );
+      if (!isPolling) {
+        toast.error(
+          e instanceof Error ? e.message : "Nie udało się pobrać danych",
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!isPolling) setLoading(false);
     }
   }, []);
   useEffect(() => {
-    load();
+    void load();
+    const timer = setInterval(() => {
+      if (!document.hidden && !isAnimatingRef.current) {
+        void load(true);
+      }
+    }, 5000);
+    return () => clearInterval(timer);
   }, [load]);
   const post = async (
     body: Record<string, unknown>,
-    opts?: { deferRefresh?: boolean },
+    opts?: { deferRefresh?: boolean; deferBalance?: boolean; deductBet?: number },
   ) => {
     if (!user) {
       window.location.href = "/api/auth/login";
@@ -227,15 +319,20 @@ export default function CasinoApp({
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
       if (j.round) {
-        setLast(j.round);
+        if (!opts?.deferBalance) {
+          setLast(j.round);
+        }
         setData((prev) =>
           prev
             ? {
                 ...prev,
                 player: {
                   ...prev.player,
-                  balance:
-                    typeof j.balance === "number"
+                  balance: opts?.deferBalance
+                    ? typeof opts.deductBet === "number"
+                      ? Math.max(0, prev.player.balance - opts.deductBet)
+                      : prev.player.balance
+                    : typeof j.balance === "number"
                       ? j.balance
                       : prev.player.balance,
                 },
@@ -244,7 +341,9 @@ export default function CasinoApp({
             : prev,
         );
         setLoading(false);
-        if (j.round.state !== "active" && !opts?.deferRefresh) void load();
+        if (j.round.state !== "active" && !opts?.deferRefresh && !opts?.deferBalance) {
+          void load();
+        }
         return j;
       }
       await load();
@@ -289,7 +388,7 @@ export default function CasinoApp({
           name: "play_2fgt_instant_game",
           title: "Rozegraj szybką rundę 2fgt",
           description:
-            "Rozgrywa jedną serwerowo rozliczaną rundę ruletki lub automatu za wirtualne tokeny $FGT i odświeża widoczny stan.",
+            "Rozgrywa jedną rundę ruletki lub automatu za wirtualne tokeny $FGT i odświeża widoczny stan.",
           inputSchema: {
             type: "object",
             properties: {
@@ -392,13 +491,39 @@ export default function CasinoApp({
           <button onClick={() => setInfoOpen(true)}>Informacje</button>
         </nav>
         <div className="account">
-          <button
-            className="icon"
-            onClick={() => setMuted(!muted)}
-            aria-label={muted ? "Włącz dźwięk" : "Wycisz dźwięk"}
-          >
-            {muted ? <VolumeX /> : <Volume2 />}
-          </button>
+          {user && (
+            <div className="volume-wrap">
+              <button
+                className="icon"
+                onClick={() => setMuted(!muted)}
+                aria-label={muted || volume === 0 ? "Włącz dźwięk" : "Wycisz dźwięk"}
+              >
+                {muted || volume === 0 ? (
+                  <VolumeX />
+                ) : volume < 0.4 ? (
+                  <Volume1 />
+                ) : (
+                  <Volume2 />
+                )}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.02"
+                value={muted ? 0 : volume}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setVolume(val);
+                  if (val > 0 && muted) setMuted(false);
+                  if (val === 0 && !muted) setMuted(true);
+                }}
+                className="volume-slider"
+                aria-label="Głośność muzyki"
+                title={`Głośność: ${Math.round((muted ? 0 : volume) * 100)}%`}
+              />
+            </div>
+          )}
           <div className="balance">
             <FgtChip />
             <strong>{data ? money(data.player.balance) : "—"}</strong>
@@ -525,7 +650,27 @@ export default function CasinoApp({
                   <div className="meta">
                     <span>Min. 1 $FGT</span>
                     <span>Poziom 1+</span>
-                    <span>Jedno zero</span>
+                    <span>Jedno zero (0–36)</span>
+                  </div>
+                  <div className="hero-game-guide">
+                    <div className="guide-header">
+                      <Info size={13} />
+                      <span>Jak działa & mnożniki</span>
+                    </div>
+                    <p className="guide-desc">
+                      Wybierz numer, kolor lub zakres i zakręć kołem. Kulka wskazuje wylosowaną liczbę.
+                    </p>
+                    <div className="guide-multipliers">
+                      <span className="multiplier-pill">
+                        <span>Pojedynczy numer:</span> <b>×36</b>
+                      </span>
+                      <span className="multiplier-pill">
+                        <span>Tuzin (1–12, 13–24, 25–36):</span> <b>×3</b>
+                      </span>
+                      <span className="multiplier-pill">
+                        <span>Czerwone / Czarne / Parz. / 1–18:</span> <b>×2</b>
+                      </span>
+                    </div>
                   </div>
                   <button
                     className="primary"
@@ -546,7 +691,7 @@ export default function CasinoApp({
             <section className="section">
               <header className="section-head">
                 <div>
-                  <p className="eyebrow">GRY MVP</p>
+                  <p className="eyebrow">STOLIKI I AUTOMATY</p>
                   <h2>Wybierz swój stolik</h2>
                 </div>
               </header>
@@ -555,7 +700,14 @@ export default function CasinoApp({
                   kind="mines"
                   title="Mines"
                   label="SZYBKA GRA"
+                  badge="Siatka 5×5"
                   icon={<Pickaxe />}
+                  howItWorks="Wybierz 2–12 min i odkrywaj kryształy (◆). Mnożnik rośnie z każdym krokiem. Odbierz zysk zanim trafisz minę (✹)."
+                  multipliers={[
+                    { label: "Odkryty kryształ:", mult: "Dynamiczny ×" },
+                    { label: "Cash-out:", mult: "Wypłata zysku" },
+                    { label: "Trafienie miny:", mult: "0 $FGT" },
+                  ]}
                   onClick={() => {
                     if (!user) {
                       window.location.href = "/api/auth/login";
@@ -569,7 +721,14 @@ export default function CasinoApp({
                   kind="blackjack"
                   title="Blackjack"
                   label="GRA STOŁOWA"
+                  badge="Stół 3:2"
                   icon={<Spade />}
+                  howItWorks="Zbliż się do 21 pkt i pokonaj krupiera (dobiera do min. 17). Opcje: Dobierz, Pas, Podwój stawkę."
+                  multipliers={[
+                    { label: "Blackjack (21 z 2 kart):", mult: "×2.5 (3:2)" },
+                    { label: "Zwykła wygrana:", mult: "×2.0 (1:1)" },
+                    { label: "Remis (Push):", mult: "×1.0 (zwrot)" },
+                  ]}
                   onClick={() => {
                     if (!user) {
                       window.location.href = "/api/auth/login";
@@ -583,7 +742,14 @@ export default function CasinoApp({
                   kind="slots"
                   title="Midnight 2fgt"
                   label="AUTOMAT 5×3"
+                  badge="5 bębnów"
                   icon={<span className="slot-glyph">2F</span>}
+                  howItWorks="Losuje 5 bębnów z symbolami (2, F, G, T, ◆, ♛). Wygrywają układy identycznych symboli na poziomej linii środkowej."
+                  multipliers={[
+                    { label: "5 tych samych:", mult: "×12" },
+                    { label: "4 te same:", mult: "×6" },
+                    { label: "3 te same:", mult: "×2" },
+                  ]}
                   onClick={() => {
                     if (!user) {
                       window.location.href = "/api/auth/login";
@@ -767,10 +933,13 @@ export default function CasinoApp({
               setMineCount={setMineCount}
               active={active}
               last={last}
+              setLast={setLast}
               loading={loading}
               play={play}
               post={post}
               load={load}
+              syncBalance={syncBalance}
+              animatingRef={isAnimatingRef}
               close={() => setGame(null)}
             />
           )}
@@ -781,21 +950,22 @@ export default function CasinoApp({
           <DialogHeader>
             <DialogTitle>Informacje i zasady 2fgt</DialogTitle>
             <DialogDescription>
-              Społecznościowa gra demonstracyjna z walutą $FGT.
+              Prywatny klub gier z wirtualną walutą $FGT.
             </DialogDescription>
           </DialogHeader>
           <div className="info-dialog-body">
             <div className="info-notice">
               <Info />
               <div>
-                <strong>Zasady automatu Midnight 2fgt</strong>
-                <p style={{ marginTop: "6px", lineHeight: "1.5" }}>
-                  • Siatka 5 bębnów × 3 rzędy z 6 symbolami: 2, F, G, T, ◆, ♛
-                  <br />• Rozliczana jest <b>linia środkowa</b> (środkowe
-                  symbole z 5 bębnów)
-                  <br />• 3 identyczne symbole = wygrana <b>×2</b> stawki
-                  <br />• 4 identyczne symbole = wygrana <b>×6</b> stawki
-                  <br />• 5 identycznych symboli = wygrana <b>×12</b> stawki
+                <strong>Zasady gier i tabele mnożników</strong>
+                <p style={{ marginTop: "8px", lineHeight: "1.5" }}>
+                  <b>1. Midnight 2fgt (Automat 5×3)</b>: 5 bębnów, 6 symboli (2, F, G, T, ◆, ♛). Rozliczana linia środkowa: 3 symbole = <b>×2</b> · 4 symbole = <b>×6</b> · 5 symboli = <b>×12</b>.
+                  <br /><br />
+                  <b>2. Ruletka Europejska</b>: Koło z 37 liczbami (0–36, 1 zero). Numer = <b>×36</b> · Tuzin (1–12, 13–24, 25–36) = <b>×3</b> · Czerwone/Czarne/Parzyste/1–18 = <b>×2</b>.
+                  <br /><br />
+                  <b>3. Blackjack</b>: Pokonaj krupiera (dobiera do min. 17), nie przekraczając 21 pkt. Blackjack (21 z 2 kart) = <b>×2.5</b> (3:2) · Wygrana = <b>×2.0</b> (1:1) · Remis = zwrot (<b>×1.0</b>).
+                  <br /><br />
+                  <b>4. Mines (Saper)</b>: Plansza 5×5 (25 pól) i 2–12 min. Odkrywaj diamenty (◆) podnoszące mnożnik rundy i kliknij „Odbierz” przed trafieniem miny (✹).
                 </p>
               </div>
             </div>
@@ -898,13 +1068,19 @@ function GameCard({
   title,
   label,
   icon,
+  badge,
   onClick,
+  howItWorks,
+  multipliers,
 }: {
   kind: string;
   title: string;
   label: string;
   icon: React.ReactNode;
+  badge?: string;
   onClick: () => void;
+  howItWorks?: string;
+  multipliers?: { label: string; mult: string }[];
 }) {
   return (
     <article
@@ -928,8 +1104,27 @@ function GameCard({
       </div>
       <div className="game-meta">
         <span>Min. 1 $FGT</span>
-        <span>Serwerowy wynik</span>
+        {badge && <span>{badge}</span>}
       </div>
+      {howItWorks && (
+        <div className="game-card-guide">
+          <div className="guide-header">
+            <Info size={13} />
+            <span>Zasady & Mnożniki</span>
+          </div>
+          <p className="guide-desc">{howItWorks}</p>
+          {multipliers && (
+            <div className="guide-multipliers">
+              {multipliers.map((m, idx) => (
+                <span className="multiplier-pill" key={idx}>
+                  <span>{m.label}</span>
+                  <b>{m.mult}</b>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -957,15 +1152,14 @@ function BetControl({
           aria-label="Stawka w tokenach $FGT"
           type="number"
           min="1"
-          max="5000"
           value={bet}
           onChange={(e) =>
-            setBet(Math.max(1, Math.min(5000, Number(e.target.value))))
+            setBet(Math.max(1, Number(e.target.value)))
           }
         />
         <button
           aria-label="Podwój stawkę"
-          onClick={() => setBet(Math.min(5000, bet * 2))}
+          onClick={() => setBet(bet * 2)}
         >
           2×
         </button>
@@ -983,45 +1177,85 @@ function GameTable({
   setMineCount,
   active,
   last,
+  setLast,
   loading,
   play,
   post,
   load,
+  syncBalance,
+  animatingRef,
   close,
 }: any) {
   const round = active?.game === game ? active : null,
     [spinning, setSpinning] = useState(false),
+    [slotsSpinning, setSlotsSpinning] = useState(false),
     [rouletteWaiting, setRouletteWaiting] = useState(false),
     [spinResult, setSpinResult] = useState<any>(null),
+    [pendingSpin, setPendingSpin] = useState<{ round: any; balance: number } | null>(null),
     [pendingMine, setPendingMine] = useState<number | null>(null),
     [blackjackPreview, setBlackjackPreview] = useState<any>(null);
   const shownRound = blackjackPreview || round;
   const showSettledBlackjack = async (move: string) => {
     if (!round || loading) return;
+    if (animatingRef) animatingRef.current = true;
     const j = await post(
       { action: "blackjack", roundId: round.id, move },
-      { deferRefresh: true },
+      { deferRefresh: true, deferBalance: true },
     );
     if (j?.round?.state === "settled") {
       setBlackjackPreview({ ...j.round, state: "settled" });
       window.setTimeout(() => {
         setBlackjackPreview(null);
+        setLast(j.round);
+        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (animatingRef) animatingRef.current = false;
         void load();
-      }, 3000);
+      }, 2500);
+    } else {
+      if (animatingRef) animatingRef.current = false;
     }
   };
   const start = async () => {
+    if (game === "slots") {
+      if (animatingRef) animatingRef.current = true;
+      setSlotsSpinning(true);
+      const j = await post(
+        { game, bet },
+        { deferBalance: true, deferRefresh: true, deductBet: bet },
+      );
+      if (j) {
+        window.setTimeout(() => {
+          setLast(j.round);
+          if (typeof j.balance === "number") syncBalance(j.balance);
+          setSlotsSpinning(false);
+          if (animatingRef) animatingRef.current = false;
+          void load();
+        }, 1200);
+      } else {
+        setSlotsSpinning(false);
+        if (animatingRef) animatingRef.current = false;
+      }
+      return;
+    }
     if (game !== "roulette") {
       await play();
       return;
     }
+    if (animatingRef) animatingRef.current = true;
     setRouletteWaiting(true);
-    const j = await post({ game, bet, choice });
+    const j = await post(
+      { game, bet, choice },
+      { deferBalance: true, deferRefresh: true, deductBet: bet },
+    );
     if (j) {
       setSpinResult(j.round);
+      setPendingSpin({ round: j.round, balance: j.balance });
       setRouletteWaiting(false);
       setSpinning(true);
-    } else setRouletteWaiting(false);
+    } else {
+      setRouletteWaiting(false);
+      if (animatingRef) animatingRef.current = false;
+    }
   };
   const winningNumber =
     spinResult?.payload?.number ?? last?.payload?.number ?? 0;
@@ -1037,11 +1271,19 @@ function GameTable({
               <RouletteWheelVisual
                 mustStartSpinning={spinning}
                 prizeNumber={prize}
-                onStopSpinning={() => setSpinning(false)}
+                onStopSpinning={() => {
+                  setSpinning(false);
+                  if (pendingSpin) {
+                    setLast(pendingSpin.round);
+                    if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                    setPendingSpin(null);
+                    void load();
+                  }
+                  if (animatingRef) animatingRef.current = false;
+                }}
               />
               {spinResult && !spinning && !rouletteWaiting && (
                 <div className="roulette-result" aria-live="polite">
-                  <span>WYGRANA LICZBA</span>
                   <strong>{winningNumber}</strong>
                 </div>
               )}
@@ -1051,8 +1293,8 @@ function GameTable({
         )}
         {game === "slots" && (
           <div
-            className={`reels ${loading ? "rolling" : ""}`}
-            key={last?.id || "idle"}
+            className={`reels ${loading || slotsSpinning ? "rolling" : ""}`}
+            key={last?.id || (slotsSpinning ? "spinning" : "idle")}
           >
             {[0, 1, 2, 3, 4].map((x) => (
               <div key={x}>
@@ -1080,7 +1322,7 @@ function GameTable({
           />
         )}
       </div>
-      {last && !shownRound && !blackjackPreview && !spinning && (
+      {last && !shownRound && !blackjackPreview && !spinning && !slotsSpinning && (
         <div
           className={`result ${last.payout && last.payout > last.bet ? "winner" : ""}`}
         >
@@ -1108,16 +1350,18 @@ function GameTable({
           )}
           <button
             className="primary wide"
-            disabled={loading || spinning}
+            disabled={loading || spinning || slotsSpinning}
             onClick={start}
           >
             {spinning
               ? "Koło się kręci…"
-              : loading
-                ? "Rozliczanie…"
-                : last
-                  ? "Zagraj ponownie"
-                  : "Rozpocznij rundę"}
+              : slotsSpinning
+                ? "Bębny w ruchu…"
+                : loading
+                  ? "Rozliczanie…"
+                  : last
+                    ? "Zagraj ponownie"
+                    : "Rozpocznij rundę"}
           </button>
         </>
       )}
@@ -1157,22 +1401,135 @@ function GameTable({
           Odbierz ×{round.payload.multiplier?.toFixed(2)}
         </button>
       )}
-      {game === "blackjack" && (
-        <div className="payout-note">
-          Blackjack 3:2 · zwykła wygrana 1:1 · waluta $FGT
-        </div>
-      )}
-      {game === "slots" && (
-        <div className="payout-note">
-          Środkowa linia: 3 te same = ×2 · 4 = ×6 · 5 = ×12 (symbole: 2, F, G,
-          T, ◆, ♛)
-        </div>
-      )}
+      <GamePaytable game={game} />
       <button className="rules-link" onClick={close}>
         Wróć do lobby
       </button>
     </div>
   );
+}
+function GamePaytable({ game }: { game: string }) {
+  if (game === "slots") {
+    return (
+      <div className="table-paytable">
+        <div className="table-paytable-head">
+          <Info size={14} />
+          <span>Tabela wypłat i zasady (Midnight 2fgt)</span>
+        </div>
+        <div className="table-paytable-content">
+          <p>
+            Automat 5×3. Rozliczana jest <b>pozioma linia środkowa</b> (5 środkowych symboli z bębnów). Symbole: 2, F, G, T, ◆, ♛.
+          </p>
+          <div className="paytable-grid">
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×12</span>
+              <span className="paytable-tile-desc">5 identycznych symboli na linii</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×6</span>
+              <span className="paytable-tile-desc">4 identyczne symbole na linii</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×2</span>
+              <span className="paytable-tile-desc">3 identyczne symbole na linii</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (game === "roulette") {
+    return (
+      <div className="table-paytable">
+        <div className="table-paytable-head">
+          <Info size={14} />
+          <span>Mnożniki i zasady Ruletki Europejskiej</span>
+        </div>
+        <div className="table-paytable-content">
+          <p>
+            Koło zawiera 37 liczb (0–36, jedno zielone zero). Wybierz zakład na stole i zakręć kołem.
+          </p>
+          <div className="paytable-grid">
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×36</span>
+              <span className="paytable-tile-desc">Pojedynczy numer (0–36)</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×3</span>
+              <span className="paytable-tile-desc">Tuziny (1–12, 13–24, 25–36)</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×2</span>
+              <span className="paytable-tile-desc">Czerwone / Czarne / Parz. / 1–18 / 19–36</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (game === "blackjack") {
+    return (
+      <div className="table-paytable">
+        <div className="table-paytable-head">
+          <Info size={14} />
+          <span>Zasady i wypłaty Blackjacka</span>
+        </div>
+        <div className="table-paytable-content">
+          <p>
+            Zbliż się do 21 punktów, nie przekraczając. Krupier dobiera karty do sumy min. 17 pkt. As = 1/11, Figury (J, Q, K) = 10.
+          </p>
+          <div className="paytable-grid">
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×2.5 (3:2)</span>
+              <span className="paytable-tile-desc">Naturalny Blackjack (21 z 2 kart)</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×2.0 (1:1)</span>
+              <span className="paytable-tile-desc">Wyższa suma lub krupier fura (&gt;21)</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">×1.0</span>
+              <span className="paytable-tile-desc">Remis (Push) – zwrot stawki</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (game === "mines") {
+    return (
+      <div className="table-paytable">
+        <div className="table-paytable-head">
+          <Info size={14} />
+          <span>Zasady i mnożniki gry Mines (Saper)</span>
+        </div>
+        <div className="table-paytable-content">
+          <p>
+            Siatka 5×5 (25 pól) z wybraną liczbą ukrytych min (2–12). Odkrywaj diamenty (◆) – każde bezpieczne pole podnosi mnożnik rundy.
+          </p>
+          <div className="paytable-grid">
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">Dynamiczny ×</span>
+              <span className="paytable-tile-desc">Rośnie z każdym odkrytym diamentem</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">Cash-out</span>
+              <span className="paytable-tile-desc">Odbierz wygraną w dowolnym momencie</span>
+            </div>
+            <div className="paytable-tile">
+              <span className="paytable-tile-mult">0 $FGT</span>
+              <span className="paytable-tile-desc">Trafienie miny (✹) kończy rundę</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 function RouletteBets({
   choice,

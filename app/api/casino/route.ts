@@ -31,7 +31,7 @@ const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 const suits = ["♠", "♥", "♦", "♣"];
 const symbols = ["2", "F", "G", "T", "◆", "♛"];
 const MIN_BET = 1;
-const MAX_BET = 5000;
+const MAX_BET = Number.MAX_SAFE_INTEGER;
 const dailyBonus = (streak: number) => Math.min(10 + streak * 5, 100);
 const now = () => Date.now();
 const id = () => crypto.randomUUID();
