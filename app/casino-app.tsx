@@ -255,6 +255,7 @@ export default function CasinoApp({
     [muted, setMuted] = useState(false),
     [volume, setVolume] = useState(0.2),
     [game, setGame] = useState<string | null>(null),
+    [tableBusy, setTableBusy] = useState(false),
     [bet, setBet] = useState(5),
     [choice, setChoice] = useState("red"),
     [mineCount, setMineCount] = useState(5),
@@ -573,6 +574,7 @@ export default function CasinoApp({
       await post({ action: "start_mines", bet, mines: mineCount });
   };
   const active = data?.active,
+    isBusy = Boolean(active || tableBusy || isAnimatingRef.current),
     bonusAvailable = !!data && data.player.last_bonus_day !== data.today,
     xpPercent = data ? Math.min(100, (data.player.xp % 500) / 5) : 0;
   const firstName =
@@ -587,7 +589,9 @@ export default function CasinoApp({
       <header className="topbar">
         <button
           className="brand"
-          onClick={() => setGame(null)}
+          onClick={() => {
+            if (!isBusy) setGame(null);
+          }}
           aria-label="Przejdź do lobby"
         >
           <i>2</i>fgt
@@ -1083,10 +1087,19 @@ export default function CasinoApp({
       <Dialog
         open={!!game}
         onOpenChange={(o) => {
-          if (!o && !active) setGame(null);
+          if (!o && !isBusy) setGame(null);
         }}
       >
-        <DialogContent className="game-dialog">
+        <DialogContent
+          className="game-dialog"
+          showCloseButton={!isBusy}
+          onPointerDownOutside={(e) => {
+            if (isBusy) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isBusy) e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>{game ? gameNames[game] : "Gra"}</DialogTitle>
             <DialogDescription>
@@ -1111,7 +1124,10 @@ export default function CasinoApp({
               load={load}
               syncBalance={syncBalance}
               animatingRef={isAnimatingRef}
-              close={() => setGame(null)}
+              onBusyChange={setTableBusy}
+              close={() => {
+                if (!isBusy) setGame(null);
+              }}
             />
           )}
         </DialogContent>
@@ -1468,6 +1484,7 @@ function GameTable({
   syncBalance,
   animatingRef,
   close,
+  onBusyChange,
 }: any) {
   const round = active?.game === game ? active : null,
     [spinning, setSpinning] = useState(false),
@@ -1477,6 +1494,28 @@ function GameTable({
     [pendingSpin, setPendingSpin] = useState<{ round: any; balance: number } | null>(null),
     [pendingMine, setPendingMine] = useState<number | null>(null),
     [blackjackPreview, setBlackjackPreview] = useState<any>(null);
+
+  const isBusy = Boolean(
+    loading ||
+    round ||
+    spinning ||
+    slotsSpinning ||
+    rouletteWaiting ||
+    blackjackPreview ||
+    pendingMine !== null ||
+    pendingSpin ||
+    animatingRef?.current
+  );
+
+  useEffect(() => {
+    onBusyChange?.(isBusy);
+  }, [isBusy, onBusyChange]);
+
+  useEffect(() => {
+    return () => {
+      onBusyChange?.(false);
+    };
+  }, [onBusyChange]);
   const shownRound = blackjackPreview || round;
   const showSettledBlackjack = async (move: string) => {
     if (!round || loading) return;
@@ -1685,7 +1724,14 @@ function GameTable({
         </button>
       )}
       <GamePaytable game={game} />
-      <button className="rules-link" onClick={close}>
+      <button
+        className="rules-link"
+        disabled={isBusy}
+        onClick={() => {
+          if (!isBusy) close();
+        }}
+        title={isBusy ? "Dokończ trwającą rundę lub poczekaj na koniec animacji" : undefined}
+      >
         Wróć do lobby
       </button>
     </div>
