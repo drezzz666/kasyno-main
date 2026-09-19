@@ -45,7 +45,7 @@ async function identity() {
   if (!sessionToken) throw new Error("UNAUTHORIZED");
   const session = await verifySession(sessionToken);
   if (!session) throw new Error("UNAUTHORIZED");
-  return { userId: session.userId, email: session.email };
+  return { userId: session.userId, email: session.email, nick: session.nick };
 }
 
 function db(): Database.Database {
@@ -53,11 +53,11 @@ function db(): Database.Database {
 }
 
 async function player(): Promise<Player> {
-  const { userId, email } = await identity();
+  const { userId, email, nick: sessionNick } = await identity();
   const d = db();
   let p = d.prepare("SELECT * FROM players WHERE user_id = ?").get(userId) as Player | undefined;
   if (!p) {
-    const nick = (email.split("@")[0] || "Gracz").slice(0, 20);
+    const nick = (sessionNick || email.split("@")[0] || "Gracz").slice(0, 30);
     const t = now();
     d.prepare(
       "INSERT INTO players (user_id,email,nick,balance,xp,level,streak,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)"
@@ -66,6 +66,12 @@ async function player(): Promise<Player> {
       "INSERT INTO ledger_entries (id,user_id,type,amount,balance_after,created_at) VALUES (?,?,'welcome_bonus',100,100,?)"
     ).run(id(), userId, t);
     p = d.prepare("SELECT * FROM players WHERE user_id = ?").get(userId) as Player;
+  } else if (sessionNick && p.nick !== sessionNick) {
+    const taken = d.prepare("SELECT user_id FROM players WHERE nick = ? AND user_id != ?").get(sessionNick, userId);
+    if (!taken) {
+      d.prepare("UPDATE players SET nick = ? WHERE user_id = ?").run(sessionNick, userId);
+      p.nick = sessionNick;
+    }
   }
   return p!;
 }

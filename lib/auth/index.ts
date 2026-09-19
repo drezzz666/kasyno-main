@@ -27,16 +27,17 @@ export async function getAuthUser(): Promise<AuthUser | null> {
   if (sessionToken) {
     const session = await verifySession(sessionToken);
     if (session) {
-      const parsedFirstName =
+      const username =
+        session.nick ||
         session.firstName ||
         (session.fullName ? session.fullName.trim().split(/\s+/)[0] : null) ||
-        session.nick;
+        session.email.split("@")[0];
       return {
         userId: session.userId,
-        displayName: parsedFirstName || session.email.split("@")[0],
+        displayName: username,
         email: session.email,
         fullName: session.fullName || null,
-        firstName: parsedFirstName,
+        firstName: session.firstName || username,
       };
     }
   }

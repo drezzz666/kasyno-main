@@ -14,7 +14,6 @@ import {
   History,
   Home,
   Info,
-  LogIn,
   LogOut,
   Medal,
   Pickaxe,
@@ -247,9 +246,9 @@ function RouletteWheelVisual({
 export default function CasinoApp({
   initialUser,
 }: {
-  initialUser?: AuthUser | null;
+  initialUser: AuthUser;
 }) {
-  const [user, setUser] = useState<AuthUser | null>(initialUser || null);
+  const [user, setUser] = useState<AuthUser>(initialUser);
   const [data, setData] = useState<State | null>(null),
     [loading, setLoading] = useState(true),
     [muted, setMuted] = useState(false),
@@ -333,8 +332,7 @@ export default function CasinoApp({
     try {
       const r = await fetch("/api/casino", { cache: "no-store" });
       if (r.status === 401) {
-        setUser(null);
-        setData(null);
+        window.location.href = "/api/auth/login";
         return;
       }
       const j = await r.json();
@@ -577,9 +575,7 @@ export default function CasinoApp({
     isBusy = Boolean(active || tableBusy || isAnimatingRef.current),
     bonusAvailable = !!data && data.player.last_bonus_day !== data.today,
     xpPercent = data ? Math.min(100, (data.player.xp % 500) / 5) : 0;
-  const firstName =
-    user?.firstName ||
-    (user?.fullName ? user.fullName.trim().split(/\s+/)[0] : null) ||
+  const userNick =
     data?.player?.nick ||
     user?.displayName ||
     "Gracz";
@@ -655,26 +651,9 @@ export default function CasinoApp({
             <FgtChip />
             <strong>{data ? money(data.player.balance) : "—"}</strong>
           </div>
-          {user ? (
-            <button className="avatar" onClick={() => setProfileOpen(true)}>
-              {firstName.slice(0, 2).toUpperCase()}
-            </button>
-          ) : (
-            <a
-              className="primary"
-              style={{
-                padding: "8px 14px",
-                fontSize: "13px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                textDecoration: "none",
-              }}
-              href="/api/auth/login"
-            >
-              <LogIn size={15} /> Zaloguj
-            </a>
-          )}
+          <button className="avatar" onClick={() => setProfileOpen(true)}>
+            {userNick.slice(0, 2).toUpperCase()}
+          </button>
         </div>
       </header>
       <main>
@@ -684,35 +663,15 @@ export default function CasinoApp({
           <>
             <section className="welcome">
               <div>
-                <h1>
-                  {user
-                    ? `Dobry wieczór, ${firstName}.`
-                    : "Witaj w klubie 2fgt"}
-                </h1>
+                <h1>Dobry wieczór, {userNick}.</h1>
               </div>
-              {user ? (
-                <div className="level">
-                  <span>Poziom {data?.player.level || 1}</span>
-                  <div>
-                    <i style={{ width: `${xpPercent}%` }} />
-                  </div>
-                  <small>{(data?.player.xp || 0) % 500} / 500 XP</small>
+              <div className="level">
+                <span>Poziom {data?.player.level || 1}</span>
+                <div>
+                  <i style={{ width: `${xpPercent}%` }} />
                 </div>
-              ) : (
-                <a
-                  href="/api/auth/login"
-                  className="primary"
-                  style={{
-                    textDecoration: "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "10px 18px",
-                  }}
-                >
-                  Zaloguj przez Authentik <span>→</span>
-                </a>
-              )}
+                <small>{(data?.player.xp || 0) % 500} / 500 XP</small>
+              </div>
             </section>
             <section
               className={`daily-card ${bonusAvailable ? "" : "claimed"}`}
@@ -737,23 +696,14 @@ export default function CasinoApp({
                     : `Seria: ${data?.player?.streak || 0} dni. Wróć jutro po kolejną nagrodę.`}
                 </p>
                 <button
-                  disabled={!bonusAvailable || loading || !user}
+                  disabled={!bonusAvailable || loading}
                   className="primary"
                   onClick={async () => {
-                    if (!user) {
-                      window.location.href = "/api/auth/login";
-                      return;
-                    }
                     const j = await post({ action: "bonus" });
                     if (j) toast.success(`Dodano ${money(j.amount)}`);
                   }}
                 >
-                  {user
-                    ? bonusAvailable
-                      ? "Odbierz bonus"
-                      : "Odebrano"
-                    : "Zaloguj, aby odebrać"}{" "}
-                  <span>→</span>
+                  {bonusAvailable ? "Odbierz bonus" : "Odebrano"} <span>→</span>
                 </button>
               </div>
               <div className="bonus-orb">
@@ -933,12 +883,12 @@ export default function CasinoApp({
                 </header>
                 <ol className="leaders">
                   {data?.leaders?.map((p: any, i: number) => (
-                    <li key={p.nick}>
+                    <li key={p.nick || i}>
                       <b>{i + 1}</b>
                       <span className="mini-avatar">
-                        {p.nick.slice(0, 1).toUpperCase()}
+                        {(p.nick || "G").slice(0, 2).toUpperCase()}
                       </span>
-                      <span>{p.nick}</span>
+                      <span>{p.nick || "Gracz"}</span>
                       <strong>{money(p.balance)}</strong>
                     </li>
                   ))}
@@ -1074,14 +1024,9 @@ export default function CasinoApp({
           <Info />
           Info
         </button>
-        <button
-          onClick={() => {
-            if (user) setProfileOpen(true);
-            else window.location.href = "/api/auth/login";
-          }}
-        >
+        <button onClick={() => setProfileOpen(true)}>
           <CircleUserRound />
-          {user ? "Profil" : "Logowanie"}
+          Profil
         </button>
       </nav>
       <Dialog
@@ -1193,10 +1138,10 @@ export default function CasinoApp({
           </DialogHeader>
           <div className="profile-form">
             <label>
-              Imię gracza (z Authentik)
+              Pseudonim (username z Authentik)
               <input
                 name="nick"
-                value={data?.player.nick || firstName}
+                value={userNick}
                 readOnly
                 disabled
                 style={{ opacity: 0.85, cursor: "not-allowed" }}

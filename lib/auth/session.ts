@@ -40,9 +40,35 @@ function hexToBuffer(hex: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+function encodeBase64Url(str: string): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(str, "utf-8").toString("base64url");
+  }
+  const bytes = new TextEncoder().encode(str);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeBase64Url(str: string): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(str, "base64url").toString("utf-8");
+  }
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = base64.length % 4;
+  if (pad) {
+    base64 += "=".repeat(4 - pad);
+  }
+  const binary = atob(base64);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 export async function signSession(user: SessionUser): Promise<string> {
   const payload = JSON.stringify(user);
-  const base64Payload = Buffer.from(payload, "utf-8").toString("base64url");
+  const base64Payload = encodeBase64Url(payload);
   const key = await getHmacKey(getSecret());
   const enc = new TextEncoder();
   const signature = await crypto.subtle.sign("HMAC", key, enc.encode(base64Payload));
@@ -64,7 +90,7 @@ export async function verifySession(token: string): Promise<SessionUser | null> 
       enc.encode(base64Payload)
     );
     if (!valid) return null;
-    const jsonStr = Buffer.from(base64Payload, "base64url").toString("utf-8");
+    const jsonStr = decodeBase64Url(base64Payload);
     const user = JSON.parse(jsonStr) as SessionUser;
     // 30 days max session lifetime
     if (!user.userId || !user.createdAt || Date.now() - user.createdAt > 30 * 24 * 3600 * 1000) {

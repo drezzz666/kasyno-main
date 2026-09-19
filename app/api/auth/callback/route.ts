@@ -49,12 +49,19 @@ export async function GET(request: Request) {
     const email = userInfo.email || `${userId}@authentik.local`;
     const fullName = userInfo.name || null;
     
-    // Extract first name (imię) from Authentik "Imię Nazwisko" or given_name
+    // Extract username (nick) from Authentik preferred_username, nickname or email prefix
+    const username = (
+      userInfo.preferred_username ||
+      userInfo.nickname ||
+      email.split("@")[0] ||
+      "Gracz"
+    ).trim().slice(0, 30);
+    const nick = username;
+
     const rawName = (userInfo.given_name || userInfo.name || "").trim();
     const firstName = (
-      rawName ? rawName.split(/\s+/)[0] : (userInfo.preferred_username || userInfo.nickname || email.split("@")[0] || "Gracz")
+      rawName ? rawName.split(/\s+/)[0] : nick
     ).slice(0, 20);
-    const nick = firstName;
 
     // 3. Upsert player in DB (better-sqlite3)
     const d = getSqlite();
@@ -86,7 +93,7 @@ export async function GET(request: Request) {
     const signedSession = await signSession({
       userId,
       email,
-      nick,
+      nick: finalNick,
       fullName,
       firstName,
       createdAt: now,

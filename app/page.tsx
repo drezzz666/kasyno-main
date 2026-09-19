@@ -1,9 +1,9 @@
 import CasinoApp from "./casino-app";
-import { getAuthUser } from "@/lib/auth";
+import { requireAuthUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getAuthUser();
+  const user = await requireAuthUser();
   return <CasinoApp initialUser={user} />;
 }
