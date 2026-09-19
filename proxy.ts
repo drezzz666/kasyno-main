@@ -35,7 +35,7 @@ function isAssetOrApiPath(pathname: string, request: NextRequest): boolean {
   return false;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Allow public auth flow endpoints
