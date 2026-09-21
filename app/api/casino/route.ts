@@ -61,6 +61,16 @@ async function identity() {
   return { userId: session.userId, email: session.email, nick: session.nick };
 }
 
+function normalizePlayer(p: Player): Player {
+  return {
+    ...p,
+    balance: Number(p.balance),
+    xp: Number(p.xp),
+    level: Number(p.level),
+    streak: Number(p.streak),
+  };
+}
+
 async function player(): Promise<Player> {
   const { userId, email, nick: sessionNick } = await identity();
   await initPgTables();
@@ -80,7 +90,7 @@ async function player(): Promise<Player> {
       `;
     });
     const [newP] = await sql<Player[]>`SELECT * FROM players WHERE user_id = ${userId}`;
-    return newP;
+    return normalizePlayer(newP);
   } else if (sessionNick && p.nick !== sessionNick) {
     const [taken] = await sql<{ user_id: string }[]>`
       SELECT user_id FROM players WHERE nick = ${sessionNick} AND user_id != ${userId}
@@ -90,7 +100,7 @@ async function player(): Promise<Player> {
       p.nick = sessionNick;
     }
   }
-  return p;
+  return normalizePlayer(p);
 }
 
 function card() {
@@ -177,9 +187,14 @@ export async function GET() {
     `;
     const missionClaimed = !!missionClaimRow;
 
-    const leaders = await sql`
+    const leadersRaw = await sql`
       SELECT nick, balance, level FROM players ORDER BY balance DESC LIMIT 5
     `;
+    const leaders = leadersRaw.map((l) => ({
+      ...l,
+      balance: Number(l.balance),
+      level: Number(l.level),
+    }));
 
     return json({
       player: p,

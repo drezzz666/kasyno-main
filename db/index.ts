@@ -21,6 +21,14 @@ export function getSql(): postgres.Sql {
       transform: {
         undefined: null,
       },
+      types: {
+        bigint: {
+          to: 20,
+          from: [20],
+          parse: (x: string) => Number(x),
+          serialize: (x: unknown) => String(x),
+        },
+      },
     });
   }
   return _sql;
