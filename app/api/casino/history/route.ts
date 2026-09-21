@@ -46,8 +46,17 @@ export async function GET(request: Request) {
     `;
     const total = totalRow ? parseInt(totalRow.count, 10) : 0;
 
+    const mappedEntries = entries.map((e) => ({
+      ...e,
+      amount: Number(e.amount),
+      balanceAfter: Number(e.balanceAfter),
+      createdAt: Number(e.createdAt),
+      bet: e.bet !== null && e.bet !== undefined ? Number(e.bet) : null,
+      payout: e.payout !== null && e.payout !== undefined ? Number(e.payout) : null,
+    }));
+
     return json({
-      entries,
+      entries: mappedEntries,
       total,
       hasMore: offset + entries.length < total,
     });

@@ -157,7 +157,7 @@ export async function GET() {
     const [active] = await sql<Round[]>`
       SELECT * FROM game_rounds WHERE user_id = ${p.user_id} AND state = 'active' ORDER BY created_at DESC LIMIT 1
     `;
-    const history = await sql`
+    const historyRaw = await sql`
       SELECT 
         l.id,
         l.type,
@@ -174,6 +174,14 @@ export async function GET() {
       ORDER BY l.created_at DESC
       LIMIT 10
     `;
+    const history = historyRaw.map((e) => ({
+      ...e,
+      amount: Number(e.amount),
+      balanceAfter: Number(e.balanceAfter),
+      createdAt: Number(e.createdAt),
+      bet: e.bet !== null && e.bet !== undefined ? Number(e.bet) : null,
+      payout: e.payout !== null && e.payout !== undefined ? Number(e.payout) : null,
+    }));
 
     const [totalHistoryRow] = await sql<{ count: string }[]>`
       SELECT count(*) as count FROM ledger_entries WHERE user_id = ${p.user_id}
