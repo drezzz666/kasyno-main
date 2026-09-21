@@ -3,7 +3,15 @@ import { getSql, initPgTables } from "@/db";
 import { parseCookie, verifySession } from "@/lib/auth/session";
 import type postgres from "postgres";
 
-type Sql = postgres.Sql;
+type RootSql = postgres.Sql;
+type Sql = postgres.Sql | postgres.TransactionSql;
+
+async function runWithTx<T>(sql: Sql, fn: (tx: Sql) => Promise<T>): Promise<T> {
+  if ("begin" in sql && typeof (sql as any).begin === "function") {
+    return (sql as any).begin((tx: Sql) => fn(tx));
+  }
+  return fn(sql);
+}
 
 type Player = {
   user_id: string;
@@ -32,13 +40,32 @@ const reds = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32,
 const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 const suits = ["♠", "♥", "♦", "♣"];
 const symbols = ["2", "F", "G", "T", "◆", "♛"];
-const MIN_BET = 1;
-const MAX_BET = Number.MAX_SAFE_INTEGER;
+export const MIN_BET = 1;
+export const MAX_BET = 7_000;
+export const MAX_PAYOUT = 252_000;
 const dailyBonus = (streak: number) => Math.min(100 + streak * 50, 1000);
 const now = () => Date.now();
 const id = () => crypto.randomUUID();
 const rand = (max: number) => crypto.getRandomValues(new Uint32Array(1))[0] % max;
 const json = (data: unknown, status = 200) => Response.json(data, { status });
+
+const lastActionTimes = new Map<string, number>();
+const ACTION_COOLDOWN_MS = 150;
+
+function checkRateLimit(userId: string): boolean {
+  const currentTime = Date.now();
+  const last = lastActionTimes.get(userId) || 0;
+  if (currentTime - last < ACTION_COOLDOWN_MS) {
+    return false;
+  }
+  lastActionTimes.set(userId, currentTime);
+  if (lastActionTimes.size > 5000) {
+    for (const [k, t] of lastActionTimes) {
+      if (currentTime - t > 60000) lastActionTimes.delete(k);
+    }
+  }
+  return true;
+}
 
 async function getRoundsToday(sql: Sql, userId: string): Promise<number> {
   const todayStart = new Date();
@@ -227,6 +254,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const p = await player();
+    if (!checkRateLimit(p.user_id)) {
+      return json({ error: "Zbyt wiele zapytań. Odczekaj chwilę." }, 429);
+    }
     const sql = getSql();
 
     if (body.action === "bonus") {
@@ -313,7 +343,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function instantGame(p: Player, sql: Sql, b: Record<string, unknown>) {
+async function instantGame(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const game = String(b.game || "");
   const bet = Math.floor(Number(b.bet));
   if (!["roulette", "slots"].includes(game)) return json({ error: "Nieznana gra." }, 400);
@@ -355,7 +385,7 @@ async function instantGame(p: Player, sql: Sql, b: Record<string, unknown>) {
   return settle(p, sql, game, bet, payout, result, payload);
 }
 
-async function dealBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
+async function dealBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const bet = Math.floor(Number(b.bet));
   if (!Number.isFinite(bet) || bet < MIN_BET || bet > MAX_BET || bet > p.balance) return json({ error: "Nieprawidłowa stawka." }, 400);
 
@@ -393,23 +423,26 @@ async function dealBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
   return json({ ok: true, round: publicRound({ id: rid, game: "blackjack", bet, state: "active", payload }), balance: balAfterBet });
 }
 
-async function actBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
+async function actBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const rid = String(b.roundId || "");
   const act = String(b.move || "");
-  const [r] = await sql<Round[]>`
-    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active'
-  `;
-  if (!r) return json({ error: "Aktywna runda nie istnieje." }, 404);
+  if (!["hit", "stand", "double"].includes(act)) {
+    return json({ error: "Nieprawidłowy ruch." }, 400);
+  }
 
-  const payload = JSON.parse(r.payload) as { cards: { rank: string; suit: string }[]; dealer: { rank: string; suit: string }[] };
+  return await sql.begin(async (tx) => {
+    const [r] = await tx<Round[]>`
+      SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active' FOR UPDATE
+    `;
+    if (!r) return json({ error: "Aktywna runda nie istnieje." }, 404);
 
-  if (act === "double") {
-    if (payload.cards.length !== 2) return json({ error: "Podwojenie jest dostępne tylko po rozdaniu." }, 400);
-    if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
-    const t = now();
+    const payload = JSON.parse(r.payload) as { cards: { rank: string; suit: string }[]; dealer: { rank: string; suit: string }[] };
 
-    let balAfterDouble = 0;
-    await sql.begin(async (tx) => {
+    if (act === "double") {
+      if (payload.cards.length !== 2) return json({ error: "Podwojenie jest dostępne tylko po rozdaniu." }, 400);
+      if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
+      const t = now();
+
       const res = await tx<{ balance: number }[]>`
         UPDATE players
         SET balance = balance - ${r.bet}, updated_at = ${t}
@@ -417,7 +450,7 @@ async function actBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
         RETURNING balance
       `;
       if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
-      balAfterDouble = Number(res[0].balance);
+      const balAfterDouble = Number(res[0].balance);
       const roundRes = await tx`
         UPDATE game_rounds
         SET bet = bet * 2, revision = revision + 1
@@ -426,24 +459,24 @@ async function actBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
       if (roundRes.count === 0) throw new Error("ROUND_ALREADY_SETTLED");
       await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
         VALUES(${id()}, ${p.user_id}, ${r.id}, 'double', ${-r.bet}, ${balAfterDouble}, ${t})`;
-    });
 
-    r.bet *= 2;
-    payload.cards.push(card());
-    return finishBlackjack(p, sql, rid, payload, r.revision + 2, balAfterDouble);
-  }
-
-  if (act === "hit") {
-    payload.cards.push(card());
-    if (value(payload.cards) < 21) {
-      await sql`
-        UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${rid} AND revision = ${r.revision} AND state = 'active'
-      `;
-      return json({ ok: true, round: publicRound({ ...r, payload, revision: r.revision + 1 }) });
+      r.bet *= 2;
+      payload.cards.push(card());
+      return finishBlackjack(p, tx, rid, payload, r.revision + 2, balAfterDouble);
     }
-  }
 
-  return finishBlackjack(p, sql, rid, payload, r.revision + 1, p.balance);
+    if (act === "hit") {
+      payload.cards.push(card());
+      if (value(payload.cards) < 21) {
+        await tx`
+          UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${rid} AND revision = ${r.revision} AND state = 'active'
+        `;
+        return json({ ok: true, round: publicRound({ ...r, payload, revision: r.revision + 1 }) });
+      }
+    }
+
+    return finishBlackjack(p, tx, rid, payload, r.revision + 1, p.balance);
+  });
 }
 
 async function finishBlackjack(
@@ -455,14 +488,14 @@ async function finishBlackjack(
   currentBalance: number
 ) {
   const [r] = await sql<Round[]>`
-    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active'
+    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active' FOR UPDATE
   `;
   if (!r) return json({ error: "Runda nie istnieje lub została już zakończona." }, 404);
 
   while (value(payload.dealer) < 17) payload.dealer.push(card());
   const pv = value(payload.cards);
   const dv = value(payload.dealer);
-  const payout =
+  const rawPayout =
     pv <= 21 && (dv > 21 || pv > dv)
       ? pv === 21 && payload.cards.length === 2
         ? Math.floor(r.bet * 2.5)
@@ -470,13 +503,14 @@ async function finishBlackjack(
       : pv === dv && pv <= 21
       ? r.bet
       : 0;
+  const payout = Math.min(MAX_PAYOUT, rawPayout);
   const result = payout > r.bet ? "Wygrana" : payout === r.bet ? "Remis" : "Przegrana";
   return settleExisting(p, sql, r, payout, result, payload, currentBalance, revision);
 }
 
-async function startMines(p: Player, sql: Sql, b: Record<string, unknown>) {
+async function startMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const bet = Math.floor(Number(b.bet));
-  const mineCount = Math.max(2, Math.min(24, Math.floor(Number(b.mines) || 5)));
+  const mineCount = Math.max(2, Math.min(12, Math.floor(Number(b.mines) || 5)));
   if (!Number.isFinite(bet) || bet < MIN_BET || bet > MAX_BET || bet > p.balance) return json({ error: "Nieprawidłowa stawka." }, 400);
 
   const [active] = await sql<{ id: string }[]>`
@@ -509,43 +543,54 @@ async function startMines(p: Player, sql: Sql, b: Record<string, unknown>) {
   return json({ ok: true, round: { id: rid, game: "mines", bet, state: "active", payload: { ...payload, mines: [] } }, balance: balAfterBet });
 }
 
-async function actMines(p: Player, sql: Sql, b: Record<string, unknown>) {
+async function actMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const rid = String(b.roundId || "");
-  const [r] = await sql<Round[]>`
-    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active'
-  `;
-  if (!r) return json({ error: "Aktywna runda nie istnieje." }, 404);
-
-  const payload = JSON.parse(r.payload) as { mines: number[]; revealed: number[]; mineCount: number; multiplier: number };
-
-  if (String(b.move) === "cashout") {
-    if (!payload.revealed.length) return json({ error: "Odkryj przynajmniej jedno pole." }, 400);
-    const payout = Math.floor(r.bet * payload.multiplier);
-    return settleExisting(p, sql, r, payout, `Cash-out ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
-  }
-
+  const isCashout = String(b.move) === "cashout";
   const tile = Math.floor(Number(b.tile));
-  if (tile < 0 || tile > 24 || payload.revealed.includes(tile)) return json({ error: "Nieprawidłowe pole." }, 400);
-  if (payload.mines.includes(tile)) return settleExisting(p, sql, r, 0, "Trafiona mina", payload, p.balance, r.revision + 1);
 
-  payload.revealed.push(tile);
-  payload.multiplier = mineMultiplier(payload.revealed.length, payload.mineCount);
-
-  if (payload.revealed.length === 25 - payload.mineCount) {
-    const payout = Math.floor(r.bet * payload.multiplier);
-    return settleExisting(p, sql, r, payout, `Maksymalna wygrana ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
+  if (!isCashout && (!Number.isInteger(tile) || tile < 0 || tile > 24)) {
+    return json({ error: "Nieprawidłowe pole." }, 400);
   }
 
-  await sql`
-    UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${r.id} AND revision = ${r.revision} AND state = 'active'
-  `;
-  return json({ ok: true, round: { ...r, payload: { ...payload, mines: [] }, revision: r.revision + 1 } });
+  return await sql.begin(async (tx) => {
+    const [r] = await tx<Round[]>`
+      SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active' FOR UPDATE
+    `;
+    if (!r) return json({ error: "Aktywna runda nie istnieje." }, 404);
+
+    const payload = JSON.parse(r.payload) as { mines: number[]; revealed: number[]; mineCount: number; multiplier: number };
+
+    if (isCashout) {
+      if (!payload.revealed.length) return json({ error: "Odkryj przynajmniej jedno pole." }, 400);
+      const rawPayout = Math.floor(r.bet * payload.multiplier);
+      const payout = Math.min(MAX_PAYOUT, rawPayout);
+      return settleExisting(p, tx, r, payout, `Cash-out ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
+    }
+
+    if (payload.revealed.includes(tile)) return json({ error: "Pole już odkryte." }, 400);
+    if (payload.mines.includes(tile)) return settleExisting(p, tx, r, 0, "Trafiona mina", payload, p.balance, r.revision + 1);
+
+    payload.revealed.push(tile);
+    payload.multiplier = mineMultiplier(payload.revealed.length, payload.mineCount);
+
+    if (payload.revealed.length === 25 - payload.mineCount) {
+      const rawPayout = Math.floor(r.bet * payload.multiplier);
+      const payout = Math.min(MAX_PAYOUT, rawPayout);
+      return settleExisting(p, tx, r, payout, `Maksymalna wygrana ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
+    }
+
+    await tx`
+      UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${r.id} AND revision = ${r.revision} AND state = 'active'
+    `;
+    return json({ ok: true, round: { ...r, payload: { ...payload, mines: [] }, revision: r.revision + 1 } });
+  });
 }
 
-async function settle(p: Player, sql: Sql, game: string, bet: number, payout: number, result: string, payload: unknown) {
+async function settle(p: Player, sql: RootSql, game: string, bet: number, payout: number, result: string, payload: unknown) {
   const rid = id();
   const t = now();
-  const net = Number(payout) - Number(bet);
+  const cappedPayout = Math.min(MAX_PAYOUT, Math.max(0, Number(payout)));
+  const net = cappedPayout - Number(bet);
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
 
@@ -560,7 +605,7 @@ async function settle(p: Player, sql: Sql, game: string, bet: number, payout: nu
     if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
     newBal = Number(res[0].balance);
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at, settled_at)
-      VALUES(${rid}, ${p.user_id}, ${game}, 'settled', ${bet}, ${payout}, ${result}, ${JSON.stringify(payload)}, 1, ${t}, ${t})`;
+      VALUES(${rid}, ${p.user_id}, ${game}, 'settled', ${bet}, ${cappedPayout}, ${result}, ${JSON.stringify(payload)}, 1, ${t}, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
       VALUES(${id()}, ${p.user_id}, ${rid}, 'round', ${net}, ${newBal}, ${t})`;
   });
@@ -568,7 +613,7 @@ async function settle(p: Player, sql: Sql, game: string, bet: number, payout: nu
   const roundsToday = await getRoundsToday(sql, p.user_id);
   return json({
     ok: true,
-    round: { id: rid, game, bet, payout, result, payload, state: "settled" },
+    round: { id: rid, game, bet, payout: cappedPayout, result, payload, state: "settled" },
     balance: newBal,
     xp,
     level,
@@ -589,10 +634,10 @@ async function settleExisting(
   const t = now();
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
-  const pay = Number(payout);
+  const pay = Math.min(MAX_PAYOUT, Math.max(0, Number(payout)));
 
   let newBal = 0;
-  await sql.begin(async (tx) => {
+  await runWithTx(sql, async (tx) => {
     const roundRes = await tx`
       UPDATE game_rounds
       SET state = 'settled', payout = ${pay}, result = ${result}, payload = ${JSON.stringify(payload)}, revision = ${revision}, settled_at = ${t}
