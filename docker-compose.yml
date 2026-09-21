@@ -39,8 +39,6 @@ services:
       - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER}
       - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
       - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
-    volumes:
-      - casino_data:/app/data
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/auth/me || exit 0"]
       interval: 30s
@@ -49,7 +47,6 @@ services:
       start_period: 15s
 
 volumes:
-  casino_data:
-    driver: local
   casino_pgdata:
     driver: local
+
