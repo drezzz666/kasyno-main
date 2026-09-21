@@ -4,10 +4,9 @@ import postgres from "postgres";
 
 const identifier = process.argv[2];
 const amountStr = process.argv[3];
-const reason = process.argv[4] || "Doładowanie od administratora";
 
 if (!identifier || !amountStr) {
-  console.log("Użycie: node scripts/grant.js <user_id_lub_nick_lub_email> <kwota> [powód]");
+  console.log("Użycie: node scripts/grant.js <user_id_lub_nick_lub_email> <kwota>");
   process.exit(1);
 }
 
