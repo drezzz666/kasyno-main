@@ -476,7 +476,7 @@ async function actMines(p: Player, sql: Sql, b: Record<string, unknown>) {
 async function settle(p: Player, sql: Sql, game: string, bet: number, payout: number, result: string, payload: unknown) {
   const rid = id();
   const t = now();
-  const bal = p.balance - bet + payout;
+  const bal = Number(p.balance) - Number(bet) + Number(payout);
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
 
@@ -510,7 +510,7 @@ async function settleExisting(
   revision: number
 ) {
   const t = now();
-  const bal = currentBalance + payout;
+  const bal = Number(currentBalance) + Number(payout);
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
 
