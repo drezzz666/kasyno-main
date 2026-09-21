@@ -159,7 +159,10 @@ function rouletteColor(n: number) {
 function mineMultiplier(revealed: number, mines: number) {
   let chance = 1;
   for (let i = 0; i < revealed; i++) chance *= (25 - mines - i) / (25 - i);
-  return Math.max(1, Math.floor((0.97 / chance) * 100) / 100);
+  const fair = 0.97 / chance;
+  const damp = mines >= 5 ? 1 : 0.25 + 0.75 * ((mines - 2) / 3);
+  const profit = Math.max(0, fair - 1) * damp;
+  return Math.max(1, Math.floor((1 + profit) * 100) / 100);
 }
 
 function publicPayload(game: string, payload: any) {
