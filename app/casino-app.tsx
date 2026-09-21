@@ -118,6 +118,12 @@ function getHistoryDetails(item: HistoryEntry) {
       subtitle: "Startowy pakiet żetonów",
     };
   }
+  if (item.type === "grant") {
+    return {
+      title: "Przyznanie środków",
+      subtitle: item.result || "Doładowanie konta",
+    };
+  }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");
   if (item.type === "round") {
     return {
