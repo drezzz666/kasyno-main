@@ -11,7 +11,8 @@
     "start": "next start --port 3000",
     "lint": "eslint . --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "db:grant": "node scripts/grant.js"
+    "db:grant": "node scripts/grant.js",
+    "admin": "node scripts/admin.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
