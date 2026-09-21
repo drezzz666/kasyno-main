@@ -442,12 +442,6 @@ export async function POST(request: Request) {
     if (e instanceof Error && e.message === "INSUFFICIENT_FUNDS") {
       return json({ error: "Niewystarczające saldo żetonów." }, 400);
     }
-    if (e instanceof Error && e.message === "LEDGER_TAMPERING_DETECTED" && activePlayer) {
-      return triggerFraud(activePlayer, sql, "Niespójność bilansu konta z księgą transakcji");
-    }
-    if (e instanceof Error && e.message === "STATISTICAL_ANOMALY_DETECTED" && activePlayer) {
-      return triggerFraud(activePlayer, sql, "Wykryto statystycznie niemożliwą serię wygranych (anomalia)");
-    }
     return json({ error: e instanceof Error ? e.message : "Błąd serwera" }, 500);
   }
 }
@@ -557,7 +551,7 @@ async function actBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>)
 
     if (act === "double") {
       if (payload.cards.length !== 2) {
-        return json({ error: "Podwojenie stawki jest możliwe tylko przy pierwszych dwóch kartach." }, 400);
+        return triggerFraud(p, sql, "Próba podwojenia po dobraniu dodatkowych kart");
       }
       if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
       const t = now();
@@ -729,13 +723,6 @@ async function settle(p: Player, sql: RootSql, game: string, bet: number, payout
 
   let newBal = 0;
   await sql.begin(async (tx) => {
-    const [ledgerCheck] = await tx<{ sum: string | number }[]>`
-      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
-    `;
-    if (Number(p.balance) > Number(ledgerCheck?.sum || 0) + 1) {
-      throw new Error("LEDGER_TAMPERING_DETECTED");
-    }
-
     const res = await tx<{ balance: number }[]>`
       UPDATE players
       SET balance = balance + ${net}, xp = ${xp}, level = ${level}, updated_at = ${t}
@@ -778,27 +765,6 @@ async function settleExisting(
 
   let newBal = 0;
   await runWithTx(sql, async (tx) => {
-    const [ledgerCheck] = await tx<{ sum: string | number }[]>`
-      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
-    `;
-    if (Number(p.balance) > Number(ledgerCheck?.sum || 0) + 1) {
-      throw new Error("LEDGER_TAMPERING_DETECTED");
-    }
-
-    if (pay / Math.max(1, r.bet) >= 50) {
-      const recentBigWins = await tx<{ payout: number; bet: number }[]>`
-        SELECT payout, bet FROM game_rounds
-        WHERE user_id = ${p.user_id} AND state = 'settled'
-        ORDER BY settled_at DESC LIMIT 2
-      `;
-      if (
-        recentBigWins.length === 2 &&
-        recentBigWins.every((prev) => Number(prev.payout) / Math.max(1, Number(prev.bet)) >= 50)
-      ) {
-        throw new Error("STATISTICAL_ANOMALY_DETECTED");
-      }
-    }
-
     const roundRes = await tx`
       UPDATE game_rounds
       SET state = 'settled', payout = ${pay}, result = ${result}, payload = ${JSON.stringify(payload)}, revision = ${revision}, settled_at = ${t}

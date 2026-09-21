@@ -293,6 +293,7 @@ export default function CasinoApp({
     [hasMoreHistory, setHasMoreHistory] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isPostingRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -451,6 +452,8 @@ export default function CasinoApp({
       window.location.href = "/api/auth/login";
       return null;
     }
+    if (isPostingRef.current) return null;
+    isPostingRef.current = true;
     setLoading(true);
     try {
       const r = await fetch("/api/casino", {
@@ -462,8 +465,13 @@ export default function CasinoApp({
         window.location.href = "/api/auth/login";
         return null;
       }
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error);
+      let j: any = null;
+      try {
+        j = await r.json();
+      } catch {
+        throw new Error(r.ok ? "Błąd odpowiedzi serwera" : `Błąd serwera (${r.status})`);
+      }
+      if (!r.ok) throw new Error(j?.error || `Błąd operacji (${r.status})`);
       if (j.round) {
         if (!opts?.deferBalance) {
           setLast(j.round);
@@ -504,6 +512,8 @@ export default function CasinoApp({
       );
       setLoading(false);
       return null;
+    } finally {
+      isPostingRef.current = false;
     }
   };
   useEffect(() => {
