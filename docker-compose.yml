@@ -1,10 +1,31 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: kasyno_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kasyno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kasyno_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-kasyno}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - casino_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kasyno} -d ${POSTGRES_DB:-kasyno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   kasyno:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: kasyno_2fgt
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "3000:3000"
     env_file:
@@ -13,6 +34,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - APP_URL=${APP_URL:-http://localhost:3000}
+      - DATABASE_URL=${DATABASE_URL:-postgres://kasyno:kasyno_pass@postgres:5432/kasyno}
       - SESSION_SECRET=${SESSION_SECRET:-kasyno-2fgt-secret-key-replace-in-env-production-32-chars}
       - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER}
       - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
@@ -28,4 +50,6 @@ services:
 
 volumes:
   casino_data:
+    driver: local
+  casino_pgdata:
     driver: local

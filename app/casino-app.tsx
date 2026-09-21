@@ -83,12 +83,15 @@ type State = {
   history: HistoryEntry[];
   hasMoreHistory?: boolean;
   roundsToday?: number;
+  missionClaimed?: boolean;
+  missionReward?: number;
+  missionTarget?: number;
   leaders: any[];
   today: string;
 };
 const format = (n: number) => new Intl.NumberFormat("pl-PL").format(n);
 const money = (n: number) => `${format(n)} $FGT`;
-const dailyBonus = (streak: number) => Math.min(10 + streak * 5, 100);
+const dailyBonus = (streak: number) => Math.min(100 + streak * 50, 1000);
 const gameNames: { [k: string]: string } = {
   roulette: "Ruletka Europejska",
   blackjack: "Blackjack",
@@ -101,6 +104,12 @@ function getHistoryDetails(item: HistoryEntry) {
     return {
       title: "Bonus dzienny",
       subtitle: "Nagroda za logowanie",
+    };
+  }
+  if (item.type === "daily_mission") {
+    return {
+      title: "Misja dzienna",
+      subtitle: "Stały bywalec (+250 $FGT)",
     };
   }
   if (item.type === "welcome_bonus" || item.type === "starter_bonus") {
@@ -455,6 +464,10 @@ export default function CasinoApp({
                       ? j.balance
                       : prev.player.balance,
                 },
+                roundsToday:
+                  typeof j.roundsToday === "number"
+                    ? j.roundsToday
+                    : prev.roundsToday,
                 active: j.round.state === "active" ? j.round : null,
               }
             : prev,
@@ -848,7 +861,7 @@ export default function CasinoApp({
                     <p className="eyebrow">MISJA DZIENNA</p>
                     <h2>Stały bywalec</h2>
                   </div>
-                  <span className="reward">+25 $FGT</span>
+                  <span className="reward">+250 $FGT</span>
                 </header>
                 <p>Rozegraj 5 rund dowolnej gry</p>
                 <div className="progress">
@@ -863,15 +876,43 @@ export default function CasinoApp({
                     }}
                   />
                 </div>
-                <small>
-                  {Math.min(
-                    5,
-                    (typeof data?.roundsToday === "number"
-                      ? data.roundsToday
-                      : data?.history?.filter((h) => h.game).length) || 0,
-                  )}{" "}
-                  z 5 ukończone
-                </small>
+                <div className="mission-footer">
+                  <small>
+                    {Math.min(
+                      5,
+                      (typeof data?.roundsToday === "number"
+                        ? data.roundsToday
+                        : data?.history?.filter((h) => h.game).length) || 0,
+                    )}{" "}
+                    z 5 ukończone
+                  </small>
+                  {data?.missionClaimed ? (
+                    <span className="mission-claimed-tag">✓ Odebrano (+250 $FGT)</span>
+                  ) : (
+                    <button
+                      className="primary mission-claim-btn"
+                      disabled={
+                        ((typeof data?.roundsToday === "number"
+                          ? data.roundsToday
+                          : data?.history?.filter((h) => h.game).length) || 0) < 5 ||
+                        loading
+                      }
+                      onClick={async () => {
+                        const j = await post({ action: "claim_mission" });
+                        if (j?.ok) {
+                          toast.success("Odebrano 250 $FGT za misję dzienną!");
+                          void load();
+                        }
+                      }}
+                    >
+                      {((typeof data?.roundsToday === "number"
+                        ? data.roundsToday
+                        : data?.history?.filter((h) => h.game).length) || 0) >= 5
+                        ? "Odbierz 250 $FGT"
+                        : "W trakcie"}
+                    </button>
+                  )}
+                </div>
               </article>
               <article className="panel" id="ranking">
                 <header className="section-head">
@@ -966,7 +1007,7 @@ export default function CasinoApp({
                   <p className="eyebrow">JASNE ZASADY</p>
                   <h2>Wirtualne żetony $FGT, bez realnych pieniędzy</h2>
                   <p>
-                    Nowe konto startuje ze 100 $FGT, a saldo i stawki są
+                    Nowe konto startuje ze 1000 $FGT, a saldo i stawki są
                     wyłącznie punktami do gry w klubie 2fgt.
                   </p>
                 </div>
@@ -1105,7 +1146,7 @@ export default function CasinoApp({
               <div>
                 <strong>Wirtualne tokeny $FGT</strong>
                 <span>
-                  Nowe konto zaczyna ze 100 $FGT. Punkty służą wyłącznie do
+                  Nowe konto zaczyna ze 1000 $FGT. Punkty służą wyłącznie do
                   zabawy.
                 </span>
               </div>

@@ -1,64 +1,72 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import fs from "node:fs";
-import path from "node:path";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 import * as schema from "./schema";
 
+let _sql: postgres.Sql | null = null;
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
-let _sqlite: Database.Database | null = null;
+let _tablesInitialized = false;
 
-function getDbPath(): string {
-  const customPath = process.env.DATABASE_PATH;
-  if (customPath) return customPath;
-
-  const dataDir = path.join(process.cwd(), "data");
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  return path.join(dataDir, "casino.db");
+export function getDatabaseUrl(): string {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  return "postgres://kasyno:kasyno_pass@127.0.0.1:5432/kasyno";
 }
 
-export function getSqlite(): Database.Database {
-  if (!_sqlite) {
-    const dbPath = getDbPath();
-    _sqlite = new Database(dbPath);
-    _sqlite.pragma("journal_mode = WAL");
-    _sqlite.pragma("foreign_keys = ON");
-    initTables(_sqlite);
+export function getSql(): postgres.Sql {
+  if (!_sql) {
+    const url = getDatabaseUrl();
+    _sql = postgres(url, {
+      max: 20,
+      idle_timeout: 30,
+      connect_timeout: 10,
+      transform: {
+        undefined: null,
+      },
+    });
   }
-  return _sqlite;
+  return _sql;
 }
 
 export function getDb() {
   if (!_db) {
-    const sqlite = getSqlite();
-    _db = drizzle(sqlite, { schema });
+    const sql = getSql();
+    _db = drizzle(sql, { schema });
   }
   return _db;
 }
 
-function initTables(sqlite: Database.Database) {
-  sqlite.exec(`
+export async function initPgTables() {
+  if (_tablesInitialized) return;
+  const sql = getSql();
+  await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS players (
       user_id TEXT PRIMARY KEY NOT NULL,
       email TEXT NOT NULL,
       nick TEXT NOT NULL,
-      balance INTEGER NOT NULL DEFAULT 100,
+      balance BIGINT NOT NULL DEFAULT 1000,
       xp INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
       streak INTEGER NOT NULL DEFAULT 0,
       last_bonus_day TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      created_at BIGINT NOT NULL,
+      updated_at BIGINT NOT NULL
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_players_nick_unique ON players (nick);
 
     CREATE TABLE IF NOT EXISTS daily_claims (
       user_id TEXT NOT NULL,
       claim_day TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      created_at INTEGER NOT NULL,
+      amount BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
       PRIMARY KEY (user_id, claim_day)
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_mission_claims (
+      user_id TEXT NOT NULL,
+      claim_day TEXT NOT NULL,
+      mission_id TEXT NOT NULL DEFAULT 'daily_5_rounds',
+      amount BIGINT NOT NULL,
+      created_at BIGINT NOT NULL,
+      PRIMARY KEY (user_id, claim_day, mission_id)
     );
 
     CREATE TABLE IF NOT EXISTS game_rounds (
@@ -66,13 +74,13 @@ function initTables(sqlite: Database.Database) {
       user_id TEXT NOT NULL,
       game TEXT NOT NULL,
       state TEXT NOT NULL,
-      bet INTEGER NOT NULL,
-      payout INTEGER NOT NULL DEFAULT 0,
+      bet BIGINT NOT NULL,
+      payout BIGINT NOT NULL DEFAULT 0,
       result TEXT NOT NULL,
       payload TEXT NOT NULL,
       revision INTEGER NOT NULL DEFAULT 1,
-      created_at INTEGER NOT NULL,
-      settled_at INTEGER
+      created_at BIGINT NOT NULL,
+      settled_at BIGINT
     );
     CREATE INDEX IF NOT EXISTS idx_game_rounds_user_state ON game_rounds (user_id, state);
     CREATE INDEX IF NOT EXISTS idx_game_rounds_user_created ON game_rounds (user_id, created_at);
@@ -82,18 +90,12 @@ function initTables(sqlite: Database.Database) {
       user_id TEXT NOT NULL,
       round_id TEXT,
       type TEXT NOT NULL,
-      amount INTEGER NOT NULL,
-      balance_after INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
+      amount BIGINT NOT NULL,
+      balance_after BIGINT NOT NULL,
+      created_at BIGINT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_user_created ON ledger_entries (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_round ON ledger_entries (round_id);
-
-    INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-    SELECT lower(hex(randomblob(16))), p.user_id, 'welcome_bonus', 100, 100, p.created_at
-    FROM players p
-    WHERE p.user_id NOT IN (
-      SELECT user_id FROM ledger_entries WHERE type IN ('welcome_bonus', 'starter_bonus')
-    );
   `);
+  _tablesInitialized = true;
 }
