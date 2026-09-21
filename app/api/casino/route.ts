@@ -484,9 +484,6 @@ export async function POST(request: Request) {
     if (e instanceof Error && e.message === "INSUFFICIENT_FUNDS") {
       return json({ error: "Niewystarczające saldo żetonów." }, 400);
     }
-    if (e instanceof Error && e.message === "LEDGER_TAMPERING_DETECTED" && activePlayer) {
-      return triggerFraud(activePlayer, sql, "Niespójność bilansu konta z księgą transakcji");
-    }
     return json({ error: e instanceof Error ? e.message : "Błąd serwera" }, 500);
   }
 }
