@@ -2,6 +2,10 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
+if (process.loadEnvFile) {
+  try { process.loadEnvFile(); } catch {}
+}
+
 const action = process.argv[2] || "list";
 const targetId = process.argv[3];
 

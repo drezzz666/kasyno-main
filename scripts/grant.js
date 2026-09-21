@@ -2,6 +2,10 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
+if (process.loadEnvFile) {
+  try { process.loadEnvFile(); } catch {}
+}
+
 const identifier = process.argv[2];
 const amountStr = process.argv[3];
 
