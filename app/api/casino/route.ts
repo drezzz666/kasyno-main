@@ -236,39 +236,62 @@ export async function POST(request: Request) {
       const yesterday = new Date(day + "T00:00:00Z").getTime() - 86400000;
       const streak = prev === yesterday ? p.streak + 1 : 1;
       const amount = dailyBonus(streak);
-      const bal = p.balance + amount;
       const t = now();
+      let newBal = 0;
 
       await sql.begin(async (tx) => {
-        await tx`INSERT INTO daily_claims(user_id, claim_day, amount, created_at) VALUES(${p.user_id}, ${day}, ${amount}, ${t})`;
-        await tx`UPDATE players SET balance = balance + ${amount}, streak = ${streak}, last_bonus_day = ${day}, updated_at = ${t} WHERE user_id = ${p.user_id}`;
-        await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at) VALUES(${id()}, ${p.user_id}, 'daily_bonus', ${amount}, ${bal}, ${t})`;
+        const claimRes = await tx`
+          INSERT INTO daily_claims(user_id, claim_day, amount, created_at)
+          VALUES(${p.user_id}, ${day}, ${amount}, ${t})
+          ON CONFLICT DO NOTHING
+        `;
+        if (claimRes.count === 0) {
+          throw new Error("ALREADY_CLAIMED");
+        }
+        const [updated] = await tx<{ balance: number }[]>`
+          UPDATE players
+          SET balance = balance + ${amount}, streak = ${streak}, last_bonus_day = ${day}, updated_at = ${t}
+          WHERE user_id = ${p.user_id}
+          RETURNING balance
+        `;
+        newBal = Number(updated.balance);
+        await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at)
+          VALUES(${id()}, ${p.user_id}, 'daily_bonus', ${amount}, ${newBal}, ${t})`;
       });
 
-      return json({ ok: true, amount, balance: bal, streak });
+      return json({ ok: true, amount, balance: newBal, streak });
     }
 
     if (body.action === "claim_mission" || body.action === "mission") {
       const day = new Date().toISOString().slice(0, 10);
-      const [alreadyClaimed] = await sql`
-        SELECT 1 FROM daily_mission_claims WHERE user_id = ${p.user_id} AND claim_day = ${day} AND mission_id = 'daily_5_rounds'
-      `;
-      if (alreadyClaimed) return json({ error: "Dzisiejsza misja została już odebrana." }, 409);
-
       const roundsToday = await getRoundsToday(sql, p.user_id);
       if (roundsToday < 5) return json({ error: "Musisz rozegrać co najmniej 5 rund, aby odebrać nagrodę." }, 400);
 
       const amount = 250;
-      const bal = p.balance + amount;
       const t = now();
+      let newBal = 0;
 
       await sql.begin(async (tx) => {
-        await tx`INSERT INTO daily_mission_claims(user_id, claim_day, mission_id, amount, created_at) VALUES(${p.user_id}, ${day}, 'daily_5_rounds', ${amount}, ${t})`;
-        await tx`UPDATE players SET balance = balance + ${amount}, updated_at = ${t} WHERE user_id = ${p.user_id}`;
-        await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at) VALUES(${id()}, ${p.user_id}, 'daily_mission', ${amount}, ${bal}, ${t})`;
+        const claimRes = await tx`
+          INSERT INTO daily_mission_claims(user_id, claim_day, mission_id, amount, created_at)
+          VALUES(${p.user_id}, ${day}, 'daily_5_rounds', ${amount}, ${t})
+          ON CONFLICT DO NOTHING
+        `;
+        if (claimRes.count === 0) {
+          throw new Error("ALREADY_CLAIMED");
+        }
+        const [updated] = await tx<{ balance: number }[]>`
+          UPDATE players
+          SET balance = balance + ${amount}, updated_at = ${t}
+          WHERE user_id = ${p.user_id}
+          RETURNING balance
+        `;
+        newBal = Number(updated.balance);
+        await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at)
+          VALUES(${id()}, ${p.user_id}, 'daily_mission', ${amount}, ${newBal}, ${t})`;
       });
 
-      return json({ ok: true, amount, balance: bal, missionClaimed: true });
+      return json({ ok: true, amount, balance: newBal, missionClaimed: true });
     }
 
     if (body.action === "deal_blackjack") return dealBlackjack(p, sql, body);
@@ -279,6 +302,12 @@ export async function POST(request: Request) {
   } catch (e) {
     if (e instanceof Error && e.message === "UNAUTHORIZED") {
       return json({ error: "Zaloguj się przez Authentik, aby zagrać." }, 401);
+    }
+    if (e instanceof Error && (e.message === "ALREADY_CLAIMED" || e.message === "ROUND_ALREADY_SETTLED")) {
+      return json({ error: "Akcja została już przetworzona." }, 409);
+    }
+    if (e instanceof Error && e.message === "INSUFFICIENT_FUNDS") {
+      return json({ error: "Niewystarczające saldo żetonów." }, 400);
     }
     return json({ error: e instanceof Error ? e.message : "Błąd serwera" }, 500);
   }
@@ -340,21 +369,28 @@ async function dealBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
   const rid = id();
   const t = now();
   const payload = { cards, dealer, actions: ["hit", "stand"] };
-  const bal = p.balance - bet;
 
+  let balAfterBet = 0;
   await sql.begin(async (tx) => {
-    await tx`UPDATE players SET balance = ${bal}, updated_at = ${t} WHERE user_id = ${p.user_id} AND balance >= ${bet}`;
+    const res = await tx<{ balance: number }[]>`
+      UPDATE players
+      SET balance = balance - ${bet}, updated_at = ${t}
+      WHERE user_id = ${p.user_id} AND balance >= ${bet}
+      RETURNING balance
+    `;
+    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
+    balAfterBet = Number(res[0].balance);
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at)
       VALUES(${rid}, ${p.user_id}, 'blackjack', 'active', ${bet}, 0, 'W toku', ${JSON.stringify(payload)}, 1, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
-      VALUES(${id()}, ${p.user_id}, ${rid}, 'bet', ${-bet}, ${bal}, ${t})`;
+      VALUES(${id()}, ${p.user_id}, ${rid}, 'bet', ${-bet}, ${balAfterBet}, ${t})`;
   });
 
   if (value(cards) === 21 || value(dealer) === 21) {
-    return finishBlackjack(p, sql, rid, { ...payload }, 2, bal);
+    return finishBlackjack(p, sql, rid, { ...payload }, 2, balAfterBet);
   }
 
-  return json({ ok: true, round: publicRound({ id: rid, game: "blackjack", bet, state: "active", payload }), balance: bal });
+  return json({ ok: true, round: publicRound({ id: rid, game: "blackjack", bet, state: "active", payload }), balance: balAfterBet });
 }
 
 async function actBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
@@ -370,26 +406,38 @@ async function actBlackjack(p: Player, sql: Sql, b: Record<string, unknown>) {
   if (act === "double") {
     if (payload.cards.length !== 2) return json({ error: "Podwojenie jest dostępne tylko po rozdaniu." }, 400);
     if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
-    const nextBalance = p.balance - r.bet;
     const t = now();
 
+    let balAfterDouble = 0;
     await sql.begin(async (tx) => {
-      await tx`UPDATE players SET balance = ${nextBalance}, updated_at = ${t} WHERE user_id = ${p.user_id}`;
-      await tx`UPDATE game_rounds SET bet = bet * 2, revision = revision + 1 WHERE id = ${r.id} AND revision = ${r.revision}`;
+      const res = await tx<{ balance: number }[]>`
+        UPDATE players
+        SET balance = balance - ${r.bet}, updated_at = ${t}
+        WHERE user_id = ${p.user_id} AND balance >= ${r.bet}
+        RETURNING balance
+      `;
+      if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
+      balAfterDouble = Number(res[0].balance);
+      const roundRes = await tx`
+        UPDATE game_rounds
+        SET bet = bet * 2, revision = revision + 1
+        WHERE id = ${r.id} AND revision = ${r.revision} AND state = 'active'
+      `;
+      if (roundRes.count === 0) throw new Error("ROUND_ALREADY_SETTLED");
       await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
-        VALUES(${id()}, ${p.user_id}, ${r.id}, 'double', ${-r.bet}, ${nextBalance}, ${t})`;
+        VALUES(${id()}, ${p.user_id}, ${r.id}, 'double', ${-r.bet}, ${balAfterDouble}, ${t})`;
     });
 
     r.bet *= 2;
     payload.cards.push(card());
-    return finishBlackjack(p, sql, rid, payload, r.revision + 2, nextBalance);
+    return finishBlackjack(p, sql, rid, payload, r.revision + 2, balAfterDouble);
   }
 
   if (act === "hit") {
     payload.cards.push(card());
     if (value(payload.cards) < 21) {
       await sql`
-        UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${rid} AND revision = ${r.revision}
+        UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${rid} AND revision = ${r.revision} AND state = 'active'
       `;
       return json({ ok: true, round: publicRound({ ...r, payload, revision: r.revision + 1 }) });
     }
@@ -407,9 +455,9 @@ async function finishBlackjack(
   currentBalance: number
 ) {
   const [r] = await sql<Round[]>`
-    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id}
+    SELECT * FROM game_rounds WHERE id = ${rid} AND user_id = ${p.user_id} AND state = 'active'
   `;
-  if (!r) return json({ error: "Runda nie istnieje." }, 404);
+  if (!r) return json({ error: "Runda nie istnieje lub została już zakończona." }, 404);
 
   while (value(payload.dealer) < 17) payload.dealer.push(card());
   const pv = value(payload.cards);
@@ -440,18 +488,25 @@ async function startMines(p: Player, sql: Sql, b: Record<string, unknown>) {
   while (mines.size < mineCount) mines.add(rand(25));
   const payload = { mines: [...mines], revealed: [] as number[], mineCount, multiplier: 1 };
   const rid = id();
-  const bal = p.balance - bet;
   const t = now();
 
+  let balAfterBet = 0;
   await sql.begin(async (tx) => {
-    await tx`UPDATE players SET balance = ${bal}, updated_at = ${t} WHERE user_id = ${p.user_id} AND balance >= ${bet}`;
+    const res = await tx<{ balance: number }[]>`
+      UPDATE players
+      SET balance = balance - ${bet}, updated_at = ${t}
+      WHERE user_id = ${p.user_id} AND balance >= ${bet}
+      RETURNING balance
+    `;
+    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
+    balAfterBet = Number(res[0].balance);
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at)
       VALUES(${rid}, ${p.user_id}, 'mines', 'active', ${bet}, 0, 'W toku', ${JSON.stringify(payload)}, 1, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
-      VALUES(${id()}, ${p.user_id}, ${rid}, 'bet', ${-bet}, ${bal}, ${t})`;
+      VALUES(${id()}, ${p.user_id}, ${rid}, 'bet', ${-bet}, ${balAfterBet}, ${t})`;
   });
 
-  return json({ ok: true, round: { id: rid, game: "mines", bet, state: "active", payload: { ...payload, mines: [] } }, balance: bal });
+  return json({ ok: true, round: { id: rid, game: "mines", bet, state: "active", payload: { ...payload, mines: [] } }, balance: balAfterBet });
 }
 
 async function actMines(p: Player, sql: Sql, b: Record<string, unknown>) {
@@ -475,8 +530,14 @@ async function actMines(p: Player, sql: Sql, b: Record<string, unknown>) {
 
   payload.revealed.push(tile);
   payload.multiplier = mineMultiplier(payload.revealed.length, payload.mineCount);
+
+  if (payload.revealed.length === 25 - payload.mineCount) {
+    const payout = Math.floor(r.bet * payload.multiplier);
+    return settleExisting(p, sql, r, payout, `Maksymalna wygrana ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
+  }
+
   await sql`
-    UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${r.id} AND revision = ${r.revision}
+    UPDATE game_rounds SET payload = ${JSON.stringify(payload)}, revision = revision + 1 WHERE id = ${r.id} AND revision = ${r.revision} AND state = 'active'
   `;
   return json({ ok: true, round: { ...r, payload: { ...payload, mines: [] }, revision: r.revision + 1 } });
 }
@@ -484,23 +545,31 @@ async function actMines(p: Player, sql: Sql, b: Record<string, unknown>) {
 async function settle(p: Player, sql: Sql, game: string, bet: number, payout: number, result: string, payload: unknown) {
   const rid = id();
   const t = now();
-  const bal = Number(p.balance) - Number(bet) + Number(payout);
+  const net = Number(payout) - Number(bet);
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
 
+  let newBal = 0;
   await sql.begin(async (tx) => {
-    await tx`UPDATE players SET balance = ${bal}, xp = ${xp}, level = ${level}, updated_at = ${t} WHERE user_id = ${p.user_id} AND balance >= ${bet}`;
+    const res = await tx<{ balance: number }[]>`
+      UPDATE players
+      SET balance = balance + ${net}, xp = ${xp}, level = ${level}, updated_at = ${t}
+      WHERE user_id = ${p.user_id} AND balance >= ${bet}
+      RETURNING balance
+    `;
+    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
+    newBal = Number(res[0].balance);
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at, settled_at)
       VALUES(${rid}, ${p.user_id}, ${game}, 'settled', ${bet}, ${payout}, ${result}, ${JSON.stringify(payload)}, 1, ${t}, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
-      VALUES(${id()}, ${p.user_id}, ${rid}, 'round', ${payout - bet}, ${bal}, ${t})`;
+      VALUES(${id()}, ${p.user_id}, ${rid}, 'round', ${net}, ${newBal}, ${t})`;
   });
 
   const roundsToday = await getRoundsToday(sql, p.user_id);
   return json({
     ok: true,
     round: { id: rid, game, bet, payout, result, payload, state: "settled" },
-    balance: bal,
+    balance: newBal,
     xp,
     level,
     roundsToday,
@@ -514,26 +583,40 @@ async function settleExisting(
   payout: number,
   result: string,
   payload: unknown,
-  currentBalance: number,
+  _currentBalance: number,
   revision: number
 ) {
   const t = now();
-  const bal = Number(currentBalance) + Number(payout);
   const xp = p.xp + 10;
   const level = 1 + Math.floor(xp / 500);
+  const pay = Number(payout);
 
+  let newBal = 0;
   await sql.begin(async (tx) => {
-    await tx`UPDATE players SET balance = ${bal}, xp = ${xp}, level = ${level}, updated_at = ${t} WHERE user_id = ${p.user_id}`;
-    await tx`UPDATE game_rounds SET state = 'settled', payout = ${payout}, result = ${result}, payload = ${JSON.stringify(payload)}, revision = ${revision}, settled_at = ${t} WHERE id = ${r.id} AND state = 'active'`;
+    const roundRes = await tx`
+      UPDATE game_rounds
+      SET state = 'settled', payout = ${pay}, result = ${result}, payload = ${JSON.stringify(payload)}, revision = ${revision}, settled_at = ${t}
+      WHERE id = ${r.id} AND state = 'active'
+    `;
+    if (roundRes.count === 0) {
+      throw new Error("ROUND_ALREADY_SETTLED");
+    }
+    const [updatedPlayer] = await tx<{ balance: number }[]>`
+      UPDATE players
+      SET balance = balance + ${pay}, xp = ${xp}, level = ${level}, updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+      RETURNING balance
+    `;
+    newBal = Number(updatedPlayer.balance);
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
-      VALUES(${id()}, ${p.user_id}, ${r.id}, 'payout', ${payout}, ${bal}, ${t})`;
+      VALUES(${id()}, ${p.user_id}, ${r.id}, 'payout', ${pay}, ${newBal}, ${t})`;
   });
 
   const roundsToday = await getRoundsToday(sql, p.user_id);
   return json({
     ok: true,
-    round: { ...r, state: "settled", payout, result, payload },
-    balance: bal,
+    round: { ...r, state: "settled", payout: pay, result, payload },
+    balance: newBal,
     xp,
     level,
     roundsToday,
