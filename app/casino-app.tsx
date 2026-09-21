@@ -124,6 +124,18 @@ function getHistoryDetails(item: HistoryEntry) {
       subtitle: item.result || "Doładowanie konta",
     };
   }
+  if (item.type === "fraud_penalty") {
+    return {
+      title: "Kara anty-fraud",
+      subtitle: item.result || "Wyzerowanie salda za naruszenie zasad",
+    };
+  }
+  if (item.type === "fraud_restoration") {
+    return {
+      title: "Zwrot po audycie",
+      subtitle: item.result || "Przywrócenie salda (anty-fraud)",
+    };
+  }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");
   if (item.type === "round") {
     return {
@@ -1115,6 +1127,7 @@ export default function CasinoApp({
               post={post}
               load={load}
               syncBalance={syncBalance}
+              balance={data?.player?.balance ?? 0}
               animatingRef={isAnimatingRef}
               onBusyChange={setTableBusy}
               close={() => {
@@ -1474,6 +1487,7 @@ function GameTable({
   post,
   load,
   syncBalance,
+  balance,
   animatingRef,
   close,
   onBusyChange,
@@ -1680,7 +1694,7 @@ function GameTable({
         </>
       )}
       {round?.game === "blackjack" && !blackjackPreview && (
-        <div className="actions three">
+        <div className={`actions ${round.payload.cards?.length === 2 ? "three" : ""}`}>
           <button
             className="secondary"
             disabled={loading}
@@ -1688,13 +1702,15 @@ function GameTable({
           >
             Pas
           </button>
-          <button
-            className="secondary"
-            disabled={loading || round.payload.cards.length !== 2}
-            onClick={() => showSettledBlackjack("double")}
-          >
-            Podwój
-          </button>
+          {round.payload.cards?.length === 2 && (
+            <button
+              className="secondary"
+              disabled={loading || (typeof balance === "number" ? balance < round.bet : false)}
+              onClick={() => showSettledBlackjack("double")}
+            >
+              Podwój
+            </button>
+          )}
           <button
             className="primary"
             disabled={loading}

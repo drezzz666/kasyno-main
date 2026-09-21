@@ -50,22 +50,40 @@ const rand = (max: number) => crypto.getRandomValues(new Uint32Array(1))[0] % ma
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
 const lastActionTimes = new Map<string, number>();
-const rateLimitSpam = new Map<string, { lastViolation: number; count: number }>();
+type SpamRecord = {
+  lastViolation: number;
+  count: number;
+  blockedUntil?: number;
+  triggered?: boolean;
+};
+const rateLimitSpam = new Map<string, SpamRecord>();
 const ACTION_COOLDOWN_MS = 150;
 
 function checkRateLimit(userId: string): { ok: boolean; spam: boolean } {
   const currentTime = Date.now();
+  const spamRecord = rateLimitSpam.get(userId);
+  if (spamRecord?.blockedUntil && currentTime < spamRecord.blockedUntil) {
+    return { ok: false, spam: false };
+  }
   const last = lastActionTimes.get(userId) || 0;
   if (currentTime - last < ACTION_COOLDOWN_MS) {
-    const spamRecord = rateLimitSpam.get(userId) || { lastViolation: currentTime, count: 0 };
-    if (currentTime - spamRecord.lastViolation < 5000) {
-      spamRecord.count++;
+    const record: SpamRecord = spamRecord || { lastViolation: currentTime, count: 0 };
+    if (currentTime - record.lastViolation < 5000) {
+      record.count++;
     } else {
-      spamRecord.count = 1;
+      record.count = 1;
+      record.triggered = false;
     }
-    spamRecord.lastViolation = currentTime;
-    rateLimitSpam.set(userId, spamRecord);
-    return { ok: false, spam: spamRecord.count > 10 };
+    record.lastViolation = currentTime;
+    if (record.count > 10) {
+      const shouldTrigger = !record.triggered;
+      record.triggered = true;
+      record.blockedUntil = currentTime + 30000;
+      rateLimitSpam.set(userId, record);
+      return { ok: false, spam: shouldTrigger };
+    }
+    rateLimitSpam.set(userId, record);
+    return { ok: false, spam: false };
   }
   lastActionTimes.set(userId, currentTime);
   if (lastActionTimes.size > 5000) {
@@ -539,7 +557,7 @@ async function actBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>)
 
     if (act === "double") {
       if (payload.cards.length !== 2) {
-        return triggerFraud(p, sql, "Próba podwojenia po dobraniu dodatkowych kart");
+        return json({ error: "Podwojenie stawki jest możliwe tylko przy pierwszych dwóch kartach." }, 400);
       }
       if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
       const t = now();
