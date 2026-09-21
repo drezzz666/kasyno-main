@@ -100,10 +100,8 @@ export async function initPgTables() {
       type TEXT NOT NULL,
       amount BIGINT NOT NULL,
       balance_after BIGINT NOT NULL,
-      created_at BIGINT NOT NULL,
-      reason TEXT
+      created_at BIGINT NOT NULL
     );
-    ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS reason TEXT;
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_user_created ON ledger_entries (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_round ON ledger_entries (round_id);
   `);
