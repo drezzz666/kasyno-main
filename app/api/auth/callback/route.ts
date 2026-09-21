@@ -1,95 +1,67 @@
 import { getSql, initPgTables } from "@/db";
-import { createSessionCookie, signSession } from "@/lib/auth/session";
+import { exchangeCodeForTokens, fetchUserInfo, getOidcConfig } from "@/lib/auth/oidc";
+import { createSessionCookie, parseCookie, signSession } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
+
+  if (error) {
+    return new Response(`Błąd logowania Authentik: ${error} - ${errorDescription || ""}`, {
+      status: 400,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  if (!code) {
+    return new Response("Brak kodu autoryzacyjnego OIDC.", {
+      status: 400,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const cookieHeader = request.headers.get("cookie");
+  const savedState = parseCookie(cookieHeader, "casino_oidc_state");
+
+  if (savedState && state && savedState !== state) {
+    return new Response("Nieprawidłowy parametr stanu OIDC (CSRF).", {
+      status: 403,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
   try {
-    const url = new URL(request.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
+    const origin = url.origin;
+    const config = await getOidcConfig(origin);
 
-    if (!code || !state) {
-      return new Response("Brak parametru code lub state.", { status: 400 });
-    }
+    // 1. Backchannel token exchange (Direct POST to Authentik /token/)
+    const tokenRes = await exchangeCodeForTokens(config, code);
 
-    // 1. Verify state cookie
-    const cookieHeader = request.headers.get("cookie") || "";
-    const cookies = Object.fromEntries(
-      cookieHeader
-        .split(";")
-        .map((c) => c.trim().split("="))
-        .filter(([k]) => Boolean(k))
-    );
-    const storedState = cookies["casino_oidc_state"];
-    if (!storedState || storedState !== state) {
-      return new Response("Nieprawidłowy parametr state (CSRF detected).", { status: 403 });
-    }
+    // 2. Backchannel userinfo fetch (Direct GET to Authentik /userinfo/)
+    const userInfo = await fetchUserInfo(config, tokenRes.access_token);
 
-    // 2. Exchange code for tokens
-    const issuer = process.env.AUTHENTIK_ISSUER?.replace(/\/+$/, "");
-    const tokenUrl = process.env.AUTHENTIK_TOKEN_URL || `${issuer}/token/`;
-    const userinfoUrl = process.env.AUTHENTIK_USERINFO_URL || `${issuer}/userinfo/`;
-    const clientId = process.env.AUTHENTIK_CLIENT_ID || "";
-    const clientSecret = process.env.AUTHENTIK_CLIENT_SECRET || "";
-    const appUrl = process.env.APP_URL?.replace(/\/+$/, "") || "http://localhost:3000";
-    const redirectUri = process.env.AUTHENTIK_REDIRECT_URI || `${appUrl}/api/auth/callback`;
+    const userId = userInfo.sub;
+    const email = userInfo.email || `${userId}@authentik.local`;
+    const fullName = userInfo.name || null;
 
-    const tokenRes = await fetch(tokenUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-        redirect_uri: redirectUri,
-      }),
-    });
+    // Extract username (nick) from Authentik preferred_username, nickname or email prefix
+    const username = (
+      userInfo.preferred_username ||
+      userInfo.nickname ||
+      email.split("@")[0] ||
+      "Gracz"
+    ).trim().slice(0, 30);
+    const nick = username;
 
-    if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      console.error("[OIDC Callback] Token exchange failed:", errText);
-      return new Response(`Błąd wymiany kodu OIDC: ${tokenRes.statusText}`, { status: 502 });
-    }
-
-    const tokenData = (await tokenRes.json()) as { access_token?: string };
-    if (!tokenData.access_token) {
-      return new Response("Brak access_token w odpowiedzi z Authentik.", { status: 502 });
-    }
-
-    const userinfoRes = await fetch(userinfoUrl, {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!userinfoRes.ok) {
-      return new Response("Nie udało się pobrać danych użytkownika z Authentik.", { status: 502 });
-    }
-
-    const userinfo = (await userinfoRes.json()) as {
-      sub?: string;
-      email?: string;
-      preferred_username?: string;
-      nickname?: string;
-      name?: string;
-      given_name?: string;
-    };
-
-    const userId = userinfo.sub;
-    const email = userinfo.email || `${userId}@authentik.local`;
-    const nick = (userinfo.preferred_username || userinfo.nickname || userinfo.given_name || email.split("@")[0] || "Gracz").slice(0, 30);
-    const fullName = userinfo.name || nick;
-    const firstName = userinfo.given_name || nick;
-
-    if (!userId) {
-      return new Response("Brak identyfikatora użytkownika (sub) z OIDC.", { status: 502 });
-    }
+    const rawName = (userInfo.given_name || userInfo.name || "").trim();
+    const firstName = (
+      rawName ? rawName.split(/\s+/)[0] : nick
+    ).slice(0, 20);
 
     // 3. Upsert player in DB (PostgreSQL)
     await initPgTables();
