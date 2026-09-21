@@ -2,12 +2,12 @@
 import crypto from "node:crypto";
 import postgres from "postgres";
 
-const nick = process.argv[2];
+const identifier = process.argv[2];
 const amountStr = process.argv[3];
 const reason = process.argv[4] || "Doładowanie od administratora";
 
-if (!nick || !amountStr) {
-  console.log("Użycie: node scripts/grant.js <nick_lub_email> <kwota> [powód]");
+if (!identifier || !amountStr) {
+  console.log("Użycie: node scripts/grant.js <user_id_lub_nick_lub_email> <kwota> [powód]");
   process.exit(1);
 }
 
@@ -30,9 +30,12 @@ const sql = postgres(url, {
 });
 
 async function main() {
-  const [player] = await sql`SELECT user_id, nick, balance FROM players WHERE nick = ${nick} OR email = ${nick}`;
+  const [player] = await sql`
+    SELECT user_id, nick, balance FROM players 
+    WHERE user_id = ${identifier} OR nick = ${identifier} OR email = ${identifier}
+  `;
   if (!player) {
-    console.error(`Błąd: Nie znaleziono gracza o nicku/emailu "${nick}".`);
+    console.error(`Błąd: Nie znaleziono gracza o identyfikatorze (user_id/nick/email): "${identifier}".`);
     await sql.end();
     process.exit(1);
   }
