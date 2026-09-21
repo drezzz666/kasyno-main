@@ -28,10 +28,12 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy built standalone server and static assets
+# Copy built standalone server, dependencies, scripts and static assets
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/scripts ./scripts
 
 # Persistent data directory for SQLite database
 RUN mkdir -p /app/data && chmod -R 777 /app/data
