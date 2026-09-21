@@ -6,7 +6,6 @@ export const players = pgTable(
     userId: text("user_id").primaryKey(),
     email: text("email").notNull(),
     nick: text("nick").notNull(),
-    balance: bigint("balance", { mode: "number" }).notNull().default(1000),
     xp: integer("xp").notNull().default(0),
     level: integer("level").notNull().default(1),
     streak: integer("streak").notNull().default(0),

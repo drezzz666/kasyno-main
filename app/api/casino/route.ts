@@ -99,15 +99,18 @@ async function triggerFraud(p: Player, sql: RootSql, reason: string, details?: s
   const logId = id();
   let clearedAmount = 0;
   await sql.begin(async (tx) => {
-    const [fresh] = await tx<{ balance: number; nick: string }[]>`
-      SELECT balance, nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE
+    const [fresh] = await tx<{ nick: string }[]>`
+      SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE
     `;
-    clearedAmount = fresh ? Number(fresh.balance) : 0;
+    const [balRow] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) AS sum FROM ledger_entries WHERE user_id = ${p.user_id}
+    `;
+    clearedAmount = balRow ? Math.max(0, Number(balRow.sum)) : 0;
     const playerNick = fresh?.nick || p.nick || "nieznany";
 
     await tx`
       UPDATE players
-      SET balance = 0, updated_at = ${t}
+      SET updated_at = ${t}
       WHERE user_id = ${p.user_id}
     `;
     await tx`
@@ -182,13 +185,32 @@ async function identity() {
   return { userId: session.userId, email: session.email, nick: session.nick };
 }
 
-function normalizePlayer(p: Player): Player {
+async function getPlayerWithBalance(sql: Sql, userId: string): Promise<Player | null> {
+  const [row] = await sql<any[]>`
+    SELECT 
+      p.user_id,
+      p.email,
+      p.nick,
+      p.xp,
+      p.level,
+      p.streak,
+      p.last_bonus_day,
+      COALESCE(SUM(l.amount), 0)::bigint AS balance
+    FROM players p
+    LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+    WHERE p.user_id = ${userId}
+    GROUP BY p.user_id, p.email, p.nick, p.xp, p.level, p.streak, p.last_bonus_day
+  `;
+  if (!row) return null;
   return {
-    ...p,
-    balance: Number(p.balance),
-    xp: Number(p.xp),
-    level: Number(p.level),
-    streak: Number(p.streak),
+    user_id: row.user_id,
+    email: row.email,
+    nick: row.nick,
+    balance: Number(row.balance),
+    xp: Number(row.xp),
+    level: Number(row.level),
+    streak: Number(row.streak),
+    last_bonus_day: row.last_bonus_day,
   };
 }
 
@@ -196,22 +218,24 @@ async function player(): Promise<Player> {
   const { userId, email, nick: sessionNick } = await identity();
   await initPgTables();
   const sql = getSql();
-  const [p] = await sql<Player[]>`SELECT * FROM players WHERE user_id = ${userId}`;
+  let p = await getPlayerWithBalance(sql, userId);
   if (!p) {
     const nick = (sessionNick || email.split("@")[0] || "Gracz").slice(0, 30);
     const t = now();
     await sql.begin(async (tx) => {
       await tx`
-        INSERT INTO players (user_id, email, nick, balance, xp, level, streak, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${nick}, 1000, 0, 1, 0, ${t}, ${t})
+        INSERT INTO players (user_id, email, nick, xp, level, streak, created_at, updated_at)
+        VALUES (${userId}, ${email}, ${nick}, 0, 1, 0, ${t}, ${t})
+        ON CONFLICT (user_id) DO NOTHING
       `;
       await tx`
         INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
         VALUES (${id()}, ${userId}, 'welcome_bonus', 1000, 1000, ${t})
       `;
     });
-    const [newP] = await sql<Player[]>`SELECT * FROM players WHERE user_id = ${userId}`;
-    return normalizePlayer(newP);
+    p = await getPlayerWithBalance(sql, userId);
+    if (!p) throw new Error("Nie udało się utworzyć profilu gracza.");
+    return p;
   } else if (sessionNick && p.nick !== sessionNick) {
     const [taken] = await sql<{ user_id: string }[]>`
       SELECT user_id FROM players WHERE nick = ${sessionNick} AND user_id != ${userId}
@@ -221,7 +245,7 @@ async function player(): Promise<Player> {
       p.nick = sessionNick;
     }
   }
-  return normalizePlayer(p);
+  return p;
 }
 
 function card() {
@@ -320,10 +344,18 @@ export async function GET() {
     const missionClaimed = !!missionClaimRow;
 
     const leadersRaw = await sql`
-      SELECT nick, balance, level FROM players ORDER BY balance DESC LIMIT 5
+      SELECT 
+        p.nick,
+        COALESCE(SUM(l.amount), 0)::bigint AS balance,
+        p.level
+      FROM players p
+      LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+      GROUP BY p.user_id, p.nick, p.level
+      ORDER BY balance DESC
+      LIMIT 5
     `;
     const leaders = leadersRaw.map((l) => ({
-      ...l,
+      nick: l.nick,
       balance: Number(l.balance),
       level: Number(l.level),
     }));
@@ -373,6 +405,7 @@ export async function POST(request: Request) {
       let newBal = 0;
 
       await sql.begin(async (tx) => {
+        await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
         const claimRes = await tx`
           INSERT INTO daily_claims(user_id, claim_day, amount, created_at)
           VALUES(${p.user_id}, ${day}, ${amount}, ${t})
@@ -381,13 +414,17 @@ export async function POST(request: Request) {
         if (claimRes.count === 0) {
           throw new Error("ALREADY_CLAIMED");
         }
-        const [updated] = await tx<{ balance: number }[]>`
-          UPDATE players
-          SET balance = balance + ${amount}, streak = ${streak}, last_bonus_day = ${day}, updated_at = ${t}
-          WHERE user_id = ${p.user_id}
-          RETURNING balance
+        const [balRow] = await tx<{ sum: string | number }[]>`
+          SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
         `;
-        newBal = Number(updated.balance);
+        const curBal = balRow ? Number(balRow.sum) : 0;
+        newBal = curBal + amount;
+
+        await tx`
+          UPDATE players
+          SET streak = ${streak}, last_bonus_day = ${day}, updated_at = ${t}
+          WHERE user_id = ${p.user_id}
+        `;
         await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at)
           VALUES(${id()}, ${p.user_id}, 'daily_bonus', ${amount}, ${newBal}, ${t})`;
       });
@@ -405,6 +442,7 @@ export async function POST(request: Request) {
       let newBal = 0;
 
       await sql.begin(async (tx) => {
+        await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
         const claimRes = await tx`
           INSERT INTO daily_mission_claims(user_id, claim_day, mission_id, amount, created_at)
           VALUES(${p.user_id}, ${day}, 'daily_5_rounds', ${amount}, ${t})
@@ -413,13 +451,17 @@ export async function POST(request: Request) {
         if (claimRes.count === 0) {
           throw new Error("ALREADY_CLAIMED");
         }
-        const [updated] = await tx<{ balance: number }[]>`
-          UPDATE players
-          SET balance = balance + ${amount}, updated_at = ${t}
-          WHERE user_id = ${p.user_id}
-          RETURNING balance
+        const [balRow] = await tx<{ sum: string | number }[]>`
+          SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
         `;
-        newBal = Number(updated.balance);
+        const curBal = balRow ? Number(balRow.sum) : 0;
+        newBal = curBal + amount;
+
+        await tx`
+          UPDATE players
+          SET updated_at = ${t}
+          WHERE user_id = ${p.user_id}
+        `;
         await tx`INSERT INTO ledger_entries(id, user_id, type, amount, balance_after, created_at)
           VALUES(${id()}, ${p.user_id}, 'daily_mission', ${amount}, ${newBal}, ${t})`;
       });
@@ -441,6 +483,9 @@ export async function POST(request: Request) {
     }
     if (e instanceof Error && e.message === "INSUFFICIENT_FUNDS") {
       return json({ error: "Niewystarczające saldo żetonów." }, 400);
+    }
+    if (e instanceof Error && e.message === "LEDGER_TAMPERING_DETECTED" && activePlayer) {
+      return triggerFraud(activePlayer, sql, "Niespójność bilansu konta z księgą transakcji");
     }
     return json({ error: e instanceof Error ? e.message : "Błąd serwera" }, 500);
   }
@@ -513,14 +558,19 @@ async function dealBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>
 
   let balAfterBet = 0;
   await sql.begin(async (tx) => {
-    const res = await tx<{ balance: number }[]>`
-      UPDATE players
-      SET balance = balance - ${bet}, updated_at = ${t}
-      WHERE user_id = ${p.user_id} AND balance >= ${bet}
-      RETURNING balance
+    await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
+    const [balRow] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
     `;
-    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
-    balAfterBet = Number(res[0].balance);
+    const curBal = balRow ? Number(balRow.sum) : 0;
+    if (curBal < bet) throw new Error("INSUFFICIENT_FUNDS");
+    balAfterBet = curBal - bet;
+
+    await tx`
+      UPDATE players
+      SET updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+    `;
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at)
       VALUES(${rid}, ${p.user_id}, 'blackjack', 'active', ${bet}, 0, 'W toku', ${JSON.stringify(payload)}, 1, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
@@ -553,23 +603,26 @@ async function actBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>)
       if (payload.cards.length !== 2) {
         return triggerFraud(p, sql, "Próba podwojenia po dobraniu dodatkowych kart");
       }
-      if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
-      const t = now();
-
-      const res = await tx<{ balance: number }[]>`
-        UPDATE players
-        SET balance = balance - ${r.bet}, updated_at = ${t}
-        WHERE user_id = ${p.user_id} AND balance >= ${r.bet}
-        RETURNING balance
+      await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
+      const [balRow] = await tx<{ sum: string | number }[]>`
+        SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
       `;
-      if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
-      const balAfterDouble = Number(res[0].balance);
+      const curBal = balRow ? Number(balRow.sum) : 0;
+      if (curBal < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
+      const t = now();
+      const balAfterDouble = curBal - r.bet;
+
       const roundRes = await tx`
         UPDATE game_rounds
         SET bet = bet * 2, revision = revision + 1
         WHERE id = ${r.id} AND revision = ${r.revision} AND state = 'active'
       `;
       if (roundRes.count === 0) throw new Error("ROUND_ALREADY_SETTLED");
+      await tx`
+        UPDATE players
+        SET updated_at = ${t}
+        WHERE user_id = ${p.user_id}
+      `;
       await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
         VALUES(${id()}, ${p.user_id}, ${r.id}, 'double', ${-r.bet}, ${balAfterDouble}, ${t})`;
 
@@ -648,14 +701,19 @@ async function startMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
 
   let balAfterBet = 0;
   await sql.begin(async (tx) => {
-    const res = await tx<{ balance: number }[]>`
-      UPDATE players
-      SET balance = balance - ${bet}, updated_at = ${t}
-      WHERE user_id = ${p.user_id} AND balance >= ${bet}
-      RETURNING balance
+    await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
+    const [balRow] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
     `;
-    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
-    balAfterBet = Number(res[0].balance);
+    const curBal = balRow ? Number(balRow.sum) : 0;
+    if (curBal < bet) throw new Error("INSUFFICIENT_FUNDS");
+    balAfterBet = curBal - bet;
+
+    await tx`
+      UPDATE players
+      SET updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+    `;
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at)
       VALUES(${rid}, ${p.user_id}, 'mines', 'active', ${bet}, 0, 'W toku', ${JSON.stringify(payload)}, 1, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
@@ -723,14 +781,19 @@ async function settle(p: Player, sql: RootSql, game: string, bet: number, payout
 
   let newBal = 0;
   await sql.begin(async (tx) => {
-    const res = await tx<{ balance: number }[]>`
-      UPDATE players
-      SET balance = balance + ${net}, xp = ${xp}, level = ${level}, updated_at = ${t}
-      WHERE user_id = ${p.user_id} AND balance >= ${bet}
-      RETURNING balance
+    await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
+    const [balRow] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
     `;
-    if (res.count === 0) throw new Error("INSUFFICIENT_FUNDS");
-    newBal = Number(res[0].balance);
+    const curBal = balRow ? Number(balRow.sum) : 0;
+    if (curBal < bet) throw new Error("INSUFFICIENT_FUNDS");
+    newBal = curBal + net;
+
+    await tx`
+      UPDATE players
+      SET xp = ${xp}, level = ${level}, updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+    `;
     await tx`INSERT INTO game_rounds(id, user_id, game, state, bet, payout, result, payload, revision, created_at, settled_at)
       VALUES(${rid}, ${p.user_id}, ${game}, 'settled', ${bet}, ${cappedPayout}, ${result}, ${JSON.stringify(payload)}, 1, ${t}, ${t})`;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
@@ -773,13 +836,19 @@ async function settleExisting(
     if (roundRes.count === 0) {
       throw new Error("ROUND_ALREADY_SETTLED");
     }
-    const [updatedPlayer] = await tx<{ balance: number }[]>`
-      UPDATE players
-      SET balance = balance + ${pay}, xp = ${xp}, level = ${level}, updated_at = ${t}
-      WHERE user_id = ${p.user_id}
-      RETURNING balance
+
+    await tx`SELECT nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE`;
+    const [balRow] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
     `;
-    newBal = Number(updatedPlayer.balance);
+    const curBal = balRow ? Number(balRow.sum) : 0;
+    newBal = curBal + pay;
+
+    await tx`
+      UPDATE players
+      SET xp = ${xp}, level = ${level}, updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+    `;
     await tx`INSERT INTO ledger_entries(id, user_id, round_id, type, amount, balance_after, created_at)
       VALUES(${id()}, ${p.user_id}, ${r.id}, 'payout', ${pay}, ${newBal}, ${t})`;
   });

@@ -92,13 +92,18 @@ async function main() {
     let newBal = 0;
 
     await sql.begin(async (tx) => {
-      const [updated] = await tx`
-        UPDATE players
-        SET balance = balance + ${log.previous_balance}, updated_at = ${t}
-        WHERE user_id = ${log.user_id}
-        RETURNING balance
+      await tx`SELECT nick FROM players WHERE user_id = ${log.user_id} FOR UPDATE`;
+      const [balRow] = await tx`
+        SELECT COALESCE(SUM(amount), 0)::bigint AS sum FROM ledger_entries WHERE user_id = ${log.user_id}
       `;
-      newBal = updated ? Number(updated.balance) : 0;
+      const curBal = Number(balRow?.sum || 0);
+      newBal = curBal + Number(log.previous_balance);
+
+      await tx`
+        UPDATE players
+        SET updated_at = ${t}
+        WHERE user_id = ${log.user_id}
+      `;
 
       await tx`
         INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)

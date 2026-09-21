@@ -34,8 +34,14 @@ const sql = postgres(url, {
 
 async function main() {
   const [player] = await sql`
-    SELECT user_id, nick, balance FROM players 
-    WHERE user_id = ${identifier} OR nick = ${identifier} OR email = ${identifier}
+    SELECT 
+      p.user_id, 
+      p.nick, 
+      COALESCE(SUM(l.amount), 0)::bigint AS balance 
+    FROM players p
+    LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+    WHERE p.user_id = ${identifier} OR p.nick = ${identifier} OR p.email = ${identifier}
+    GROUP BY p.user_id, p.nick
   `;
   if (!player) {
     console.error(`Błąd: Nie znaleziono gracza o identyfikatorze (user_id/nick/email): "${identifier}".`);
@@ -47,13 +53,18 @@ async function main() {
   let newBal = 0;
 
   await sql.begin(async (tx) => {
-    const [updated] = await tx`
-      UPDATE players
-      SET balance = balance + ${amount}, updated_at = ${now}
-      WHERE user_id = ${player.user_id}
-      RETURNING balance
+    await tx`SELECT nick FROM players WHERE user_id = ${player.user_id} FOR UPDATE`;
+    const [balRow] = await tx`
+      SELECT COALESCE(SUM(amount), 0)::bigint AS sum FROM ledger_entries WHERE user_id = ${player.user_id}
     `;
-    newBal = Number(updated.balance);
+    const curBal = Number(balRow?.sum || 0);
+    newBal = curBal + amount;
+
+    await tx`
+      UPDATE players
+      SET updated_at = ${now}
+      WHERE user_id = ${player.user_id}
+    `;
 
     await tx`
       INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)

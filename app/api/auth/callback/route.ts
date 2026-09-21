@@ -82,8 +82,8 @@ export async function GET(request: Request) {
     if (!existing) {
       await sql.begin(async (tx) => {
         await tx`
-          INSERT INTO players (user_id, email, nick, balance, xp, level, streak, created_at, updated_at)
-          VALUES (${userId}, ${email}, ${finalNick}, 1000, 0, 1, 0, ${now}, ${now})
+          INSERT INTO players (user_id, email, nick, xp, level, streak, created_at, updated_at)
+          VALUES (${userId}, ${email}, ${finalNick}, 0, 1, 0, ${now}, ${now})
         `;
         await tx`
           INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)

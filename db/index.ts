@@ -50,7 +50,6 @@ export async function initPgTables() {
       user_id TEXT PRIMARY KEY NOT NULL,
       email TEXT NOT NULL,
       nick TEXT NOT NULL,
-      balance BIGINT NOT NULL DEFAULT 1000,
       xp INTEGER NOT NULL DEFAULT 0,
       level INTEGER NOT NULL DEFAULT 1,
       streak INTEGER NOT NULL DEFAULT 0,
@@ -118,12 +117,7 @@ export async function initPgTables() {
     CREATE INDEX IF NOT EXISTS idx_fraud_logs_user ON fraud_logs (user_id);
     CREATE INDEX IF NOT EXISTS idx_fraud_logs_created ON fraud_logs (created_at);
 
-    DO $$
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_players_balance_non_negative') THEN
-        ALTER TABLE players ADD CONSTRAINT check_players_balance_non_negative CHECK (balance >= 0);
-      END IF;
-    END $$;
+    ALTER TABLE players DROP COLUMN IF EXISTS balance;
   `);
   _tablesInitialized = true;
 }

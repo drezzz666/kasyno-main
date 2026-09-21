@@ -136,6 +136,12 @@ function getHistoryDetails(item: HistoryEntry) {
       subtitle: item.result || "Przywrócenie salda (anty-fraud)",
     };
   }
+  if (item.type === "reconciliation") {
+    return {
+      title: "Wyrównanie bilansu",
+      subtitle: item.result || "Uzgadnianie księgi konta",
+    };
+  }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");
   if (item.type === "round") {
     return {
