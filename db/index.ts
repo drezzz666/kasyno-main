@@ -105,6 +105,19 @@ export async function initPgTables() {
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_user_created ON ledger_entries (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_round ON ledger_entries (round_id);
 
+    CREATE TABLE IF NOT EXISTS fraud_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT NOT NULL,
+      nick TEXT NOT NULL,
+      previous_balance BIGINT NOT NULL,
+      reason TEXT NOT NULL,
+      details TEXT,
+      created_at BIGINT NOT NULL,
+      restored_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS idx_fraud_logs_user ON fraud_logs (user_id);
+    CREATE INDEX IF NOT EXISTS idx_fraud_logs_created ON fraud_logs (created_at);
+
     DO $$
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_players_balance_non_negative') THEN

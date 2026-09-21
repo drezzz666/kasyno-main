@@ -76,14 +76,17 @@ function checkRateLimit(userId: string): { ok: boolean; spam: boolean } {
   return { ok: true, spam: false };
 }
 
-async function triggerFraud(p: Player, sql: RootSql, reason: string): Promise<Response> {
+async function triggerFraud(p: Player, sql: RootSql, reason: string, details?: string): Promise<Response> {
   const t = now();
+  const logId = id();
   let clearedAmount = 0;
   await sql.begin(async (tx) => {
-    const [fresh] = await tx<{ balance: number }[]>`
-      SELECT balance FROM players WHERE user_id = ${p.user_id} FOR UPDATE
+    const [fresh] = await tx<{ balance: number; nick: string }[]>`
+      SELECT balance, nick FROM players WHERE user_id = ${p.user_id} FOR UPDATE
     `;
     clearedAmount = fresh ? Number(fresh.balance) : 0;
+    const playerNick = fresh?.nick || p.nick || "nieznany";
+
     await tx`
       UPDATE players
       SET balance = 0, updated_at = ${t}
@@ -100,6 +103,10 @@ async function triggerFraud(p: Player, sql: RootSql, reason: string): Promise<Re
         VALUES (${id()}, ${p.user_id}, 'fraud_penalty', ${-clearedAmount}, 0, ${t})
       `;
     }
+    await tx`
+      INSERT INTO fraud_logs (id, user_id, nick, previous_balance, reason, details, created_at)
+      VALUES (${logId}, ${p.user_id}, ${playerNick}, ${clearedAmount}, ${reason}, ${details || null}, ${t})
+    `;
   });
 
   return json(
@@ -107,6 +114,7 @@ async function triggerFraud(p: Player, sql: RootSql, reason: string): Promise<Re
       error: `Wykryto naruszenie integralności gry (${reason}). Twoje saldo zostało wyzerowane.`,
       balance: 0,
       fraud: true,
+      fraudLogId: logId,
     },
     403
   );

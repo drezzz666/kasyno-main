@@ -77,3 +77,21 @@ export const ledgerEntries = pgTable(
     index("idx_ledger_entries_round").on(table.roundId),
   ]
 );
+
+export const fraudLogs = pgTable(
+  "fraud_logs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    nick: text("nick").notNull(),
+    previousBalance: bigint("previous_balance", { mode: "number" }).notNull(),
+    reason: text("reason").notNull(),
+    details: text("details"),
+    createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    restoredAt: bigint("restored_at", { mode: "number" }),
+  },
+  (table) => [
+    index("idx_fraud_logs_user").on(table.userId),
+    index("idx_fraud_logs_created").on(table.createdAt),
+  ]
+);
