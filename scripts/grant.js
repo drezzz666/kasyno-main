@@ -30,6 +30,7 @@ const sql = postgres(url, {
 });
 
 async function main() {
+  await sql`ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS reason TEXT;`;
   const [player] = await sql`
     SELECT user_id, nick, balance FROM players 
     WHERE user_id = ${identifier} OR nick = ${identifier} OR email = ${identifier}
@@ -53,13 +54,14 @@ async function main() {
     newBal = Number(updated.balance);
 
     await tx`
-      INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-      VALUES (${crypto.randomUUID()}, ${player.user_id}, 'grant', ${amount}, ${newBal}, ${now})
+      INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, reason)
+      VALUES (${crypto.randomUUID()}, ${player.user_id}, 'grant', ${amount}, ${newBal}, ${now}, ${reason})
     `;
   });
 
   console.log(`✓ Pomyślnie zrealizowano przyznanie środków dla gracza "${player.nick}":`);
   console.log(`  Kwota:            ${amount > 0 ? "+" : ""}${amount} $FGT`);
+  console.log(`  Powód:            ${reason}`);
   console.log(`  Poprzednie saldo: ${player.balance} $FGT`);
   console.log(`  Nowe saldo:       ${newBal} $FGT`);
 

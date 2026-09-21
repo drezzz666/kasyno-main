@@ -165,7 +165,7 @@ export async function GET() {
         l.balance_after AS "balanceAfter",
         l.created_at AS "createdAt",
         g.game,
-        g.result,
+        COALESCE(l.reason, g.result) AS result,
         g.bet,
         g.payout
       FROM ledger_entries l

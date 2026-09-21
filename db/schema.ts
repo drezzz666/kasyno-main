@@ -71,6 +71,7 @@ export const ledgerEntries = pgTable(
     amount: bigint("amount", { mode: "number" }).notNull(),
     balanceAfter: bigint("balance_after", { mode: "number" }).notNull(),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
+    reason: text("reason"),
   },
   (table) => [
     index("idx_ledger_entries_user_created").on(table.userId, table.createdAt),
