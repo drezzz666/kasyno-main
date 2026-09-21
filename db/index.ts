@@ -104,6 +104,13 @@ export async function initPgTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_user_created ON ledger_entries (user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_ledger_entries_round ON ledger_entries (round_id);
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_players_balance_non_negative') THEN
+        ALTER TABLE players ADD CONSTRAINT check_players_balance_non_negative CHECK (balance >= 0);
+      END IF;
+    END $$;
   `);
   _tablesInitialized = true;
 }

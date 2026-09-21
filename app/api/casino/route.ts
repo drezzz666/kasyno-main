@@ -50,13 +50,22 @@ const rand = (max: number) => crypto.getRandomValues(new Uint32Array(1))[0] % ma
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
 const lastActionTimes = new Map<string, number>();
+const rateLimitSpam = new Map<string, { lastViolation: number; count: number }>();
 const ACTION_COOLDOWN_MS = 150;
 
-function checkRateLimit(userId: string): boolean {
+function checkRateLimit(userId: string): { ok: boolean; spam: boolean } {
   const currentTime = Date.now();
   const last = lastActionTimes.get(userId) || 0;
   if (currentTime - last < ACTION_COOLDOWN_MS) {
-    return false;
+    const spamRecord = rateLimitSpam.get(userId) || { lastViolation: currentTime, count: 0 };
+    if (currentTime - spamRecord.lastViolation < 5000) {
+      spamRecord.count++;
+    } else {
+      spamRecord.count = 1;
+    }
+    spamRecord.lastViolation = currentTime;
+    rateLimitSpam.set(userId, spamRecord);
+    return { ok: false, spam: spamRecord.count > 10 };
   }
   lastActionTimes.set(userId, currentTime);
   if (lastActionTimes.size > 5000) {
@@ -64,7 +73,66 @@ function checkRateLimit(userId: string): boolean {
       if (currentTime - t > 60000) lastActionTimes.delete(k);
     }
   }
-  return true;
+  return { ok: true, spam: false };
+}
+
+async function triggerFraud(p: Player, sql: RootSql, reason: string): Promise<Response> {
+  const t = now();
+  let clearedAmount = 0;
+  await sql.begin(async (tx) => {
+    const [fresh] = await tx<{ balance: number }[]>`
+      SELECT balance FROM players WHERE user_id = ${p.user_id} FOR UPDATE
+    `;
+    clearedAmount = fresh ? Number(fresh.balance) : 0;
+    await tx`
+      UPDATE players
+      SET balance = 0, updated_at = ${t}
+      WHERE user_id = ${p.user_id}
+    `;
+    await tx`
+      UPDATE game_rounds
+      SET state = 'cancelled', result = 'Anulowano - wykryto oszustwo', settled_at = ${t}
+      WHERE user_id = ${p.user_id} AND state = 'active'
+    `;
+    if (clearedAmount > 0) {
+      await tx`
+        INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+        VALUES (${id()}, ${p.user_id}, 'fraud_penalty', ${-clearedAmount}, 0, ${t})
+      `;
+    }
+  });
+
+  return json(
+    {
+      error: `Wykryto naruszenie integralności gry (${reason}). Twoje saldo zostało wyzerowane.`,
+      balance: 0,
+      fraud: true,
+    },
+    403
+  );
+}
+
+function validateBet(
+  b: Record<string, unknown>,
+  p: Player
+): { ok: true; bet: number } | { ok: false; fraud: boolean; reason: string } {
+  const rawBet = b.bet;
+  if (typeof rawBet !== "number" || !Number.isFinite(rawBet)) {
+    return { ok: false, fraud: true, reason: "Nieliczbowa lub nieskończona stawka" };
+  }
+  if (!Number.isInteger(rawBet)) {
+    return { ok: false, fraud: true, reason: "Niecałkowita stawka" };
+  }
+  if (rawBet <= 0) {
+    return { ok: false, fraud: true, reason: "Niedozwolona ujemna lub zerowa stawka" };
+  }
+  if (rawBet > MAX_BET) {
+    return { ok: false, fraud: true, reason: `Przekroczono maksymalną stawkę (${rawBet} > ${MAX_BET})` };
+  }
+  if (rawBet > p.balance) {
+    return { ok: false, fraud: false, reason: "Za mało żetonów na koncie" };
+  }
+  return { ok: true, bet: rawBet };
 }
 
 async function getRoundsToday(sql: Sql, userId: string): Promise<number> {
@@ -254,13 +322,19 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let activePlayer: Player | null = null;
+  const sql = getSql();
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const p = await player();
-    if (!checkRateLimit(p.user_id)) {
+    activePlayer = p;
+    const rateCheck = checkRateLimit(p.user_id);
+    if (!rateCheck.ok) {
+      if (rateCheck.spam) {
+        return triggerFraud(p, sql, "Agresywny spam zapytań / bot flooding");
+      }
       return json({ error: "Zbyt wiele zapytań. Odczekaj chwilę." }, 429);
     }
-    const sql = getSql();
 
     if (body.action === "bonus") {
       const day = new Date().toISOString().slice(0, 10);
@@ -342,15 +416,25 @@ export async function POST(request: Request) {
     if (e instanceof Error && e.message === "INSUFFICIENT_FUNDS") {
       return json({ error: "Niewystarczające saldo żetonów." }, 400);
     }
+    if (e instanceof Error && e.message === "LEDGER_TAMPERING_DETECTED" && activePlayer) {
+      return triggerFraud(activePlayer, sql, "Niespójność bilansu konta z księgą transakcji");
+    }
+    if (e instanceof Error && e.message === "STATISTICAL_ANOMALY_DETECTED" && activePlayer) {
+      return triggerFraud(activePlayer, sql, "Wykryto statystycznie niemożliwą serię wygranych (anomalia)");
+    }
     return json({ error: e instanceof Error ? e.message : "Błąd serwera" }, 500);
   }
 }
 
 async function instantGame(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const game = String(b.game || "");
-  const bet = Math.floor(Number(b.bet));
   if (!["roulette", "slots"].includes(game)) return json({ error: "Nieznana gra." }, 400);
-  if (!Number.isFinite(bet) || bet < MIN_BET || bet > MAX_BET || bet > p.balance) return json({ error: "Nieprawidłowa stawka." }, 400);
+  const v = validateBet(b, p);
+  if (!v.ok) {
+    if (v.fraud) return triggerFraud(p, sql, v.reason);
+    return json({ error: v.reason }, 400);
+  }
+  const bet = v.bet;
 
   let payout = 0;
   let result = "";
@@ -389,8 +473,12 @@ async function instantGame(p: Player, sql: RootSql, b: Record<string, unknown>) 
 }
 
 async function dealBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>) {
-  const bet = Math.floor(Number(b.bet));
-  if (!Number.isFinite(bet) || bet < MIN_BET || bet > MAX_BET || bet > p.balance) return json({ error: "Nieprawidłowa stawka." }, 400);
+  const v = validateBet(b, p);
+  if (!v.ok) {
+    if (v.fraud) return triggerFraud(p, sql, v.reason);
+    return json({ error: v.reason }, 400);
+  }
+  const bet = v.bet;
 
   const [active] = await sql<{ id: string }[]>`
     SELECT id FROM game_rounds WHERE user_id = ${p.user_id} AND state = 'active'
@@ -442,7 +530,9 @@ async function actBlackjack(p: Player, sql: RootSql, b: Record<string, unknown>)
     const payload = JSON.parse(r.payload) as { cards: { rank: string; suit: string }[]; dealer: { rank: string; suit: string }[] };
 
     if (act === "double") {
-      if (payload.cards.length !== 2) return json({ error: "Podwojenie jest dostępne tylko po rozdaniu." }, 400);
+      if (payload.cards.length !== 2) {
+        return triggerFraud(p, sql, "Próba podwojenia po dobraniu dodatkowych kart");
+      }
       if (p.balance < r.bet) return json({ error: "Za mało żetonów na podwojenie." }, 400);
       const t = now();
 
@@ -512,9 +602,18 @@ async function finishBlackjack(
 }
 
 async function startMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
-  const bet = Math.floor(Number(b.bet));
-  const mineCount = Math.max(2, Math.min(12, Math.floor(Number(b.mines) || 5)));
-  if (!Number.isFinite(bet) || bet < MIN_BET || bet > MAX_BET || bet > p.balance) return json({ error: "Nieprawidłowa stawka." }, 400);
+  const v = validateBet(b, p);
+  if (!v.ok) {
+    if (v.fraud) return triggerFraud(p, sql, v.reason);
+    return json({ error: v.reason }, 400);
+  }
+  const bet = v.bet;
+
+  const rawMines = b.mines;
+  if (rawMines !== undefined && (typeof rawMines !== "number" || !Number.isInteger(rawMines) || rawMines < 2 || rawMines > 12)) {
+    return triggerFraud(p, sql, `Niedozwolona liczba min: ${rawMines}`);
+  }
+  const mineCount = Math.floor(Number(rawMines) || 5);
 
   const [active] = await sql<{ id: string }[]>`
     SELECT id FROM game_rounds WHERE user_id = ${p.user_id} AND state = 'active'
@@ -549,11 +648,14 @@ async function startMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
 async function actMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
   const rid = String(b.roundId || "");
   const isCashout = String(b.move) === "cashout";
-  const tile = Math.floor(Number(b.tile));
+  const rawTile = b.tile;
 
-  if (!isCashout && (!Number.isInteger(tile) || tile < 0 || tile > 24)) {
-    return json({ error: "Nieprawidłowe pole." }, 400);
+  if (!isCashout) {
+    if (typeof rawTile !== "number" || !Number.isInteger(rawTile) || rawTile < 0 || rawTile > 24) {
+      return triggerFraud(p, sql, `Nieprawidłowe pole w Saperze: ${rawTile}`);
+    }
   }
+  const tile = Number(rawTile);
 
   return await sql.begin(async (tx) => {
     const [r] = await tx<Round[]>`
@@ -564,7 +666,9 @@ async function actMines(p: Player, sql: RootSql, b: Record<string, unknown>) {
     const payload = JSON.parse(r.payload) as { mines: number[]; revealed: number[]; mineCount: number; multiplier: number };
 
     if (isCashout) {
-      if (!payload.revealed.length) return json({ error: "Odkryj przynajmniej jedno pole." }, 400);
+      if (!payload.revealed.length) {
+        return triggerFraud(p, sql, "Próba cashoutu bez odkrycia żadnego pola");
+      }
       const rawPayout = Math.floor(r.bet * payload.multiplier);
       const payout = Math.min(MAX_PAYOUT, rawPayout);
       return settleExisting(p, tx, r, payout, `Cash-out ×${payload.multiplier.toFixed(2)}`, payload, p.balance, r.revision + 1);
@@ -599,6 +703,13 @@ async function settle(p: Player, sql: RootSql, game: string, bet: number, payout
 
   let newBal = 0;
   await sql.begin(async (tx) => {
+    const [ledgerCheck] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
+    `;
+    if (Number(p.balance) > Number(ledgerCheck?.sum || 0) + 1) {
+      throw new Error("LEDGER_TAMPERING_DETECTED");
+    }
+
     const res = await tx<{ balance: number }[]>`
       UPDATE players
       SET balance = balance + ${net}, xp = ${xp}, level = ${level}, updated_at = ${t}
@@ -641,6 +752,27 @@ async function settleExisting(
 
   let newBal = 0;
   await runWithTx(sql, async (tx) => {
+    const [ledgerCheck] = await tx<{ sum: string | number }[]>`
+      SELECT COALESCE(SUM(amount), 0) as sum FROM ledger_entries WHERE user_id = ${p.user_id}
+    `;
+    if (Number(p.balance) > Number(ledgerCheck?.sum || 0) + 1) {
+      throw new Error("LEDGER_TAMPERING_DETECTED");
+    }
+
+    if (pay / Math.max(1, r.bet) >= 50) {
+      const recentBigWins = await tx<{ payout: number; bet: number }[]>`
+        SELECT payout, bet FROM game_rounds
+        WHERE user_id = ${p.user_id} AND state = 'settled'
+        ORDER BY settled_at DESC LIMIT 2
+      `;
+      if (
+        recentBigWins.length === 2 &&
+        recentBigWins.every((prev) => Number(prev.payout) / Math.max(1, Number(prev.bet)) >= 50)
+      ) {
+        throw new Error("STATISTICAL_ANOMALY_DETECTED");
+      }
+    }
+
     const roundRes = await tx`
       UPDATE game_rounds
       SET state = 'settled', payout = ${pay}, result = ${result}, payload = ${JSON.stringify(payload)}, revision = ${revision}, settled_at = ${t}
