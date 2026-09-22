@@ -15,13 +15,13 @@ var adminPerms int64 = discordgo.PermissionAdministrator
 var slashCommands = []*discordgo.ApplicationCommand{
 	{
 		Name:                     "casino-money-add",
-		Description:              "👑 [ADMIN] Doładuj środki $FGT dla gracza",
+		Description:              "👑 [ADMIN] Doładuj środki $FGT dla gracza lub wszystkich (*)",
 		DefaultMemberPermissions: &adminPerms,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "gracz",
-				Description:  "Wybierz gracza z listy lub wpisz nick/ID",
+				Description:  "Nick/ID gracza lub * (wszyscy zarejestrowani gracze)",
 				Required:     true,
 				Autocomplete: true,
 			},
@@ -41,13 +41,13 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	},
 	{
 		Name:                     "casino-money-remove",
-		Description:              "👑 [ADMIN] Odejmij środki $FGT z konta gracza",
+		Description:              "👑 [ADMIN] Odejmij środki $FGT z konta gracza lub wszystkich (*)",
 		DefaultMemberPermissions: &adminPerms,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "gracz",
-				Description:  "Wybierz gracza z listy lub wpisz nick/ID",
+				Description:  "Nick/ID gracza lub * (wszyscy zarejestrowani gracze)",
 				Required:     true,
 				Autocomplete: true,
 			},
@@ -67,13 +67,13 @@ var slashCommands = []*discordgo.ApplicationCommand{
 	},
 	{
 		Name:                     "casino-money-set",
-		Description:              "👑 [ADMIN] Ustaw dokładne saldo $FGT gracza",
+		Description:              "👑 [ADMIN] Ustaw dokładne saldo $FGT gracza lub wszystkich (*)",
 		DefaultMemberPermissions: &adminPerms,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "gracz",
-				Description:  "Wybierz gracza z listy lub wpisz nick/ID",
+				Description:  "Nick/ID gracza lub * (wszyscy zarejestrowani gracze)",
 				Required:     true,
 				Autocomplete: true,
 			},
@@ -428,11 +428,20 @@ func (b *Bot) handleAutocomplete(s *discordgo.Session, i *discordgo.InteractionC
 		}
 	}
 
+	choices := []*discordgo.ApplicationCommandOptionChoice{}
+
+	// If this is a money management command, always offer the wildcard * option
+	if data.Name == "casino-money-add" || data.Name == "casino-money-remove" || data.Name == "casino-money-set" {
+		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+			Name:  "⭐ * (Wszyscy zarejestrowani gracze)",
+			Value: "*",
+		})
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	players, _, err := b.ledger.AdminListUsers(ctx, currentVal, 25, 0)
-	choices := []*discordgo.ApplicationCommandOptionChoice{}
+	players, _, err := b.ledger.AdminListUsers(ctx, currentVal, 20, 0)
 	if err == nil {
 		for _, p := range players {
 			name := fmt.Sprintf("%s (Saldo: %s | LVL %d)", p.Nick, formatFGT(p.Balance), p.Level)
@@ -475,32 +484,45 @@ func (b *Bot) handleComponentInteraction(s *discordgo.Session, i *discordgo.Inte
 }
 
 func (b *Bot) respondInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, embed *discordgo.MessageEmbed) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Embeds: []*discordgo.MessageEmbed{embed},
 		},
 	})
+	if err != nil {
+		// Fallback: send as direct channel message so command outcome is never lost
+		_, _ = s.ChannelMessageSendEmbed(i.ChannelID, embed)
+	}
 }
 
 func (b *Bot) respondInteractionWithComponents(s *discordgo.Session, i *discordgo.InteractionCreate, embed *discordgo.MessageEmbed, components []discordgo.MessageComponent) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Embeds:     []*discordgo.MessageEmbed{embed},
 			Components: components,
 		},
 	})
+	if err != nil {
+		_, _ = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		})
+	}
 }
 
 func (b *Bot) respondInteractionError(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
 			Content: msg,
 		},
 	})
+	if err != nil {
+		_, _ = s.ChannelMessageSend(i.ChannelID, msg)
+	}
 }
 
 func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -581,83 +603,173 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, embed)
 		}
 
-
-	case "!user":
-		if len(args) == 0 {
-			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user <money|create|setnick|delete|info>`")
+	// Shorthand commands: !give <gracz|*> <kwota> [powód]
+	case "!give", "!grant", "!addmoney":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `"+cmd+" <gracz|*> <kwota> [powód]`")
 			return
 		}
-		sub := strings.ToLower(args[0])
-		switch sub {
-		case "money":
-			if len(args) < 4 {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user money <gracz> <add|remove|set> <kwota> [powód]`")
-				return
-			}
-			target := args[1]
-			action := strings.ToLower(args[2])
-			val, err := strconv.ParseInt(args[3], 10, 64)
-			if err != nil {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna kwota $FGT.")
-				return
-			}
-			reason := "Zarządzanie kontem (Discord)"
-			if len(args) > 4 {
-				reason = strings.Join(args[4:], " ")
-			}
+		target := args[0]
+		val, err := strconv.ParseInt(args[1], 10, 64)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna kwota $FGT.")
+			return
+		}
+		reason := "Doładowanie administratora (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, val, reason))
 
-			switch action {
-			case "add", "+":
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, val, reason))
-			case "remove", "sub", "-":
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, -val, reason))
-			case "set", "=":
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMoney(ctx, target, val, reason))
-			default:
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Nieznana akcja: użyj `add`, `remove` lub `set`.")
-			}
+	// Shorthand commands: !take <gracz|*> <kwota> [powód]
+	case "!take", "!removemoney":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `"+cmd+" <gracz|*> <kwota> [powód]`")
+			return
+		}
+		target := args[0]
+		val, err := strconv.ParseInt(args[1], 10, 64)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna kwota $FGT.")
+			return
+		}
+		reason := "Korekta salda (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, -val, reason))
 
-		case "create":
-			if len(args) < 2 {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user create <nick> [id] [email] [poczatkowe_saldo]`")
+	// Shorthand commands: !setmoney <gracz|*> <kwota> [powód]
+	case "!setmoney":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!setmoney <gracz|*> <kwota> [powód]`")
+			return
+		}
+		target := args[0]
+		val, err := strconv.ParseInt(args[1], 10, 64)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna kwota $FGT.")
+			return
+		}
+		reason := "Ręczne ustawienie salda (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMoney(ctx, target, val, reason))
+
+	case "!user", "!money":
+		var subArgs []string
+		if cmd == "!money" {
+			subArgs = args
+		} else {
+			if len(args) == 0 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user <money|create|setnick|delete|info>`")
 				return
 			}
-			nick := args[1]
-			var uid, email string
-			var initBal int64 = 1000
-			if len(args) > 2 {
-				uid = args[2]
-			}
-			if len(args) > 3 {
-				email = args[3]
-			}
-			if len(args) > 4 {
-				if b, err := strconv.ParseInt(args[4], 10, 64); err == nil {
-					initBal = b
+			sub := strings.ToLower(args[0])
+			if sub != "money" {
+				switch sub {
+				case "create":
+					if len(args) < 2 {
+						_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user create <nick> [id] [email] [poczatkowe_saldo]`")
+						return
+					}
+					nick := args[1]
+					var uid, email string
+					var initBal int64 = 1000
+					if len(args) > 2 {
+						uid = args[2]
+					}
+					if len(args) > 3 {
+						email = args[3]
+					}
+					if len(args) > 4 {
+						if b, err := strconv.ParseInt(args[4], 10, 64); err == nil {
+							initBal = b
+						}
+					}
+					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeCreateUser(ctx, nick, uid, email, initBal))
+					return
+
+				case "setnick":
+					if len(args) < 3 {
+						_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user setnick <stary_nick_lub_id> <nowy_nick>`")
+						return
+					}
+					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetNick(ctx, args[1], args[2]))
+					return
+
+				case "delete":
+					if len(args) < 2 {
+						_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user delete <gracz>`")
+						return
+					}
+					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeDeleteUser(ctx, args[1]))
+					return
+
+				case "info":
+					if len(args) < 2 {
+						_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user info <gracz>`")
+						return
+					}
+					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.buildPlayerProfileEmbed(ctx, args[1]))
+					return
+
+				default:
+					_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Nieznana podkomenda `!user`. Dostępne: `money`, `create`, `setnick`, `delete`, `info`.")
+					return
 				}
 			}
-			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeCreateUser(ctx, nick, uid, email, initBal))
+			subArgs = args[1:]
+		}
 
-		case "setnick":
-			if len(args) < 3 {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user setnick <stary_nick_lub_id> <nowy_nick>`")
-				return
-			}
-			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetNick(ctx, args[1], args[2]))
+		// Handle money management with flexible argument ordering:
+		// Syntax A: !user money <gracz|*> <add|remove|set> <kwota> [powód]
+		// Syntax B: !user money <add|remove|set> <gracz|*> <kwota> [powód]
+		if len(subArgs) < 3 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user money <gracz|*> <add|remove|set> <kwota> [powód]`\nlub `!give <gracz|*> <kwota>`")
+			return
+		}
 
-		case "delete":
-			if len(args) < 2 {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user delete <gracz>`")
-				return
-			}
-			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeDeleteUser(ctx, args[1]))
+		var target, action string
+		var valStr string
+		var reasonIdx int
 
-		case "info":
-			if len(args) < 2 {
-				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!user info <gracz>`")
-				return
-			}
-			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.buildPlayerProfileEmbed(ctx, args[1]))
+		firstLower := strings.ToLower(subArgs[0])
+		if firstLower == "add" || firstLower == "+" || firstLower == "remove" || firstLower == "sub" || firstLower == "-" || firstLower == "set" || firstLower == "=" {
+			// Syntax B: action target val
+			action = firstLower
+			target = subArgs[1]
+			valStr = subArgs[2]
+			reasonIdx = 3
+		} else {
+			// Syntax A: target action val
+			target = subArgs[0]
+			action = strings.ToLower(subArgs[1])
+			valStr = subArgs[2]
+			reasonIdx = 3
+		}
+
+		val, err := strconv.ParseInt(valStr, 10, 64)
+		if err != nil {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna kwota $FGT.")
+			return
+		}
+
+		reason := "Zarządzanie kontem (Discord)"
+		if len(subArgs) > reasonIdx {
+			reason = strings.Join(subArgs[reasonIdx:], " ")
+		}
+
+		switch action {
+		case "add", "+":
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, val, reason))
+		case "remove", "sub", "-":
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMoney(ctx, target, -val, reason))
+		case "set", "=":
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMoney(ctx, target, val, reason))
+		default:
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Nieznana akcja: użyj `add`, `remove` lub `set`.")
 		}
 	}
 }

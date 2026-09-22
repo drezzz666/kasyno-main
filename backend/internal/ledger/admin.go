@@ -182,6 +182,140 @@ func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offs
 	return players, total, nil
 }
 
+// GrantBalanceAll adds (or removes) balance for ALL registered players in the casino.
+func (s *Service) GrantBalanceAll(ctx context.Context, amount int64, reason string) (int, int64, error) {
+	if amount == 0 {
+		return 0, 0, fmt.Errorf("kwota musi być różna od 0")
+	}
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT p.user_id, COALESCE(SUM(l.amount), 0)
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		GROUP BY p.user_id
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
+	}
+	defer rows.Close()
+
+	type playerItem struct {
+		userID  string
+		balance int64
+	}
+	var players []playerItem
+	for rows.Next() {
+		var pi playerItem
+		if err := rows.Scan(&pi.userID, &pi.balance); err == nil {
+			players = append(players, pi)
+		}
+	}
+
+	if len(players) == 0 {
+		return 0, 0, fmt.Errorf("brak zarejestrowanych graczy w bazie danych")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	t := NowMs()
+	updatedCount := 0
+	var totalTransferred int64
+
+	for _, p := range players {
+		newBal := p.balance + amount
+		if newBal < 0 {
+			newBal = 0
+		}
+		actualDelta := newBal - p.balance
+		if actualDelta == 0 {
+			continue
+		}
+
+		_, _ = tx.Exec(ctx, `UPDATE players SET updated_at = $1 WHERE user_id = $2`, t, p.userID)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'grant_all', $3, $4, $5)
+		`, uuid.NewString(), p.userID, actualDelta, newBal, t)
+		if err != nil {
+			return 0, 0, fmt.Errorf("błąd aktualizacji konta %s: %w", p.userID, err)
+		}
+		updatedCount++
+		totalTransferred += actualDelta
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+
+	return updatedCount, totalTransferred, nil
+}
+
+// AdminSetBalanceAll sets balance for ALL registered players to exact newBalance.
+func (s *Service) AdminSetBalanceAll(ctx context.Context, newBalance int64, reason string) (int, error) {
+	if newBalance < 0 {
+		return 0, fmt.Errorf("saldo nie może być ujemne")
+	}
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT p.user_id, COALESCE(SUM(l.amount), 0)
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		GROUP BY p.user_id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
+	}
+	defer rows.Close()
+
+	type playerItem struct {
+		userID  string
+		balance int64
+	}
+	var players []playerItem
+	for rows.Next() {
+		var pi playerItem
+		if err := rows.Scan(&pi.userID, &pi.balance); err == nil {
+			players = append(players, pi)
+		}
+	}
+
+	if len(players) == 0 {
+		return 0, fmt.Errorf("brak zarejestrowanych graczy w bazie danych")
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	t := NowMs()
+	count := 0
+
+	for _, p := range players {
+		delta := newBalance - p.balance
+		_, _ = tx.Exec(ctx, `UPDATE players SET updated_at = $1 WHERE user_id = $2`, t, p.userID)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'admin_set_all', $3, $4, $5)
+		`, uuid.NewString(), p.userID, delta, newBalance, t)
+		if err != nil {
+			return 0, fmt.Errorf("błąd aktualizacji konta %s: %w", p.userID, err)
+		}
+		count++
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // AdminSetBalance explicitly sets player balance to a specified amount and logs ledger entry.
 func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBalance int64, reason string) (string, int64, int64, error) {
 	if newBalance < 0 {
@@ -189,6 +323,15 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 	}
 	if reason == "" {
 		reason = "Ręczna zmiana salda przez administratora"
+	}
+
+	trimmed := strings.TrimSpace(identifier)
+	if trimmed == "*" || strings.EqualFold(trimmed, "all") || strings.EqualFold(trimmed, "wszyscy") || strings.EqualFold(trimmed, "@everyone") {
+		count, err := s.AdminSetBalanceAll(ctx, newBalance, reason)
+		if err != nil {
+			return "", 0, 0, err
+		}
+		return fmt.Sprintf("Wszyscy gracze (%d kont)", count), 0, newBalance, nil
 	}
 
 	var p Player
