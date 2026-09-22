@@ -85,6 +85,7 @@ async function handlePlayers(sql, args) {
         p.level,
         p.streak,
         p.created_at,
+        p.updated_at,
         COALESCE(l.balance, 0)::bigint AS balance,
         COALESCE(g.rounds_count, 0)::int AS rounds_count
       FROM players p
@@ -94,7 +95,7 @@ async function handlePlayers(sql, args) {
       LEFT JOIN (
         SELECT user_id, COUNT(*) AS rounds_count FROM game_rounds GROUP BY user_id
       ) g ON p.user_id = g.user_id
-      ORDER BY p.created_at DESC
+      ORDER BY p.updated_at DESC
       LIMIT 30
     `;
 
@@ -106,6 +107,7 @@ async function handlePlayers(sql, args) {
         Poziom: p.level,
         Streak: p.streak,
         Rundy: p.rounds_count,
+        "Ostatnia aktywność": formatTime(p.updated_at),
         Email: p.email,
         "User ID": p.user_id,
       }))
@@ -210,12 +212,14 @@ async function handleLedger(sql, args) {
       SELECT 
         p.user_id,
         p.nick,
+        p.updated_at,
+        MAX(l.created_at) AS last_tx,
         COALESCE(SUM(l.amount), 0)::bigint AS balance,
         COUNT(l.id)::int AS entry_count
       FROM players p
       LEFT JOIN ledger_entries l ON p.user_id = l.user_id
-      GROUP BY p.user_id, p.nick, p.created_at
-      ORDER BY p.created_at DESC
+      GROUP BY p.user_id, p.nick, p.updated_at
+      ORDER BY COALESCE(MAX(l.created_at), p.updated_at) DESC
       LIMIT 30
     `;
 
@@ -225,6 +229,7 @@ async function handleLedger(sql, args) {
         Nick: p.nick,
         Saldo: formatFgt(p.balance),
         "Wpisy w księdze": p.entry_count,
+        "Ostatnia aktywność": formatTime(p.last_tx || p.updated_at),
         Integralność: p.balance < 0 ? "BŁĄD: UJEMNE SALDO" : "OK",
       }))
     );
@@ -333,7 +338,8 @@ async function handleRounds(sql, args) {
 
   if (sub === "list") {
     const activeOnly = args.includes("--active");
-    const limit = Math.min(100, Math.max(1, parseInt(args[1] || "20", 10)));
+    const limitArg = args.find((a) => a !== "list" && a !== "--active" && /^\d+$/.test(a));
+    const limit = Math.min(100, Math.max(1, parseInt(limitArg || "20", 10)));
 
     const rounds = await sql`
       SELECT 
@@ -344,11 +350,12 @@ async function handleRounds(sql, args) {
         r.bet,
         r.payout,
         r.result,
-        r.created_at
+        r.created_at,
+        r.settled_at
       FROM game_rounds r
       JOIN players p ON r.user_id = p.user_id
       ${activeOnly ? sql`WHERE r.state = 'active'` : sql``}
-      ORDER BY r.created_at DESC
+      ORDER BY COALESCE(r.settled_at, r.created_at) DESC
       LIMIT ${limit}
     `;
 
@@ -362,7 +369,7 @@ async function handleRounds(sql, args) {
         Stawka: formatFgt(r.bet),
         Wygrana: formatFgt(r.payout),
         Wynik: r.result,
-        Kiedy: formatTime(r.created_at),
+        Kiedy: formatTime(r.settled_at || r.created_at),
       }))
     );
     return;
@@ -423,7 +430,7 @@ async function handleFraud(sql, args) {
     const logs = await sql`
       SELECT id, user_id, nick, previous_balance, reason, details, created_at, restored_at
       FROM fraud_logs
-      ORDER BY created_at DESC
+      ORDER BY COALESCE(restored_at, created_at) DESC
       LIMIT 30
     `;
 

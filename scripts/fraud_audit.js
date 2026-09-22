@@ -30,7 +30,7 @@ async function main() {
     const logs = await sql`
       SELECT id, user_id, nick, previous_balance, reason, details, created_at, restored_at
       FROM fraud_logs
-      ORDER BY created_at DESC
+      ORDER BY COALESCE(restored_at, created_at) DESC
       LIMIT 30
     `;
 

@@ -17,18 +17,25 @@ const sql = postgres(url, {
   },
 });
 
+function formatTime(ts) {
+  if (!ts) return "-";
+  return new Date(Number(ts)).toLocaleString("pl-PL", { timeZone: "Europe/Warsaw" });
+}
+
 async function main() {
   const players = await sql`
     SELECT 
       p.user_id,
       p.nick,
       p.email,
+      p.updated_at,
+      MAX(l.created_at) AS last_tx,
       COALESCE(SUM(l.amount), 0)::bigint AS balance,
       COUNT(l.id)::int AS entry_count
     FROM players p
     LEFT JOIN ledger_entries l ON p.user_id = l.user_id
-    GROUP BY p.user_id, p.nick, p.email, p.created_at
-    ORDER BY p.created_at DESC
+    GROUP BY p.user_id, p.nick, p.email, p.updated_at
+    ORDER BY COALESCE(MAX(l.created_at), p.updated_at) DESC
     LIMIT 30
   `;
 
@@ -45,6 +52,7 @@ async function main() {
       Email: p.email,
       "Aktualne Saldo (z Ledgeru)": `${p.balance.toLocaleString("pl-PL")} $FGT`,
       "Liczba Wpisów": p.entry_count,
+      "Ostatnia aktywność": formatTime(p.last_tx || p.updated_at),
       "Status": p.balance < 0 ? "NIEPRAWIDŁOWE (ujemne)" : "OK",
     }))
   );
