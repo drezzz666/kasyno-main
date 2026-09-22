@@ -30,7 +30,10 @@ export function GameTableDialog({
   last,
   setLast,
   loading,
+  turbo,
+  setTurbo,
 }) {
+
   const round = data?.active?.game === game ? data.active : null;
   const [spinning, setSpinning] = useState(false);
   const [slotsSpinning, setSlotsSpinning] = useState(false);
@@ -191,7 +194,7 @@ export function GameTableDialog({
       );
       if (j && j.round?.payload) {
         const finalMult = j.round.payload.result_multiplier;
-        const duration = 850;
+        const duration = turbo ? 200 : 850;
         const startTime = Date.now();
 
         const rollStep = () => {
@@ -214,6 +217,7 @@ export function GameTableDialog({
             void load();
           }
         };
+
         requestAnimationFrame(rollStep);
       } else {
         setLimboAnimating(false);
@@ -299,7 +303,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, 1600);
+        }, turbo ? 400 : 1600);
       } else {
         setSlotsSpinning(false);
         setPendingSlotsRound(null);
@@ -324,7 +328,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, 1300);
+        }, turbo ? 250 : 1300);
       } else {
         setIsFlipping(false);
         if (animatingRef) animatingRef.current = false;
@@ -348,13 +352,14 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, 1000);
+        }, turbo ? 250 : 1000);
       } else {
         setIsShootingRPS(false);
         if (animatingRef) animatingRef.current = false;
       }
       return;
     }
+
 
     if (game === "blackjack") {
       const j = await post({ action: "deal_blackjack", bet });
@@ -420,11 +425,17 @@ export function GameTableDialog({
   const prize = Math.max(0, wheelOrder.indexOf(winningNumber));
 
   return (
-    <div className="modal-backdrop game-modal-backdrop">
-      <div className="modal-dialog game-dialog-box" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop game-modal-backdrop" role="presentation">
+      <div
+        className="modal-dialog game-dialog-box"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="game-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
-            <h3>{gameNames[game] || "Gra"}</h3>
+            <h3 id="game-dialog-title">{gameNames[game] || "Gra"}</h3>
             <p>Stolik klubowy $FGT</p>
           </div>
           <button
@@ -433,7 +444,8 @@ export function GameTableDialog({
             onClick={() => {
               if (!isBusy) onClose();
             }}
-            aria-label="Zamknij"
+            aria-label="Zamknij okno gry"
+            autoFocus
           >
             <X size={18} />
           </button>
@@ -566,7 +578,14 @@ export function GameTableDialog({
           {/* Controls */}
           {!round && !blackjackPreview && (
             <div className="table-controls-panel">
-              <BetControl bet={bet} setBet={setBet} maxBalance={data?.player?.balance || 1000000} />
+              <BetControl
+                bet={bet}
+                setBet={setBet}
+                maxBalance={data?.player?.balance || 1000000}
+                turbo={turbo}
+                setTurbo={setTurbo}
+              />
+
 
               {game === "mines" && (
                 <div className="mines-count-selector">

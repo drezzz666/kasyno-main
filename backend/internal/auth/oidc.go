@@ -33,12 +33,35 @@ type TokenResponse struct {
 }
 
 type UserInfo struct {
-	Sub               string `json:"sub"`
-	Email             string `json:"email"`
-	PreferredUsername string `json:"preferred_username"`
-	Name              string `json:"name"`
-	Nickname          string `json:"nickname"`
-	GivenName         string `json:"given_name"`
+	Sub               string                 `json:"sub"`
+	Email             string                 `json:"email"`
+	PreferredUsername string                 `json:"preferred_username"`
+	Name              string                 `json:"name"`
+	Nickname          string                 `json:"nickname"`
+	GivenName         string                 `json:"given_name"`
+	Picture           string                 `json:"picture"`
+	Avatar            string                 `json:"avatar"`
+	Attributes        map[string]interface{} `json:"attributes,omitempty"`
+}
+
+func (u *UserInfo) GetAvatarURL(issuer string) string {
+	pic := u.Picture
+	if pic == "" {
+		pic = u.Avatar
+	}
+	if pic == "" && u.Attributes != nil {
+		if a, ok := u.Attributes["avatar"].(string); ok {
+			pic = a
+		}
+	}
+	if pic != "" && strings.HasPrefix(pic, "/") {
+		if parsed, err := url.Parse(issuer); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+			pic = fmt.Sprintf("%s://%s%s", parsed.Scheme, parsed.Host, pic)
+		} else {
+			pic = fmt.Sprintf("%s%s", strings.TrimRight(issuer, "/"), pic)
+		}
+	}
+	return pic
 }
 
 type OIDCClient struct {
@@ -238,4 +261,28 @@ func ParseJWTSub(jwtToken string) (string, error) {
 		return "", err
 	}
 	return payload.Sub, nil
+}
+
+func ParseJWTPicture(jwtToken string) string {
+	parts := strings.Split(jwtToken, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	payloadSegment := parts[1]
+	if pad := len(payloadSegment) % 4; pad != 0 {
+		payloadSegment += strings.Repeat("=", 4-pad)
+	}
+	data, err := base64.URLEncoding.DecodeString(payloadSegment)
+	if err != nil {
+		return ""
+	}
+	var payload struct {
+		Picture string `json:"picture"`
+		Avatar  string `json:"avatar"`
+	}
+	_ = json.Unmarshal(data, &payload)
+	if payload.Picture != "" {
+		return payload.Picture
+	}
+	return payload.Avatar
 }

@@ -113,12 +113,29 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		nick = strings.Split(email, "@")[0]
 	}
 
+	avatar := userInfo.GetAvatarURL(h.cfg.AuthentikIssuer)
+	if avatar == "" && tokenResp.IDToken != "" {
+		avatar = auth.ParseJWTPicture(tokenResp.IDToken)
+		if avatar != "" && strings.HasPrefix(avatar, "/") {
+			if parsed, err := url.Parse(h.cfg.AuthentikIssuer); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+				avatar = fmt.Sprintf("%s://%s%s", parsed.Scheme, parsed.Host, avatar)
+			}
+		}
+	}
+
 	// Upsert player in PostgreSQL
-	player, err := h.ledger.GetOrCreatePlayer(r.Context(), userID, email, nick, h.cfg.DefaultBalance)
+	player, err := h.ledger.GetOrCreatePlayer(r.Context(), userID, email, nick, avatar, h.cfg.DefaultBalance)
 	if err != nil {
 		log.Printf("[Auth Callback] Player upsert error: %v", err)
 		http.Error(w, fmt.Sprintf("Błąd bazy danych gracza: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	var avatarPtr *string
+	if avatar != "" {
+		avatarPtr = &avatar
+	} else if player.Avatar != nil {
+		avatarPtr = player.Avatar
 	}
 
 	// Create signed session cookie
@@ -128,6 +145,7 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		Nick:      player.Nick,
 		FullName:  &userInfo.Name,
 		FirstName: &userInfo.GivenName,
+		Avatar:    avatarPtr,
 	}
 
 	signedToken, err := auth.SignSession(sessUser, h.cfg.SessionSecret)
@@ -193,6 +211,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 			"email":    sess.Email,
 			"nick":     sess.Nick,
 			"fullName": sess.FullName,
+			"avatar":   sess.Avatar,
 		},
 	})
 }
@@ -240,17 +259,26 @@ func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := fmt.Sprintf("dev_%s", nick)
 	email := fmt.Sprintf("%s@dev.local", nick)
+	avatar := r.URL.Query().Get("avatar")
 
-	player, err := h.ledger.GetOrCreatePlayer(r.Context(), userID, email, nick, h.cfg.DefaultBalance)
+	player, err := h.ledger.GetOrCreatePlayer(r.Context(), userID, email, nick, avatar, h.cfg.DefaultBalance)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	var avatarPtr *string
+	if avatar != "" {
+		avatarPtr = &avatar
+	} else if player.Avatar != nil {
+		avatarPtr = player.Avatar
 	}
 
 	sessUser := auth.SessionUser{
 		UserID: player.UserID,
 		Email:  player.Email,
 		Nick:   player.Nick,
+		Avatar: avatarPtr,
 	}
 
 	signedToken, _ := auth.SignSession(sessUser, h.cfg.SessionSecret)

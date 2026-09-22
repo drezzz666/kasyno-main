@@ -3,9 +3,11 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 )
+
 
 type contextKey string
 
@@ -29,7 +31,11 @@ func RequireAuth(service *ledger.Service, sessionSecret string) func(http.Handle
 				return
 			}
 
-			player, err := service.GetOrCreatePlayer(r.Context(), sess.UserID, sess.Email, sess.Nick, 1000)
+			avatarStr := ""
+			if sess.Avatar != nil {
+				avatarStr = *sess.Avatar
+			}
+			player, err := service.GetOrCreatePlayer(r.Context(), sess.UserID, sess.Email, sess.Nick, avatarStr, 1000)
 			if err != nil {
 				http.Error(w, `{"error":"Błąd pobierania profilu gracza"}`, http.StatusInternalServerError)
 				return
@@ -49,7 +55,11 @@ func OptionalAuth(service *ledger.Service, sessionSecret string) func(http.Handl
 			if token != "" {
 				sess, err := VerifySession(token, sessionSecret)
 				if err == nil {
-					player, err := service.GetOrCreatePlayer(r.Context(), sess.UserID, sess.Email, sess.Nick, 1000)
+					avatarStr := ""
+					if sess.Avatar != nil {
+						avatarStr = *sess.Avatar
+					}
+					player, err := service.GetOrCreatePlayer(r.Context(), sess.UserID, sess.Email, sess.Nick, avatarStr, 1000)
 					if err == nil {
 						ctx := context.WithValue(r.Context(), SessionContextKey, sess)
 						ctx = context.WithValue(ctx, PlayerContextKey, player)
@@ -79,3 +89,28 @@ func GetSessionFromContext(ctx context.Context) *SessionUser {
 	}
 	return nil
 }
+
+// RequireSafeOrigin validates Sec-Fetch-Site and Origin headers on state-changing requests (CSRF protection)
+func RequireSafeOrigin(appURL string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+				secFetchSite := r.Header.Get("Sec-Fetch-Site")
+				if secFetchSite == "cross-site" {
+					http.Error(w, `{"error":"SECURITY_VIOLATION: Niedozwolone żądanie cross-origin"}`, http.StatusForbidden)
+					return
+				}
+
+				origin := r.Header.Get("Origin")
+				if origin != "" && appURL != "" && appURL != "*" {
+					if origin != appURL && !strings.HasPrefix(origin, "http://localhost") && !strings.HasPrefix(origin, "http://127.0.0.1") {
+						http.Error(w, `{"error":"SECURITY_VIOLATION: Nieprawidłowe źródło żądania (Origin)"}`, http.StatusForbidden)
+						return
+					}
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+

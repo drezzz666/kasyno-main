@@ -1,28 +1,29 @@
 import React from "react";
-import { Sparkles, TrendingUp } from "lucide-react";
 import { money, gameName } from "../lib/formatters";
 
 export function LiveTicker({ wins = [] }) {
   if (!wins || wins.length === 0) return null;
 
   return (
-    <div className="live-ticker-wrap">
+    <div className="live-ticker-wrap" role="region" aria-label="Ostatnie wygrane">
       <div className="live-ticker-label">
-        <span className="live-pulse-dot" />
-        <Sparkles size={13} className="text-amber-400" />
-        <span>WYGRANE NA ŻYWO</span>
+        <span>Ostatnie wygrane</span>
       </div>
-      <div className="live-ticker-scroll">
+      <div className="live-ticker-list">
         {wins.map((w, idx) => {
           const isBig = w.payout >= (w.bet ? w.bet * 4 : 500);
           const gName = gameName(w.game) || w.game;
+          const nick = w.nick || "Gracz";
 
           return (
             <div
-              key={w.id || `${w.nick}-${w.payout}-${idx}`}
+              key={w.id || `${nick}-${w.payout}-${idx}`}
               className={`ticker-item ${isBig ? "big-win" : ""}`}
             >
-              <span className="ticker-nick">{w.nick}</span>
+              {w.avatar && (
+                <img src={w.avatar} alt={nick} className="ticker-avatar" />
+              )}
+              <span className="ticker-nick">{nick}</span>
               <span className="ticker-game">{gName}</span>
               <span className="ticker-win">+{money(w.payout)}</span>
             </div>

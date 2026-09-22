@@ -21,6 +21,7 @@ type SessionUser struct {
 	Nick      string  `json:"nick"`
 	FullName  *string `json:"fullName,omitempty"`
 	FirstName *string `json:"firstName,omitempty"`
+	Avatar    *string `json:"avatar,omitempty"`
 	CreatedAt int64   `json:"createdAt"`
 }
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { Zap } from "lucide-react";
 import { money } from "../lib/formatters";
 
 export function FgtChip({ small = false, className = "" }) {
@@ -22,7 +23,7 @@ const CHIP_PRESETS = [
   { val: 1000, label: "+1K", color: "from-rose-600 to-red-500", border: "border-rose-400/40" },
 ];
 
-export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
+export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo }) {
   const safeMax = Math.max(1, maxBalance);
 
   const handleBetChange = (raw) => {
@@ -40,10 +41,22 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
           <span>STAWKA ZAKŁADU</span>
         </div>
         <div className="casino-bet-balance-hint">
+          {typeof turbo === "boolean" && (
+            <button
+              type="button"
+              className={`turbo-toggle-btn ${turbo ? "active" : ""}`}
+              onClick={() => setTurbo(!turbo)}
+              title={turbo ? "Tryb Turbo aktywny (błyskawiczne animacje)" : "Włącz tryb Turbo (błyskawiczne animacje)"}
+            >
+              <Zap size={11} />
+              <span>Turbo</span>
+            </button>
+          )}
           <span>Max:</span>
           <strong className="text-amber-400">{money(safeMax)}</strong>
         </div>
       </div>
+
 
       <div className="casino-bet-input-wrap">
         <div className="casino-bet-actions-left">
@@ -52,6 +65,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
             className="casino-bet-mod-btn"
             onClick={() => setBet(Math.max(1, Math.floor(bet / 2)))}
             title="Zmniejsz o połowę"
+            aria-label="Podziel stawkę przez 2"
           >
             ½
           </button>
@@ -60,6 +74,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
             className="casino-bet-mod-btn"
             onClick={() => setBet(Math.min(safeMax, bet * 2))}
             title="Podwój stawkę"
+            aria-label="Podwój stawkę"
           >
             2×
           </button>
@@ -73,9 +88,9 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
             value={bet}
             onChange={(e) => handleBetChange(e.target.value)}
             className="casino-bet-input"
-            aria-label="Kwota zakładu"
+            aria-label="Kwota zakładu w $FGT"
           />
-          <span className="casino-bet-currency">$FGT</span>
+          <span className="casino-bet-currency" aria-hidden="true">$FGT</span>
         </div>
 
         <div className="casino-bet-actions-right">
@@ -84,6 +99,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
             className="casino-bet-mod-btn min-btn"
             onClick={() => setBet(10)}
             title="Minimalna stawka (10 $FGT)"
+            aria-label="Ustaw minimalną stawkę 10 $FGT"
           >
             MIN
           </button>
@@ -92,6 +108,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
             className="casino-bet-mod-btn max-btn"
             onClick={() => setBet(safeMax)}
             title="Maksymalna stawka"
+            aria-label={`Ustaw maksymalną stawkę ${money(safeMax)} $FGT`}
           >
             MAX
           </button>
@@ -99,13 +116,14 @@ export function BetControl({ bet, setBet, maxBalance = 1000000 }) {
       </div>
 
       {/* Tactile Poker Chips Row */}
-      <div className="casino-chips-grid">
+      <div className="casino-chips-grid" role="group" aria-label="Szybkie dodawanie do stawki">
         {CHIP_PRESETS.map((chip) => (
           <button
             key={chip.val}
             type="button"
             className={`casino-chip-item bg-gradient-to-b ${chip.color} ${chip.border}`}
             onClick={() => setBet(Math.min(safeMax, bet + chip.val))}
+            aria-label={`Dodaj ${chip.val} $FGT do stawki`}
           >
             <span className="casino-chip-inner">
               <span className="casino-chip-dash" />

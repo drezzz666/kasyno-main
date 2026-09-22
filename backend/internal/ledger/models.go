@@ -4,6 +4,7 @@ type Player struct {
 	UserID       string  `json:"user_id"`
 	Email        string  `json:"email"`
 	Nick         string  `json:"nick"`
+	Avatar       *string `json:"avatar,omitempty"`
 	Balance      int64   `json:"balance"`
 	XP           int     `json:"xp"`
 	Level        int     `json:"level"`
@@ -42,9 +43,10 @@ type LedgerEntry struct {
 }
 
 type LeaderboardEntry struct {
-	Nick    string `json:"nick"`
-	Balance int64  `json:"balance"`
-	Level   int    `json:"level"`
+	Nick    string  `json:"nick"`
+	Balance int64   `json:"balance"`
+	Level   int     `json:"level"`
+	Avatar  *string `json:"avatar,omitempty"`
 }
 
 type HistoryResponse struct {
@@ -54,12 +56,23 @@ type HistoryResponse struct {
 }
 
 type SettleOutcome struct {
-	Round       *GameRound `json:"round"`
-	Balance     int64      `json:"balance"`
-	XP          int        `json:"xp"`
-	Level       int        `json:"level"`
-	RoundsToday int        `json:"roundsToday"`
+	Round        *GameRound `json:"round"`
+	Balance      int64      `json:"balance"`
+	XP           int        `json:"xp"`
+	Level        int        `json:"level"`
+	RoundsToday  int        `json:"roundsToday"`
+	LevelUpBonus int64      `json:"levelUpBonus,omitempty"`
+	LeveledUp    bool       `json:"leveledUp,omitempty"`
 }
+
+type PlayerStats struct {
+	BiggestWin    int64   `json:"biggestWin"`
+	MaxMultiplier float64 `json:"maxMultiplier"`
+	FavoriteGame  string  `json:"favoriteGame"`
+	TotalRounds   int64   `json:"totalRounds"`
+	TotalWagered  int64   `json:"totalWagered"`
+}
+
 
 type Mission struct {
 	ID          string `json:"id"`
@@ -74,3 +87,15 @@ type Mission struct {
 	Claimed     bool   `json:"claimed"`
 	Ready       bool   `json:"ready"`
 }
+
+type ProvablyFairSeedRecord struct {
+	ID         string  `json:"id"`
+	UserID     string  `json:"user_id"`
+	ServerSeed string  `json:"server_seed,omitempty"`
+	ServerHash string  `json:"server_hash"`
+	ClientSeed string  `json:"client_seed"`
+	Nonce      int64   `json:"nonce"`
+	CreatedAt  int64   `json:"created_at"`
+	RevealedAt *int64  `json:"revealed_at,omitempty"`
+}
+

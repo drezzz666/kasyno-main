@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +20,56 @@ var (
 	ErrExploitAttempt      = errors.New("SECURITY_VIOLATION: Wykryto próbę manipulacji stanem gry.")
 )
 
+// ============================================================================
+// Bot Detection File Logger
+// ============================================================================
+
+var (
+	botLoggerOnce sync.Once
+	botLogger     *log.Logger
+	botLogMu      sync.Mutex
+)
+
+func getBotLogger() *log.Logger {
+	botLoggerOnce.Do(func() {
+		logPath := os.Getenv("BOT_LOG_PATH")
+		if logPath == "" {
+			logPath = "/app/logs/bot_detections.log"
+		}
+		if err := os.MkdirAll("/app/logs", 0755); err == nil {
+			f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+			if err == nil {
+				botLogger = log.New(f, "", 0)
+				return
+			}
+		}
+		// Fallback to stderr
+		botLogger = log.New(os.Stderr, "[BOT-FALLBACK] ", log.LstdFlags)
+	})
+	return botLogger
+}
+
+func logBotEvent(nick, userID, ip, action, reason string, violationCount int) {
+	now := time.Now().UTC()
+	line := fmt.Sprintf(
+		"[%s] BOT_DETECTED | nick=%q | user_id=%s | ip=%s | action=%q | reason=%s | violations=%d",
+		now.Format("2006-01-02 15:04:05 UTC"),
+		nick, userID, ip, action, reason, violationCount,
+	)
+
+	// Always print to stdout for docker logs
+	log.Printf("[ANTICHEAT/BOT] %s", line)
+
+	// Write to file
+	botLogMu.Lock()
+	getBotLogger().Println(line)
+	botLogMu.Unlock()
+}
+
+// ============================================================================
+// Per-User Lock Manager (prevents concurrent double-sends)
+// ============================================================================
+
 type UserLockManager struct {
 	mu    sync.Mutex
 	locks map[string]*userLockEntry
@@ -33,7 +84,6 @@ func NewUserLockManager() *UserLockManager {
 	m := &UserLockManager{
 		locks: make(map[string]*userLockEntry),
 	}
-	// Background garbage collection for inactive user mutexes
 	go m.cleanupLoop()
 	return m
 }
@@ -50,9 +100,7 @@ func (m *UserLockManager) LockUser(userID string) func() {
 	m.mu.Unlock()
 
 	entry.mu.Lock()
-	return func() {
-		entry.mu.Unlock()
-	}
+	return func() { entry.mu.Unlock() }
 }
 
 func (m *UserLockManager) cleanupLoop() {
@@ -69,73 +117,203 @@ func (m *UserLockManager) cleanupLoop() {
 	}
 }
 
-// Token-bucket Rate Limiter per User (Zero False Positives: High Burst Allowance)
-type RateLimiter struct {
-	mu      sync.Mutex
-	buckets map[string]*userBucket
+// ============================================================================
+// Sliding-Window Rate Limiter with Bot Detection
+//
+// Limits (designed so a human CANNOT hit them accidentally):
+//   - Game actions (POST /api/casino): max 4/s, max 12/10s, max 30/min
+//   - State polls (GET /api/casino):  max 8/s (already has JS 5s interval)
+//
+// Bot detection trigger: 3 violations within 60 seconds → flagged + logged
+// ============================================================================
+
+const (
+	// Game action limits
+	gameActionMaxPerSec  = 4
+	gameActionMaxPer10s  = 12
+	gameActionMaxPerMin  = 30
+
+	// Read state limits
+	stateReadMaxPerSec = 8
+
+	// How many violations before we flag as bot
+	botViolationThreshold = 3
+	botViolationWindow    = 60 * time.Second
+)
+
+type requestRecord struct {
+	t time.Time
 }
 
-type userBucket struct {
-	tokens     float64
-	lastUpdate time.Time
+type userRateEntry struct {
+	// Sliding window timestamps for game actions
+	gameActions []time.Time
+	// Sliding window timestamps for state reads
+	stateReads []time.Time
+	// Violation tracking
+	violations    []time.Time
+	lastViolation time.Time
+	flaggedAsBot  bool
+	flaggedAt     time.Time
+	// Identity (filled on first detection)
+	nick string
+	ip   string
+}
+
+type RateLimiter struct {
+	mu      sync.Mutex
+	entries map[string]*userRateEntry
 }
 
 func NewRateLimiter() *RateLimiter {
-	rl := &RateLimiter{
-		buckets: make(map[string]*userBucket),
-	}
+	rl := &RateLimiter{entries: make(map[string]*userRateEntry)}
 	go rl.cleanupLoop()
 	return rl
 }
 
-// Allow allows up to 15 actions/second sustained, with a generous burst of 30.
-// This gives zero false positives for manual clicking or multi-ball Plinko drops,
-// while blocking automated DDoS/packet flood exploits.
-func (rl *RateLimiter) Allow(userID string) bool {
+func (rl *RateLimiter) getEntry(userID string) *userRateEntry {
+	e, ok := rl.entries[userID]
+	if !ok {
+		e = &userRateEntry{}
+		rl.entries[userID] = e
+	}
+	return e
+}
+
+// SetIdentity stores nick and IP for richer bot logs (call after auth).
+func (rl *RateLimiter) SetIdentity(userID, nick, ip string) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	e := rl.getEntry(userID)
+	e.nick = nick
+	e.ip = ip
+}
+
+// AllowGameAction checks a POST game action. Returns false + logs if bot detected.
+func (rl *RateLimiter) AllowGameAction(userID, action string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	const maxTokens = 30.0
-	const refillRate = 15.0 // 15 tokens per second
-
+	e := rl.getEntry(userID)
 	now := time.Now()
-	b, ok := rl.buckets[userID]
-	if !ok {
-		rl.buckets[userID] = &userBucket{
-			tokens:     maxTokens - 1.0,
-			lastUpdate: now,
-		}
+
+	// Prune old timestamps
+	e.gameActions = pruneOlderThan(e.gameActions, now, time.Minute)
+
+	// Check limits (most strict first for performance)
+	var violationReason string
+	lastSec := countSince(e.gameActions, now, time.Second)
+	last10s := countSince(e.gameActions, now, 10*time.Second)
+	lastMin := countSince(e.gameActions, now, time.Minute)
+
+	switch {
+	case lastSec >= gameActionMaxPerSec:
+		violationReason = fmt.Sprintf("%d req/s (limit %d/s)", lastSec+1, gameActionMaxPerSec)
+	case last10s >= gameActionMaxPer10s:
+		violationReason = fmt.Sprintf("%d req/10s (limit %d/10s)", last10s+1, gameActionMaxPer10s)
+	case lastMin >= gameActionMaxPerMin:
+		violationReason = fmt.Sprintf("%d req/min (limit %d/min)", lastMin+1, gameActionMaxPerMin)
+	}
+
+	// Record the request regardless (so we track bursts accurately)
+	e.gameActions = append(e.gameActions, now)
+
+	if violationReason == "" {
 		return true
 	}
 
-	elapsed := now.Sub(b.lastUpdate).Seconds()
-	b.tokens = b.tokens + elapsed*refillRate
-	if b.tokens > maxTokens {
-		b.tokens = maxTokens
-	}
-	b.lastUpdate = now
+	// Record violation
+	e.violations = pruneOlderThan(e.violations, now, botViolationWindow)
+	e.violations = append(e.violations, now)
+	e.lastViolation = now
 
-	if b.tokens >= 1.0 {
-		b.tokens -= 1.0
-		return true
+	botFlag := len(e.violations) >= botViolationThreshold
+	if botFlag && !e.flaggedAsBot {
+		e.flaggedAsBot = true
+		e.flaggedAt = now
 	}
 
-	log.Printf("[SECURITY/ANTICHEAT] Rate limit exceeded for user: %s (tokens: %.2f)", userID, b.tokens)
+	logBotEvent(e.nick, userID, e.ip, action, violationReason, len(e.violations))
+
 	return false
+}
+
+// AllowStateRead checks a GET /api/casino read. Softer limits, still logged.
+func (rl *RateLimiter) AllowStateRead(userID string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	e := rl.getEntry(userID)
+	now := time.Now()
+
+	e.stateReads = pruneOlderThan(e.stateReads, now, time.Second)
+	if len(e.stateReads) >= stateReadMaxPerSec {
+		e.violations = pruneOlderThan(e.violations, now, botViolationWindow)
+		e.violations = append(e.violations, now)
+		logBotEvent(e.nick, userID, e.ip, "GET /api/casino",
+			fmt.Sprintf("%d reads/s (limit %d/s)", len(e.stateReads)+1, stateReadMaxPerSec),
+			len(e.violations))
+		e.stateReads = append(e.stateReads, now)
+		return false
+	}
+	e.stateReads = append(e.stateReads, now)
+	return true
+}
+
+// IsFlaggedBot returns true if this user has been flagged as a bot.
+func (rl *RateLimiter) IsFlaggedBot(userID string) (bool, time.Time) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	e, ok := rl.entries[userID]
+	if !ok {
+		return false, time.Time{}
+	}
+	return e.flaggedAsBot, e.flaggedAt
+}
+
+// Legacy method — kept for compatibility with existing handler code.
+// Routes to AllowGameAction with action="unknown".
+func (rl *RateLimiter) Allow(userID string) bool {
+	return rl.AllowGameAction(userID, "unknown")
 }
 
 func (rl *RateLimiter) cleanupLoop() {
 	ticker := time.NewTicker(15 * time.Minute)
 	for range ticker.C {
 		rl.mu.Lock()
-		cutoff := time.Now().Add(-30 * time.Minute)
-		for uid, b := range rl.buckets {
-			if b.lastUpdate.Before(cutoff) {
-				delete(rl.buckets, uid)
+		cutoff := time.Now().Add(-60 * time.Minute)
+		for uid, e := range rl.entries {
+			if e.lastViolation.Before(cutoff) && len(e.gameActions) == 0 {
+				delete(rl.entries, uid)
 			}
 		}
 		rl.mu.Unlock()
 	}
+}
+
+// ============================================================================
+// Sliding window helpers
+// ============================================================================
+
+func pruneOlderThan(ts []time.Time, now time.Time, window time.Duration) []time.Time {
+	cutoff := now.Add(-window)
+	i := 0
+	for i < len(ts) && ts[i].Before(cutoff) {
+		i++
+	}
+	return ts[i:]
+}
+
+func countSince(ts []time.Time, now time.Time, window time.Duration) int {
+	cutoff := now.Add(-window)
+	count := 0
+	for j := len(ts) - 1; j >= 0; j-- {
+		if ts[j].Before(cutoff) {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 // ============================================================================
@@ -247,7 +425,12 @@ func ValidateBlackjackMove(move string, cardsLen int) error {
 	return nil
 }
 
-// LogSecurityAlert logs suspicious or illegal operations
+// LogSecurityAlert logs suspicious or illegal operations to both stdout and bot log file.
 func LogSecurityAlert(userID, action, details string) {
-	log.Printf("[SECURITY/ANTICHEAT] User %s attempted invalid/exploit action '%s': %s", userID, action, details)
+	msg := fmt.Sprintf("[%s] SECURITY_ALERT | user_id=%s | action=%q | details=%s",
+		time.Now().UTC().Format("2006-01-02 15:04:05 UTC"), userID, action, details)
+	log.Printf("[ANTICHEAT] %s", msg)
+	botLogMu.Lock()
+	getBotLogger().Println(msg)
+	botLogMu.Unlock()
 }

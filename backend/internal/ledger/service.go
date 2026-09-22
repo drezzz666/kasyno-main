@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/db"
+	"github.com/drezzz666/kasyno/backend/internal/games/provablyfair"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
 )
 
 var (
@@ -50,22 +52,26 @@ func DailyBonusAmount(streak int) int64 {
 	return int64(bonus)
 }
 
-func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferredNick string, defaultBalance int64) (*Player, error) {
+func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferredNick, avatar string, defaultBalance int64) (*Player, error) {
 	pool := s.db.Pool
 
 	var p Player
 	err := pool.QueryRow(ctx, `
-		SELECT user_id, email, nick, balance, xp, level, streak, last_bonus_day, created_at, updated_at
+		SELECT user_id, email, nick, avatar, balance, xp, level, streak, last_bonus_day, created_at, updated_at
 		FROM players WHERE user_id = $1
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
 
 	if err == nil {
-		// Existing player
+		// Existing player: update avatar if newly provided
+		if avatar != "" && (p.Avatar == nil || *p.Avatar != avatar) {
+			_, _ = pool.Exec(ctx, `UPDATE players SET avatar = $1, updated_at = $2 WHERE user_id = $3`, avatar, NowMs(), userID)
+			p.Avatar = &avatar
+		}
 		if preferredNick != "" && p.Nick != preferredNick {
 			var exists bool
 			_ = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM players WHERE nick = $1 AND user_id != $2)`, preferredNick, userID).Scan(&exists)
 			if !exists {
-				_, _ = pool.Exec(ctx, `UPDATE players SET nick = $1 WHERE user_id = $2`, preferredNick, userID)
+				_, _ = pool.Exec(ctx, `UPDATE players SET nick = $1, updated_at = $2 WHERE user_id = $3`, preferredNick, NowMs(), userID)
 				p.Nick = preferredNick
 			}
 		}
@@ -111,10 +117,15 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 	}
 	defer tx.Rollback(ctx)
 
+	var avatarPtr *string
+	if avatar != "" {
+		avatarPtr = &avatar
+	}
+
 	_, err = tx.Exec(ctx, `
-		INSERT INTO players (user_id, email, nick, balance, xp, level, streak, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 0, 1, 0, $5, $5)
-	`, userID, email, nick, defaultBalance, t)
+		INSERT INTO players (user_id, email, nick, avatar, balance, xp, level, streak, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, 0, 1, 0, $6, $6)
+	`, userID, email, nick, avatarPtr, defaultBalance, t)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert player: %w", err)
 	}
@@ -138,9 +149,9 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 func (s *Service) GetPlayer(ctx context.Context, userID string) (*Player, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT user_id, email, nick, balance, xp, level, streak, last_bonus_day, created_at, updated_at
+		SELECT user_id, email, nick, avatar, balance, xp, level, streak, last_bonus_day, created_at, updated_at
 		FROM players WHERE user_id = $1
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -253,11 +264,11 @@ func (s *Service) GetHistory(ctx context.Context, userID string, limit, offset i
 }
 
 func (s *Service) GetLeaderboard(ctx context.Context, limit int) ([]LeaderboardEntry, error) {
-	if limit <= 0 || limit > 50 {
-		limit = 5
+	if limit <= 0 || limit > 100 {
+		limit = 50
 	}
 	rows, err := s.db.Pool.Query(ctx, `
-		SELECT nick, balance, level FROM players ORDER BY balance DESC LIMIT $1
+		SELECT nick, balance, level, avatar FROM players ORDER BY balance DESC LIMIT $1
 	`, limit)
 	if err != nil {
 		return nil, err
@@ -267,12 +278,26 @@ func (s *Service) GetLeaderboard(ctx context.Context, limit int) ([]LeaderboardE
 	leaders := make([]LeaderboardEntry, 0)
 	for rows.Next() {
 		var l LeaderboardEntry
-		if err := rows.Scan(&l.Nick, &l.Balance, &l.Level); err != nil {
+		if err := rows.Scan(&l.Nick, &l.Balance, &l.Level, &l.Avatar); err != nil {
 			return nil, err
 		}
 		leaders = append(leaders, l)
 	}
 	return leaders, nil
+}
+
+// GetPlayerRank returns 1-based rank of the user based on balance
+func (s *Service) GetPlayerRank(ctx context.Context, userID string) (int, error) {
+	var rank int
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT count(*) + 1 
+		FROM players 
+		WHERE balance > (SELECT COALESCE(balance, 0) FROM players WHERE user_id = $1)
+	`, userID).Scan(&rank)
+	if err != nil {
+		return 1, err
+	}
+	return rank, nil
 }
 
 func (s *Service) ClaimDailyBonus(ctx context.Context, userID string) (int64, int64, int, error) {
@@ -304,6 +329,9 @@ func (s *Service) ClaimDailyBonus(ctx context.Context, userID string) (int64, in
 		return 0, 0, 0, err
 	}
 	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
 
 	// Idempotent insertion guard
 	tag, err := tx.Exec(ctx, `
@@ -946,6 +974,9 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	}
 	defer tx.Rollback(ctx)
 
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
+
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO daily_mission_claims (user_id, claim_day, mission_id, amount, created_at)
 		VALUES ($1, $2, $3, $4, $5)
@@ -1002,6 +1033,9 @@ func (s *Service) StartActiveRound(ctx context.Context, userID, game string, bet
 		return nil, 0, err
 	}
 	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
 
 	// Check if active round exists inside transaction
 	var existingCount int
@@ -1086,6 +1120,8 @@ func (s *Service) DoubleBlackjackBet(ctx context.Context, roundID, userID string
 	}
 	defer tx.Rollback(ctx)
 
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
 	// Deduct additional bet
 	var newBal int64
 	err = tx.QueryRow(ctx, `
@@ -1138,6 +1174,11 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	}
 	defer tx.Rollback(ctx)
 
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
+	var prevLevel int
+	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
+
 	// Settle round
 	tag, err := tx.Exec(ctx, `
 		UPDATE game_rounds
@@ -1167,13 +1208,27 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 		return nil, fmt.Errorf("failed to update player on settlement: %w", err)
 	}
 
-	// Insert ledger entry
+	// Insert payout ledger entry
 	_, err = tx.Exec(ctx, `
 		INSERT INTO ledger_entries (id, user_id, round_id, type, amount, balance_after, created_at)
 		VALUES ($1, $2, $3, 'payout', $4, $5, $6)
 	`, uuid.NewString(), userID, roundID, payout, newBal, t)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check level-up reward
+	var levelUpBonus int64
+	leveledUp := false
+	if prevLevel > 0 && newLevel > prevLevel {
+		leveledUp = true
+		levelUpBonus = int64((newLevel - prevLevel) * 500)
+		newBal += levelUpBonus
+		_, _ = tx.Exec(ctx, `UPDATE players SET balance = balance + $1 WHERE user_id = $2`, levelUpBonus, userID)
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
+		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1189,11 +1244,13 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	roundsToday, _ := s.GetRoundsToday(ctx, userID)
 
 	return &SettleOutcome{
-		Round:       &round,
-		Balance:     newBal,
-		XP:          newXP,
-		Level:       newLevel,
-		RoundsToday: roundsToday,
+		Round:        &round,
+		Balance:      newBal,
+		XP:           newXP,
+		Level:        newLevel,
+		RoundsToday:  roundsToday,
+		LevelUpBonus: levelUpBonus,
+		LeveledUp:    leveledUp,
 	}, nil
 }
 
@@ -1211,6 +1268,11 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
+	var prevLevel int
+	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
 	// Atomic balance check + net balance adjustment, xp (+10) and level
 	var newBal int64
@@ -1249,6 +1311,20 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, fmt.Errorf("failed to record round in ledger: %w", err)
 	}
 
+	// Check level-up reward
+	var levelUpBonus int64
+	leveledUp := false
+	if prevLevel > 0 && newLevel > prevLevel {
+		leveledUp = true
+		levelUpBonus = int64((newLevel - prevLevel) * 500)
+		newBal += levelUpBonus
+		_, _ = tx.Exec(ctx, `UPDATE players SET balance = balance + $1 WHERE user_id = $2`, levelUpBonus, userID)
+		_, _ = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
+		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -1270,13 +1346,16 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	roundsToday, _ := s.GetRoundsToday(ctx, userID)
 
 	return &SettleOutcome{
-		Round:       round,
-		Balance:     newBal,
-		XP:          newXP,
-		Level:       newLevel,
-		RoundsToday: roundsToday,
+		Round:        round,
+		Balance:      newBal,
+		XP:           newXP,
+		Level:        newLevel,
+		RoundsToday:  roundsToday,
+		LevelUpBonus: levelUpBonus,
+		LeveledUp:    leveledUp,
 	}, nil
 }
+
 
 func (s *Service) GrantBalance(ctx context.Context, identifier string, amount int64, reason string) (string, int64, int64, error) {
 	if amount == 0 {
@@ -1330,13 +1409,14 @@ func (s *Service) GrantBalance(ctx context.Context, identifier string, amount in
 }
 
 type GlobalWin struct {
-	ID        string `json:"id"`
-	Nick      string `json:"nick"`
-	Game      string `json:"game"`
-	Bet       int64  `json:"bet"`
-	Payout    int64  `json:"payout"`
-	Result    string `json:"result"`
-	SettledAt int64  `json:"settled_at"`
+	ID        string  `json:"id"`
+	Nick      string  `json:"nick"`
+	Avatar    *string `json:"avatar,omitempty"`
+	Game      string  `json:"game"`
+	Bet       int64   `json:"bet"`
+	Payout    int64   `json:"payout"`
+	Result    string  `json:"result"`
+	SettledAt int64   `json:"settled_at"`
 }
 
 func (s *Service) GetRecentGlobalWins(ctx context.Context, limit int) ([]GlobalWin, error) {
@@ -1344,7 +1424,7 @@ func (s *Service) GetRecentGlobalWins(ctx context.Context, limit int) ([]GlobalW
 		limit = 15
 	}
 	rows, err := s.db.Pool.Query(ctx, `
-		SELECT gr.id, p.nick, gr.game, gr.bet, gr.payout, gr.result, COALESCE(gr.settled_at, gr.created_at)
+		SELECT gr.id, p.nick, p.avatar, gr.game, gr.bet, gr.payout, gr.result, COALESCE(gr.settled_at, gr.created_at)
 		FROM game_rounds gr
 		JOIN players p ON gr.user_id = p.user_id
 		WHERE gr.state = 'settled' AND gr.payout > 0
@@ -1356,13 +1436,171 @@ func (s *Service) GetRecentGlobalWins(ctx context.Context, limit int) ([]GlobalW
 	}
 	defer rows.Close()
 
-	var wins []GlobalWin
+	wins := make([]GlobalWin, 0)
 	for rows.Next() {
 		var w GlobalWin
-		if err := rows.Scan(&w.ID, &w.Nick, &w.Game, &w.Bet, &w.Payout, &w.Result, &w.SettledAt); err == nil {
+		if err := rows.Scan(&w.ID, &w.Nick, &w.Avatar, &w.Game, &w.Bet, &w.Payout, &w.Result, &w.SettledAt); err == nil {
 			wins = append(wins, w)
 		}
 	}
 	return wins, nil
 }
+
+// GetActiveProvablyFairSeed retrieves current active seed for user or creates one if none exists
+func (s *Service) GetActiveProvablyFairSeed(ctx context.Context, userID string) (*ProvablyFairSeedRecord, error) {
+	var rec ProvablyFairSeedRecord
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT id, user_id, server_seed, server_hash, client_seed, nonce, created_at, revealed_at
+		FROM provably_fair_seeds
+		WHERE user_id = $1 AND revealed_at IS NULL
+		ORDER BY created_at DESC LIMIT 1
+	`, userID).Scan(&rec.ID, &rec.UserID, &rec.ServerSeed, &rec.ServerHash, &rec.ClientSeed, &rec.Nonce, &rec.CreatedAt, &rec.RevealedAt)
+
+	if err == nil {
+		return &rec, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+
+	// Generate new initial seed pair
+	serverSeed, err := provablyfair.GenerateServerSeed()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate server seed: %w", err)
+	}
+	serverHash := provablyfair.HashServerSeed(serverSeed)
+	clientSeed, err := provablyfair.GenerateClientSeed()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate client seed: %w", err)
+	}
+
+	t := NowMs()
+	id := uuid.NewString()
+
+	_, err = s.db.Pool.Exec(ctx, `
+		INSERT INTO provably_fair_seeds (id, user_id, server_seed, server_hash, client_seed, nonce, created_at)
+		VALUES ($1, $2, $3, $4, $5, 0, $6)
+	`, id, userID, serverSeed, serverHash, clientSeed, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save provably fair seed: %w", err)
+	}
+
+	return &ProvablyFairSeedRecord{
+		ID:         id,
+		UserID:     userID,
+		ServerSeed: serverSeed,
+		ServerHash: serverHash,
+		ClientSeed: clientSeed,
+		Nonce:      0,
+		CreatedAt:  t,
+	}, nil
+}
+
+// RotateProvablyFairSeed reveals the current active server seed and generates a new active seed
+func (s *Service) RotateProvablyFairSeed(ctx context.Context, userID, newClientSeed string) (revealed *ProvablyFairSeedRecord, newActive *ProvablyFairSeedRecord, err error) {
+	t := NowMs()
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", userID)
+
+	// Fetch and reveal current active seed
+	var current ProvablyFairSeedRecord
+	err = tx.QueryRow(ctx, `
+		SELECT id, user_id, server_seed, server_hash, client_seed, nonce, created_at
+		FROM provably_fair_seeds
+		WHERE user_id = $1 AND revealed_at IS NULL
+		ORDER BY created_at DESC LIMIT 1
+	`, userID).Scan(&current.ID, &current.UserID, &current.ServerSeed, &current.ServerHash, &current.ClientSeed, &current.Nonce, &current.CreatedAt)
+
+	if err == nil {
+		_, _ = tx.Exec(ctx, `UPDATE provably_fair_seeds SET revealed_at = $1 WHERE id = $2`, t, current.ID)
+		current.RevealedAt = &t
+		revealed = &current
+	}
+
+	// Create new active seed
+	serverSeed, err := provablyfair.GenerateServerSeed()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate server seed: %w", err)
+	}
+	serverHash := provablyfair.HashServerSeed(serverSeed)
+
+	clientSeed := strings.TrimSpace(newClientSeed)
+	if clientSeed == "" || len(clientSeed) > 64 {
+		clientSeed, _ = provablyfair.GenerateClientSeed()
+	}
+
+	newID := uuid.NewString()
+	_, err = tx.Exec(ctx, `
+		INSERT INTO provably_fair_seeds (id, user_id, server_seed, server_hash, client_seed, nonce, created_at)
+		VALUES ($1, $2, $3, $4, $5, 0, $6)
+	`, newID, userID, serverSeed, serverHash, clientSeed, t)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to insert new seed: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	newActive = &ProvablyFairSeedRecord{
+		ID:         newID,
+		UserID:     userID,
+		ServerSeed: serverSeed,
+		ServerHash: serverHash,
+		ClientSeed: clientSeed,
+		Nonce:      0,
+		CreatedAt:  t,
+	}
+
+	return revealed, newActive, nil
+}
+
+// GetPlayerStats returns player lifetime statistics (biggest win, max multiplier, favorite game, total wagered)
+func (s *Service) GetPlayerStats(ctx context.Context, userID string) (*PlayerStats, error) {
+	var totalRounds int64
+	var totalWagered int64
+	var biggestWin int64
+
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT COUNT(*), COALESCE(SUM(bet), 0), COALESCE(MAX(payout), 0)
+		FROM game_rounds
+		WHERE user_id = $1 AND state = 'settled'
+	`, userID).Scan(&totalRounds, &totalWagered, &biggestWin)
+
+	var favoriteGame string
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT game
+		FROM game_rounds
+		WHERE user_id = $1 AND state = 'settled'
+		GROUP BY game
+		ORDER BY COUNT(*) DESC
+		LIMIT 1
+	`, userID).Scan(&favoriteGame)
+
+	if favoriteGame == "" {
+		favoriteGame = "Brak gier"
+	}
+
+	var maxMult float64
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(payout::float / NULLIF(bet, 0)), 0)
+		FROM game_rounds
+		WHERE user_id = $1 AND state = 'settled' AND payout > 0
+	`, userID).Scan(&maxMult)
+
+	return &PlayerStats{
+		BiggestWin:    biggestWin,
+		MaxMultiplier: float64(int(maxMult*100)) / 100.0,
+		FavoriteGame:  favoriteGame,
+		TotalRounds:   totalRounds,
+		TotalWagered:  totalWagered,
+	}, nil
+}
+
+
 

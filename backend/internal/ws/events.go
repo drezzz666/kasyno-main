@@ -23,12 +23,13 @@ type BalanceUpdatePayload struct {
 }
 
 type GlobalWinPayload struct {
-	ID        string `json:"id,omitempty"`
-	Nick      string `json:"nick"`
-	Game      string `json:"game"`
-	Bet       int64  `json:"bet"`
-	Payout    int64  `json:"payout"`
-	Result    string `json:"result"`
-	SettledAt int64  `json:"settled_at,omitempty"`
+	ID        string  `json:"id,omitempty"`
+	Nick      string  `json:"nick"`
+	Avatar    *string `json:"avatar,omitempty"`
+	Game      string  `json:"game"`
+	Bet       int64   `json:"bet"`
+	Payout    int64   `json:"payout"`
+	Result    string  `json:"result"`
+	SettledAt int64   `json:"settled_at,omitempty"`
 }
 

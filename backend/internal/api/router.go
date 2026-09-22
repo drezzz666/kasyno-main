@@ -70,14 +70,18 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	// Authenticated Casino routes
 	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireSafeOrigin(cfg.AppURL))
 		r.Use(auth.RequireAuth(ledgerService, cfg.SessionSecret))
 
 		r.Route("/api/casino", func(r chi.Router) {
 			r.Get("/", casinoHandler.GetState)
 			r.Post("/", casinoHandler.PostAction)
 			r.Get("/history", casinoHandler.GetHistory)
+			r.Get("/provably-fair", casinoHandler.GetProvablyFairSeed)
+			r.Post("/provably-fair/rotate", casinoHandler.RotateProvablyFairSeed)
 		})
 	})
 
 	return r
 }
+

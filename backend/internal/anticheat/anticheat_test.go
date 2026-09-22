@@ -119,10 +119,39 @@ func TestRateLimiter(t *testing.T) {
 	rl := NewRateLimiter()
 	uid := "user_burst_test"
 
-	// Initial burst of up to 25 requests should all pass with ZERO false positives
-	for i := 0; i < 20; i++ {
+	// 1. First 4 rapid game actions should pass (gameActionMaxPerSec = 4)
+	for i := 0; i < 4; i++ {
 		if !rl.Allow(uid) {
-			t.Errorf("request %d in initial burst should be allowed", i)
+			t.Errorf("request %d within allowed limit should pass", i)
 		}
 	}
+
+	// 2. 5th rapid request should be blocked
+	if rl.Allow(uid) {
+		t.Errorf("5th immediate request should exceed rate limit")
+	}
+
+	// 3. Test state read rate limiter (max 8/sec)
+	readUID := "user_read_test"
+	for i := 0; i < 8; i++ {
+		if !rl.AllowStateRead(readUID) {
+			t.Errorf("state read %d should be allowed", i)
+		}
+	}
+	if rl.AllowStateRead(readUID) {
+		t.Errorf("9th immediate state read should be blocked")
+	}
+
+	// 4. Test bot detection flag after threshold violations
+	botUID := "user_bot_candidate"
+	rl.SetIdentity(botUID, "BotPlayer", "127.0.0.1")
+	// Exceed limit multiple times to trigger bot flag
+	for i := 0; i < 10; i++ {
+		rl.Allow(botUID)
+	}
+	flagged, _ := rl.IsFlaggedBot(botUID)
+	if !flagged {
+		t.Errorf("expected user to be flagged as bot after repeated violations")
+	}
 }
+

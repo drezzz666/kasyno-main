@@ -30,11 +30,45 @@ type SettleResult struct {
 	Payload    Payload `json:"payload"`
 }
 
+// NewStandardShoe creates a 6-deck standard shoe (312 cards)
+func NewStandardShoe() []Card {
+	decks := 6
+	shoe := make([]Card, 0, decks*52)
+	for d := 0; d < decks; d++ {
+		for _, s := range suits {
+			for _, r := range ranks {
+				shoe = append(shoe, Card{Rank: r, Suit: s})
+			}
+		}
+	}
+	return shoe
+}
+
+// RandomCard returns a cryptographically secure random card
 func RandomCard() Card {
 	rIdx := provablyfair.MustCryptoRandInt(len(ranks))
 	sIdx := provablyfair.MustCryptoRandInt(len(suits))
 	return Card{Rank: ranks[rIdx], Suit: suits[sIdx]}
 }
+
+// DrawUniqueCard draws a card ensuring no exact duplicates with already dealt cards in a single-deck equivalent check
+func DrawUniqueCard(existing []Card) Card {
+	for attempts := 0; attempts < 50; attempts++ {
+		c := RandomCard()
+		count := 0
+		for _, e := range existing {
+			if e.Rank == c.Rank && e.Suit == c.Suit {
+				count++
+			}
+		}
+		// In a 6-deck shoe, max 6 copies of identical card exist
+		if count < 6 {
+			return c
+		}
+	}
+	return RandomCard()
+}
+
 
 // HandValue calculates standard blackjack hand score with Ace adjustment
 func HandValue(cards []Card) int {
@@ -64,11 +98,20 @@ func IsNaturalBlackjack(cards []Card) bool {
 	return len(cards) == 2 && HandValue(cards) == 21
 }
 
-// InitialDeal deals 2 cards to player and 2 cards to dealer
+// InitialDeal deals 2 cards to player and 2 cards to dealer from shoe
 func InitialDeal() Payload {
+	dealt := make([]Card, 0, 4)
+	c1 := DrawUniqueCard(dealt)
+	dealt = append(dealt, c1)
+	c2 := DrawUniqueCard(dealt)
+	dealt = append(dealt, c2)
+	d1 := DrawUniqueCard(dealt)
+	dealt = append(dealt, d1)
+	d2 := DrawUniqueCard(dealt)
+
 	return Payload{
-		Cards:   []Card{RandomCard(), RandomCard()},
-		Dealer:  []Card{RandomCard(), RandomCard()},
+		Cards:   []Card{c1, c2},
+		Dealer:  []Card{d1, d2},
 		Actions: []string{"hit", "stand", "double"},
 	}
 }
@@ -95,10 +138,11 @@ func FinishDealerDraws(dealerCards []Card, playerBusted bool) []Card {
 	}
 
 	for HandValue(res) < 17 {
-		res = append(res, RandomCard())
+		res = append(res, DrawUniqueCard(res))
 	}
 	return res
 }
+
 
 // SettleBlackjack evaluates the outcome and calculates payout
 func SettleBlackjack(bet int64, payload Payload) *SettleResult {

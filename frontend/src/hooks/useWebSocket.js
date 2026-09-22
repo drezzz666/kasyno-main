@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
   const callbacksRef = useRef({ onBalanceUpdate, onGlobalWin });
+  const [connected, setConnected] = useState(true);
 
   useEffect(() => {
     callbacksRef.current = { onBalanceUpdate, onGlobalWin };
@@ -22,7 +23,7 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
         wsRef.current = ws;
 
         ws.onopen = () => {
-          // Connected
+          if (!unmounted) setConnected(true);
         };
 
         ws.onmessage = (event) => {
@@ -40,15 +41,22 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
 
         ws.onclose = () => {
           if (!unmounted) {
+            setConnected(false);
             reconnectTimeoutRef.current = setTimeout(connect, 3000);
           }
         };
 
         ws.onerror = () => {
-          ws.close();
+          if (!unmounted) {
+            setConnected(false);
+          }
+          try {
+            ws.close();
+          } catch {}
         };
       } catch {
         if (!unmounted) {
+          setConnected(false);
           reconnectTimeoutRef.current = setTimeout(connect, 5000);
         }
       }
@@ -63,5 +71,6 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
     };
   }, []);
 
-  return wsRef;
+  return { wsRef, connected };
 }
+

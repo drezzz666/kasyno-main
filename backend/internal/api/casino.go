@@ -114,6 +114,13 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Anti-bot: register identity and check state-read rate
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+	if !h.rateLimiter.AllowStateRead(p.UserID) {
+		JSONError(w, http.StatusTooManyRequests, "Zbyt szybkie odpytywanie. Zwolnij tempo.")
+		return
+	}
+
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil {
 		JSONError(w, http.StatusInternalServerError, "Błąd pobierania aktywnej rundy")
@@ -129,12 +136,16 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 	roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
 	today := ledger.TodayString()
 	missionClaimed, _ := h.ledger.IsDailyMissionClaimed(r.Context(), p.UserID, today)
-	leaders, _ := h.ledger.GetLeaderboard(r.Context(), 5)
+	leaders, _ := h.ledger.GetLeaderboard(r.Context(), 50)
+	playerRank, _ := h.ledger.GetPlayerRank(r.Context(), p.UserID)
 	missions, missionNextReset, _ := h.ledger.GetDailyMissions(r.Context(), p.UserID)
 	recentWins, _ := h.ledger.GetRecentGlobalWins(r.Context(), 15)
+	playerStats, _ := h.ledger.GetPlayerStats(r.Context(), p.UserID)
 
 	resp := map[string]interface{}{
 		"player":           p,
+		"playerRank":       playerRank,
+		"stats":            playerStats,
 		"active":           ToPublicRound(activeRound),
 		"history":          historyResp.Entries,
 		"hasMoreHistory":   historyResp.HasMore,
@@ -150,6 +161,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 
 	JSON(w, http.StatusOK, resp)
 }
+
 
 // GetHistory handles GET /api/casino/history
 func (h *CasinoHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
@@ -182,8 +194,21 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Anti-Cheat: Flood Protection (generous token bucket: 15 req/s sustained, burst 30)
-	if !h.rateLimiter.Allow(p.UserID) {
+	// 1. Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+
+	// Parse action early so we can log it precisely in rate limiter
+	var bodyPeek map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&bodyPeek); err != nil {
+		JSONError(w, http.StatusBadRequest, "Nieprawidłowy format JSON")
+		return
+	}
+	actionPeek, _ := bodyPeek["action"].(string)
+	if actionPeek == "" {
+		actionPeek = "play"
+	}
+
+	if !h.rateLimiter.AllowGameAction(p.UserID, actionPeek) {
 		JSONError(w, http.StatusTooManyRequests, "Zbyt szybkie żądania. Zwolnij tempo.")
 		return
 	}
@@ -198,13 +223,9 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		p = freshPlayer
 	}
 
-	var body map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		JSONError(w, http.StatusBadRequest, "Nieprawidłowy format JSON")
-		return
-	}
-
-	action, _ := body["action"].(string)
+	// bodyPeek is already decoded above; reuse it as body
+	body := bodyPeek
+	action := actionPeek
 
 	switch action {
 	case "bonus":
@@ -434,26 +455,30 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 
 	// Broadcast wins to all live players
 	if payout > 0 {
-		h.broadcastWin(outcome.Round.ID, p.Nick, game, payout, bet, resultText)
+		h.broadcastWin(outcome.Round.ID, p.Nick, game, p.Avatar, payout, bet, resultText)
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":          true,
-		"round":       ToPublicRound(outcome.Round),
-		"balance":     outcome.Balance,
-		"xp":          outcome.XP,
-		"level":       outcome.Level,
-		"roundsToday": outcome.RoundsToday,
+		"ok":           true,
+		"round":        ToPublicRound(outcome.Round),
+		"balance":      outcome.Balance,
+		"xp":           outcome.XP,
+		"level":        outcome.Level,
+		"roundsToday":  outcome.RoundsToday,
+		"leveledUp":    outcome.LeveledUp,
+		"levelUpBonus": outcome.LevelUpBonus,
 	})
 }
 
-func (h *CasinoHandler) broadcastWin(roundID, nick, game string, payout, bet int64, resultText string) {
+
+func (h *CasinoHandler) broadcastWin(roundID, nick, game string, avatar *string, payout, bet int64, resultText string) {
 	if payout > 0 {
 		h.hub.Broadcast(ws.Event{
 			Type: ws.EventGlobalWin,
 			Payload: ws.GlobalWinPayload{
 				ID:        roundID,
 				Nick:      nick,
+				Avatar:    avatar,
 				Game:      game,
 				Bet:       bet,
 				Payout:    payout,
@@ -501,15 +526,17 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 		outcome, err := h.ledger.SettleActiveRound(r.Context(), round.ID, p.UserID, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
 		if err == nil {
 			if settleRes.Payout > 0 {
-				h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", settleRes.Payout, bet, settleRes.ResultText)
+				h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, bet, settleRes.ResultText)
 			}
 			JSON(w, http.StatusOK, map[string]interface{}{
-				"ok":          true,
-				"round":       ToPublicRound(outcome.Round),
-				"balance":     outcome.Balance,
-				"xp":          outcome.XP,
-				"level":       outcome.Level,
-				"roundsToday": outcome.RoundsToday,
+				"ok":           true,
+				"round":        ToPublicRound(outcome.Round),
+				"balance":      outcome.Balance,
+				"xp":           outcome.XP,
+				"level":        outcome.Level,
+				"roundsToday":  outcome.RoundsToday,
+				"leveledUp":    outcome.LeveledUp,
+				"levelUpBonus": outcome.LevelUpBonus,
 			})
 			return
 		}
@@ -549,7 +576,9 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		payload.Cards = append(payload.Cards, blackjack.RandomCard())
+		existing := append([]blackjack.Card{}, payload.Cards...)
+		existing = append(existing, payload.Dealer...)
+		payload.Cards = append(payload.Cards, blackjack.DrawUniqueCard(existing))
 		newBet := activeRound.Bet * 2
 
 		settleRes := blackjack.SettleBlackjack(newBet, *payload)
@@ -569,23 +598,29 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 		}
 
 		if settleRes.Payout > 0 {
-			h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", settleRes.Payout, newBet, settleRes.ResultText)
+			h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, newBet, settleRes.ResultText)
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
-			"ok":          true,
-			"round":       ToPublicRound(outcome.Round),
-			"balance":     outcome.Balance,
-			"xp":          outcome.XP,
-			"level":       outcome.Level,
-			"roundsToday": outcome.RoundsToday,
+			"ok":           true,
+			"round":        ToPublicRound(outcome.Round),
+			"balance":      outcome.Balance,
+			"xp":           outcome.XP,
+			"level":        outcome.Level,
+			"roundsToday":  outcome.RoundsToday,
+			"leveledUp":    outcome.LeveledUp,
+			"levelUpBonus": outcome.LevelUpBonus,
 		})
 		return
 	}
 
+
 	if move == "hit" {
-		payload.Cards = append(payload.Cards, blackjack.RandomCard())
+		existing := append([]blackjack.Card{}, payload.Cards...)
+		existing = append(existing, payload.Dealer...)
+		payload.Cards = append(payload.Cards, blackjack.DrawUniqueCard(existing))
 		cardVal := blackjack.HandValue(payload.Cards)
+
 
 		if cardVal < 21 {
 			newPayloadBytes, _ := json.Marshal(payload)
@@ -615,7 +650,7 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	}
 
 	if settleRes.Payout > 0 {
-		h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+		h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
@@ -707,7 +742,7 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 		}
 
 		if settleRes.Payout > 0 {
-			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
@@ -749,19 +784,22 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 		}
 
 		if settleRes.Payout > 0 {
-			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
-			"ok":          true,
-			"round":       ToPublicRound(outcome.Round),
-			"balance":     outcome.Balance,
-			"xp":          outcome.XP,
-			"level":       outcome.Level,
-			"roundsToday": outcome.RoundsToday,
+			"ok":           true,
+			"round":        ToPublicRound(outcome.Round),
+			"balance":      outcome.Balance,
+			"xp":           outcome.XP,
+			"level":        outcome.Level,
+			"roundsToday":  outcome.RoundsToday,
+			"leveledUp":    outcome.LeveledUp,
+			"levelUpBonus": outcome.LevelUpBonus,
 		})
 		return
 	}
+
 
 	// Safe tile, game continues
 	newPayloadBytes, _ := json.Marshal(payload)
@@ -779,3 +817,78 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 		"round": ToPublicRound(activeRound),
 	})
 }
+
+
+// GetProvablyFairSeed handles GET /api/casino/provably-fair
+func (h *CasinoHandler) GetProvablyFairSeed(w http.ResponseWriter, r *http.Request) {
+	p := auth.GetPlayerFromContext(r.Context())
+	if p == nil {
+		JSONError(w, http.StatusUnauthorized, "Zaloguj się, aby zobaczyć stan Provably Fair.")
+		return
+	}
+
+	seed, err := h.ledger.GetActiveProvablyFairSeed(r.Context(), p.UserID)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd pobierania seeda Provably Fair")
+		return
+	}
+
+	// Active server seed must remain hidden (only server hash is public)
+	publicSeed := map[string]interface{}{
+		"id":          seed.ID,
+		"server_hash": seed.ServerHash,
+		"client_seed": seed.ClientSeed,
+		"nonce":       seed.Nonce,
+		"created_at":  seed.CreatedAt,
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":   true,
+		"seed": publicSeed,
+	})
+}
+
+// RotateProvablyFairSeed handles POST /api/casino/provably-fair/rotate
+func (h *CasinoHandler) RotateProvablyFairSeed(w http.ResponseWriter, r *http.Request) {
+	p := auth.GetPlayerFromContext(r.Context())
+	if p == nil {
+		JSONError(w, http.StatusUnauthorized, "Zaloguj się, aby obrócić seed Provably Fair.")
+		return
+	}
+
+	var req struct {
+		ClientSeed string `json:"client_seed"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	revealed, newActive, err := h.ledger.RotateProvablyFairSeed(r.Context(), p.UserID, req.ClientSeed)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd rotacji seeda Provably Fair")
+		return
+	}
+
+	resp := map[string]interface{}{
+		"ok": true,
+		"active_seed": map[string]interface{}{
+			"id":          newActive.ID,
+			"server_hash": newActive.ServerHash,
+			"client_seed": newActive.ClientSeed,
+			"nonce":       newActive.Nonce,
+			"created_at":  newActive.CreatedAt,
+		},
+	}
+	if revealed != nil {
+		resp["revealed_previous_seed"] = map[string]interface{}{
+			"id":          revealed.ID,
+			"server_seed": revealed.ServerSeed,
+			"server_hash": revealed.ServerHash,
+			"client_seed": revealed.ClientSeed,
+			"nonce":       revealed.Nonce,
+			"created_at":  revealed.CreatedAt,
+			"revealed_at": revealed.RevealedAt,
+		}
+	}
+
+	JSON(w, http.StatusOK, resp)
+}
+

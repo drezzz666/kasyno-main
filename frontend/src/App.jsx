@@ -24,6 +24,9 @@ import {
   Crown,
   Rocket,
   TrendingUp,
+  Scale,
+  ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
@@ -33,15 +36,54 @@ import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
 import { InfoModal } from "./components/InfoModal";
+import { TosPage } from "./components/TosPage";
+import { TosAcceptModal } from "./components/TosAcceptModal";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
+import confetti from "canvas-confetti";
 
 export default function App() {
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
-  const [activeTab, setActiveTab] = useState("games"); // "games" | "missions" | "ranking" | "history"
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname.toLowerCase();
+      if (p === "/tos" || p === "/regulamin") return "tos";
+      if (p === "/misje" || p === "/missions") return "missions";
+      if (p === "/ranking") return "ranking";
+      if (p === "/historia" || p === "/history") return "history";
+    }
+    return "games";
+  }); // "games" | "missions" | "ranking" | "history" | "tos"
+
+  // ToS Consent State
+  const [tosAccepted, setTosAccepted] = useState(() => {
+    try {
+      return localStorage.getItem("kasyno_tos_accepted_v2") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const [tosModalOpen, setTosModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem("kasyno_tos_accepted_v2") !== "true";
+    } catch {
+      return true;
+    }
+  });
+
+  const handleAcceptTos = useCallback(() => {
+    try {
+      localStorage.setItem("kasyno_tos_accepted_v2", "true");
+    } catch {}
+    setTosAccepted(true);
+    setTosModalOpen(false);
+    toast.success("Regulamin zaakceptowany. Witamy w grze!");
+  }, []);
 
   // Per-game bet memory with default 50 $FGT for every game
   const [gameBets, setGameBets] = useState(() => {
@@ -74,6 +116,26 @@ export default function App() {
   const [choice, setChoice] = useState("red");
   const [mineCount, setMineCount] = useState(5);
   const [lastRound, setLastRound] = useState(null);
+
+  // Turbo Mode
+  const [turbo, setTurbo] = useState(() => {
+    try {
+      return localStorage.getItem("fgt_turbo_mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleSetTurbo = useCallback((val) => {
+    setTurbo((prev) => {
+      const next = typeof val === "function" ? val(prev) : val;
+      try {
+        localStorage.setItem("fgt_turbo_mode", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
 
   // Modals
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -108,7 +170,7 @@ export default function App() {
     });
   }, []);
 
-  useWebSocket({
+  const { connected } = useWebSocket({
     onBalanceUpdate: (payload) => {
       if (typeof payload.balance === "number") {
         syncBalance(payload.balance);
@@ -239,6 +301,20 @@ export default function App() {
             : prev
         );
         setLoading(false);
+        if (j.leveledUp && j.levelUpBonus) {
+          try {
+            confetti({
+              particleCount: 90,
+              spread: 80,
+              origin: { y: 0.6 },
+              colors: ["#f59e0b", "#fbbf24", "#10b981", "#ffffff"],
+            });
+          } catch {}
+          toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
+            description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
+            duration: 6000,
+          });
+        }
         if (j.round.state !== "active" && !opts?.deferRefresh && !opts?.deferBalance) {
           void load();
         }
@@ -247,6 +323,7 @@ export default function App() {
       await load();
       return j;
     } catch (e) {
+
       toast.error(e.message || "Błąd operacji");
       setLoading(false);
       return null;
@@ -341,74 +418,74 @@ export default function App() {
   const gamesList = [
     {
       id: "crash",
-      name: "Crash (Aviator)",
-      badge: "RTP 99.0%",
-      mult: "Do ×1000+",
-      desc: "Obserwuj rosnący mnożnik rakiety w czasie rzeczywistym. Wypłać wygraną, zanim nastąpi Crash!",
+      name: "Crash",
+      badge: "RTP 99%",
+      mult: "Do ×1000",
+      desc: "Obserwuj rosnący mnożnik. Wypłać zanim nastąpi crash.",
       img: "/crash-hero.webp",
     },
     {
       id: "limbo",
-      name: "Limbo Multiplier",
-      badge: "RTP 99.0%",
+      name: "Limbo",
+      badge: "RTP 99%",
       mult: "Do ×10000",
-      desc: "Ustaw docelowy mnożnik i obstaw wynik wyższy od celu. Prosta, dynamiczna gra wysokich wygranych.",
+      desc: "Ustaw docelowy mnożnik i obstaw wynik wyższy od celu.",
       img: "/limbo-hero.webp",
     },
     {
       id: "plinko",
-      name: "Plinko Stake",
+      name: "Plinko",
       badge: "Do ×1000",
-      mult: "Fizyka kołków",
-      desc: "Upuszczaj kule przez piramidę kołków. Konfiguruj 8–16 rzędów i 3 poziomy ryzyka wygranych.",
+      mult: "8–16 rzędów",
+      desc: "Upuszczaj kule przez piramidę kołków. Trzy poziomy ryzyka.",
       img: "/plinko-hero.webp",
     },
     {
       id: "mines",
-      name: "Mines (Saper)",
-      badge: "RTP 97.0%",
-      mult: "Do ×100+",
-      desc: "Odkrywaj diamenty na siatce 5×5. Ty decydujesz, kiedy zabezpieczyć zysk i wypłacić stawkę.",
+      name: "Mines",
+      badge: "RTP 97%",
+      mult: "Do ×100",
+      desc: "Odkrywaj diamenty na siatce 5×5. Wypłać kiedy chcesz.",
       img: "/mines-hero.webp",
     },
     {
       id: "coinflip",
-      name: "Coin Flip",
-      badge: "RTP 99.0%",
-      mult: "Mnożnik ×1.98",
-      desc: "Szybki rzut monetą 3D. Wybierz Orła lub Reszkę i podwajaj stawkę w ułamku sekundy.",
+      name: "Coinflip",
+      badge: "RTP 99%",
+      mult: "×1.98",
+      desc: "Rzut monetą. Wybierz Orła lub Reszkę.",
       img: "/coinflip-hero.webp",
     },
     {
       id: "rps",
       name: "Kamień Papier Nożyce",
-      badge: "PvE Duel",
-      mult: "Mnożnik ×1.98",
-      desc: "Klasyczny pojedynek z krupierem. Kamień bije nożyce, nożyce papier, papier kamień.",
+      badge: "PvE",
+      mult: "×1.98",
+      desc: "Klasyczny pojedynek z krupierem.",
       img: "/rps-hero.webp",
     },
     {
       id: "roulette",
-      name: "Ruletka Europejska",
+      name: "Ruletka",
       badge: "RTP 97.3%",
-      mult: "×36 / ×3 / ×2",
-      desc: "Autentyczne koło z pojedynczym zerem (0). Stawiaj na konkretne numery, kolory, tuziny i parzystość.",
+      mult: "Do ×36",
+      desc: "Europejska ruletka z pojedynczym zerem. Numery, kolory, tuziny.",
       img: "/roulette-hero.webp",
     },
     {
       id: "blackjack",
-      name: "Blackjack 21",
+      name: "Blackjack",
       badge: "Wypłata 3:2",
-      mult: "Blackjack 3:2",
-      desc: "Graj przeciwko krupierowi. Dobieraj karty do 21 punktów, podwajaj stawki i wygrywaj.",
+      mult: "×1.5",
+      desc: "Graj przeciwko krupierowi. Dobieraj karty do 21.",
       img: "/blackjack-hero.webp",
     },
     {
       id: "slots",
-      name: "Midnight 2FGT",
-      badge: "5 Bębnów",
+      name: "Slots",
+      badge: "5 bębnów",
       mult: "Do ×12",
-      desc: "Klasyczny automat owocowo-neonowy. Trafiaj linie 3, 4 lub 5 symboli na środkowej linii.",
+      desc: "Klasyczny automat. Trafiaj linie 3, 4 lub 5 symboli.",
       img: "/slot-hero.webp",
     },
   ];
@@ -419,9 +496,8 @@ export default function App() {
 
       {/* Clean Top Header */}
       <header className="topbar">
-        <button className="brand" onClick={() => { setActiveGame(null); setActiveTab("games"); }}>
-          <div className="brand-logo">2F</div>
-          <span className="brand-name">KASYNO</span>
+        <button className="brand" onClick={() => { setActiveGame(null); setActiveTab("games"); }} aria-label="Strona główna">
+          <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
 
         {/* Desktop Segmented Navigation */}
@@ -430,6 +506,7 @@ export default function App() {
             type="button"
             className={`nav-tab-btn ${activeTab === "games" ? "active" : ""}`}
             onClick={() => setActiveTab("games")}
+            aria-current={activeTab === "games" ? "page" : undefined}
           >
             <Spade size={15} />
             <span>Gry</span>
@@ -439,13 +516,14 @@ export default function App() {
             type="button"
             className={`nav-tab-btn ${activeTab === "missions" ? "active" : ""}`}
             onClick={() => setActiveTab("missions")}
+            aria-current={activeTab === "missions" ? "page" : undefined}
           >
             <Target size={15} />
             <span>Misje</span>
             {readyMissionsCount > 0 ? (
-              <span className="nav-badge ready">{readyMissionsCount}</span>
+              <span className="nav-badge ready" aria-label={`${readyMissionsCount} misji do odebrania`}>{readyMissionsCount}</span>
             ) : (
-              <span className="nav-badge">{claimedMissionsCount}/{totalMissionsCount}</span>
+              <span className="nav-badge" aria-label={`${claimedMissionsCount} z ${totalMissionsCount} ukończono`}>{claimedMissionsCount}/{totalMissionsCount}</span>
             )}
           </button>
 
@@ -453,6 +531,7 @@ export default function App() {
             type="button"
             className={`nav-tab-btn ${activeTab === "ranking" ? "active" : ""}`}
             onClick={() => setActiveTab("ranking")}
+            aria-current={activeTab === "ranking" ? "page" : undefined}
           >
             <Trophy size={15} />
             <span>Ranking</span>
@@ -462,6 +541,7 @@ export default function App() {
             type="button"
             className={`nav-tab-btn ${activeTab === "history" ? "active" : ""}`}
             onClick={() => setActiveTab("history")}
+            aria-current={activeTab === "history" ? "page" : undefined}
           >
             <History size={15} />
             <span>Historia</span>
@@ -469,16 +549,18 @@ export default function App() {
 
           <button
             type="button"
-            className="nav-tab-btn-secondary"
-            onClick={() => setInfoOpen(true)}
+            className={`nav-tab-btn ${activeTab === "tos" ? "active" : ""}`}
+            onClick={() => setActiveTab("tos")}
+            aria-current={activeTab === "tos" ? "page" : undefined}
           >
-            <Info size={14} />
-            <span>Zasady</span>
+            <Scale size={15} />
+            <span>Regulamin i Zasady</span>
           </button>
         </nav>
 
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
+
           <button
             type="button"
             className="icon-btn"
@@ -500,7 +582,11 @@ export default function App() {
             onClick={() => setProfileOpen(true)}
             title={`Profil: ${userNick}`}
           >
-            {userNick.slice(0, 2).toUpperCase()}
+            {data?.player?.avatar ? (
+              <img src={data.player.avatar} alt={userNick} className="user-btn-avatar" />
+            ) : (
+              userNick.slice(0, 2).toUpperCase()
+            )}
           </button>
         </div>
       </header>
@@ -520,15 +606,24 @@ export default function App() {
             {/* Player Utility Strip */}
             <section className="player-summary-card">
               <div className="player-summary-left">
-                <div className="player-nick-row">
-                  <span className="player-name">{userNick}</span>
-                  <span className="level-pill">POZIOM {data?.player?.level || 1}</span>
+                <div className="player-strip-avatar-wrap">
+                  {data?.player?.avatar ? (
+                    <img src={data.player.avatar} alt={userNick} className="player-strip-avatar" />
+                  ) : (
+                    <div className="player-strip-avatar-fallback">{userNick.slice(0, 2).toUpperCase()}</div>
+                  )}
                 </div>
-                <div className="xp-wrap">
-                  <div className="xp-meter">
-                    <div className="xp-fill" style={{ width: `${xpProgress}%` }} />
+                <div className="flex flex-col">
+                  <div className="player-nick-row">
+                    <span className="player-name">{userNick}</span>
+                    <span className="level-pill">POZIOM {data?.player?.level || 1}</span>
                   </div>
-                  <span className="xp-text">{xpCurrent} / 500 XP</span>
+                  <div className="xp-wrap">
+                    <div className="xp-meter">
+                      <div className="xp-fill" style={{ width: `${xpProgress}%` }} />
+                    </div>
+                    <span className="xp-text">{xpCurrent} / 500 XP</span>
+                  </div>
                 </div>
               </div>
 
@@ -582,23 +677,48 @@ export default function App() {
               >
                 Historia
               </button>
+              <button
+                type="button"
+                className={`pill-btn ${activeTab === "tos" ? "active" : ""}`}
+                onClick={() => setActiveTab("tos")}
+              >
+                Regulamin i Zasady
+              </button>
             </div>
+
+            {/* View Tab: Dedicated Terms of Service Page */}
+            {activeTab === "tos" && (
+              <TosPage
+                onBack={() => setActiveTab("games")}
+                onAccept={handleAcceptTos}
+                accepted={tosAccepted}
+              />
+            )}
 
             {/* View Tab 1: Games Grid */}
             {activeTab === "games" && (
               <section className="games-section">
                 <div className="games-grid">
                   {gamesList.map((g) => (
-                    <div
+                    <button
                       key={g.id}
+                      type="button"
                       className="game-card"
+                      aria-label={`Zagraj w ${g.name}`}
                       onClick={() => {
                         setActiveGame(g.id);
                         setLastRound(null);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setActiveGame(g.id);
+                          setLastRound(null);
+                        }
+                      }}
                     >
                       <div className="game-card-media">
-                        <img src={g.img} alt={g.name} className="game-card-img" />
+                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
                         <div className="game-card-gradient" />
                         <span className="tag-badge">{g.badge}</span>
                       </div>
@@ -608,11 +728,11 @@ export default function App() {
                           <span className="game-card-mult">{g.mult}</span>
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
-                        <button type="button" className="btn-play-game">
+                        <span className="btn-play-game" aria-hidden="true">
                           Zagraj <ChevronRight size={13} />
-                        </button>
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -743,27 +863,95 @@ export default function App() {
             {/* View Tab 3: Ranking */}
             {activeTab === "ranking" && (
               <section className="tab-section">
-                <div className="panel-box">
+                <div className="panel-box ranking-panel">
                   <div className="panel-box-header">
                     <div>
                       <span className="sub-label">TABELA WYNIKÓW</span>
-                      <h3>Najbogatsi gracze</h3>
+                      <h3>Ranking graczy</h3>
                     </div>
                     <Trophy size={16} className="text-amber-400" />
                   </div>
-                  <div className="ranking-list">
-                    {data?.leaders?.map((l, idx) => (
-                      <div key={l.nick || idx} className="ranking-row">
-                        <div className="ranking-left">
-                          <span className={`rank-place place-${idx + 1}`}>#{idx + 1}</span>
-                          <div className="flex flex-col">
-                            <span className="rank-name">{l.nick || "Gracz"}</span>
-                            {l.level && <span className="text-[10px] text-slate-500 font-mono">Poziom {l.level}</span>}
-                          </div>
+
+                  {/* Pinned Current User Card at Top */}
+                  {data?.player && (
+                    <div className="ranking-pinned-user">
+                      <div className="ranking-left">
+                        <span className={`rank-place-badge ${data?.playerRank <= 3 ? `place-${data.playerRank}` : ""}`}>
+                          #{data?.playerRank || 1}
+                        </span>
+                        <div className="ranking-user-avatar">
+                          {data?.player?.avatar ? (
+                            <img src={data.player.avatar} alt={userNick} className="ranking-avatar-img" />
+                          ) : (
+                            userNick.slice(0, 2).toUpperCase()
+                          )}
                         </div>
-                        <span className="rank-balance">{money(l.balance)}</span>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-1.5">
+                            <span className="rank-name font-bold text-slate-100">{userNick}</span>
+                            <span className="rank-you-badge">Ty</span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            Poziom {data.player.level || 1}
+                          </span>
+                        </div>
                       </div>
-                    ))}
+                      <div className="ranking-right">
+                        <span className="rank-balance font-mono font-bold text-amber-400">
+                          {money(data.player.balance)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Divider / Przedziałka */}
+                  <div className="ranking-divider">
+                    <span className="ranking-divider-line" />
+                    <span className="ranking-divider-text">TOPKA KASYNA</span>
+                    <span className="ranking-divider-line" />
+                  </div>
+
+                  {/* Scrollable Leaderboard List */}
+                  <div className="ranking-list-scrollable">
+                    {data?.leaders && data.leaders.length > 0 ? (
+                      data.leaders.map((l, idx) => {
+                        const isMe = l.nick === userNick;
+                        const rankNum = idx + 1;
+                        return (
+                          <div
+                            key={l.nick || idx}
+                            className={`ranking-row ${isMe ? "ranking-row-me" : ""}`}
+                          >
+                            <div className="ranking-left">
+                              <span className={`rank-place place-${rankNum}`}>
+                                #{rankNum}
+                              </span>
+                              <div className="ranking-row-avatar">
+                                {l.avatar ? (
+                                  <img src={l.avatar} alt={l.nick} className="ranking-avatar-img" />
+                                ) : (
+                                  (l.nick || "G").slice(0, 2).toUpperCase()
+                                )}
+                              </div>
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="rank-name">{l.nick || "Gracz"}</span>
+                                  {isMe && <span className="rank-you-pill">Ty</span>}
+                                </div>
+                                {l.level && (
+                                  <span className="text-[10px] text-slate-500 font-mono">
+                                    Poziom {l.level}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="rank-balance">{money(l.balance)}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="empty-text">Brak danych w rankingu.</p>
+                    )}
                   </div>
                 </div>
               </section>
@@ -821,6 +1009,34 @@ export default function App() {
                 </div>
               </section>
             )}
+
+            {/* Casino Footer with Links */}
+            <footer className="casino-footer">
+              <div className="casino-footer-inner">
+                <div className="casino-footer-brand">
+                  <div className="flex items-center gap-2">
+                    <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img small" />
+                    <span className="font-extrabold text-sm tracking-wider text-slate-200">KASYNO</span>
+                  </div>
+                  <p className="casino-footer-tagline">
+                    Niekomercyjna platforma rozrywkowa społeczności 2FGT.
+                  </p>
+                </div>
+
+                <div className="casino-footer-links">
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("tos")}>
+                    <Scale size={13} /> Regulamin i Zasady
+                  </button>
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("ranking")}>
+                    <Trophy size={13} /> Ranking
+                  </button>
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("history")}>
+                    <History size={13} /> Dziennik
+                  </button>
+                </div>
+              </div>
+            </footer>
+
           </>
         )}
       </main>
@@ -864,11 +1080,11 @@ export default function App() {
         </button>
 
         <button
-          className="mobile-tab-item"
-          onClick={() => setProfileOpen(true)}
+          className={`mobile-tab-item ${activeTab === "tos" ? "active" : ""}`}
+          onClick={() => { setActiveTab("tos"); setActiveGame(null); }}
         >
-          <User size={19} />
-          <span>Konto</span>
+          <Scale size={19} />
+          <span>Zasady</span>
         </button>
       </nav>
 
@@ -892,6 +1108,8 @@ export default function App() {
           last={lastRound}
           setLast={setLastRound}
           loading={loading}
+          turbo={turbo}
+          setTurbo={handleSetTurbo}
         />
       )}
 
@@ -909,6 +1127,7 @@ export default function App() {
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         player={data?.player}
+        stats={data?.stats}
         userNick={userNick}
         onOpenHistory={() => {
           setProfileOpen(false);
@@ -916,7 +1135,41 @@ export default function App() {
         }}
       />
 
-      <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
+
+      <InfoModal
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        onOpenTos={() => {
+          setInfoOpen(false);
+          setActiveTab("tos");
+        }}
+      />
+
+      {/* Entry ToS Consent Modal */}
+      <TosAcceptModal
+        open={tosModalOpen}
+        onAccept={handleAcceptTos}
+        onReadMore={() => {
+          setTosModalOpen(false);
+          setActiveTab("tos");
+        }}
+      />
+
+      {/* Full-Screen Centered Reconnecting Blur Overlay */}
+      {!connected && (
+        <div className="reconnecting-overlay" role="alert" aria-live="assertive">
+          <div className="reconnecting-card">
+            <div className="reconnecting-spinner-wrap">
+              <div className="reconnecting-spinner" />
+              <div className="reconnecting-pulse" />
+            </div>
+            <h2 className="reconnecting-title">Łączenie ponownie...</h2>
+            <p className="reconnecting-subtitle">
+              Utracono połączenie z serwerem kasyna. Trwa próba ponownego nawiązania sesji na żywo.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
