@@ -3,11 +3,12 @@ import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
 const CRASH_PRESETS = [
+  { label: "1.1×", val: 1.1 },
+  { label: "1.2×", val: 1.2 },
   { label: "1.5×", val: 1.5 },
   { label: "2.0×", val: 2.0 },
   { label: "3.0×", val: 3.0 },
   { label: "5.0×", val: 5.0 },
-  { label: "10×", val: 10.0 },
 ];
 
 export function CrashTable({
@@ -15,7 +16,7 @@ export function CrashTable({
   autoCashout,
   setAutoCashout,
   isPlaying,
-  currentMult,
+  currentMult = 1.0,
   isCrashed,
   isCashedOut,
   onCashout,
@@ -51,7 +52,7 @@ export function CrashTable({
 
     if (!graphPoints || graphPoints.length < 2) return;
 
-    const maxMult = Math.max(2.5, currentMult * 1.15);
+    const maxMult = Math.max(2.0, currentMult * 1.15);
     const maxTime = Math.max(5, graphPoints[graphPoints.length - 1]?.x || 5);
 
     // 2. Draw Exponential Curve
@@ -69,7 +70,7 @@ export function CrashTable({
 
     graphPoints.forEach((pt, idx) => {
       const x = (pt.x / maxTime) * (width - 30) + 15;
-      const y = height - ((pt.y - 1) / (maxMult - 1)) * (height - 40) - 20;
+      const y = height - ((pt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
       if (idx === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -78,7 +79,7 @@ export function CrashTable({
     // 3. Fill Gradient Area Under Curve
     const lastPt = graphPoints[graphPoints.length - 1];
     const lastX = (lastPt.x / maxTime) * (width - 30) + 15;
-    const lastY = height - ((lastPt.y - 1) / (maxMult - 1)) * (height - 40) - 20;
+    const lastY = height - ((lastPt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
 
     ctx.lineTo(lastX, height);
     ctx.lineTo(15, height);
@@ -145,6 +146,17 @@ export function CrashTable({
               Wypłata: <strong>{money(livePayout)}</strong>
             </div>
           )}
+
+          {isPlaying && onCashout && (
+            <button
+              type="button"
+              className="btn-crash-cashout mt-3 px-6 py-2 pointer-events-auto"
+              onClick={onCashout}
+            >
+              <span className="btn-crash-cashout-main">WYPŁAĆ ({currentMult.toFixed(2)}×)</span>
+              <span className="btn-crash-cashout-sub">Wypłata: {money(livePayout)}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -156,20 +168,20 @@ export function CrashTable({
               <Target size={14} className="text-amber-400" />
               <span>Docelowy Cashout</span>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">Min: 1.01× | Max: 1,000×</span>
+            <span className="text-[11px] text-slate-400 font-mono">Min: 1.00× | Max: 1,000×</span>
           </div>
 
           <div className="crash-auto-input-wrap">
             <input
               type="number"
-              step="0.1"
-              min="1.01"
+              step="0.05"
+              min="1.0"
               max="1000"
               disabled={isPlaying || loading}
               value={autoCashout}
               onChange={(e) => {
                 const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 1.01) {
+                if (!isNaN(v) && v >= 1.0) {
                   setAutoCashout(Math.min(1000, v));
                 }
               }}

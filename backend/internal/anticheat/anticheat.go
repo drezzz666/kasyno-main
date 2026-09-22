@@ -25,10 +25,19 @@ var (
 // ============================================================================
 
 var (
-	botLoggerOnce sync.Once
-	botLogger     *log.Logger
-	botLogMu      sync.Mutex
+	botLoggerOnce       sync.Once
+	botLogger           *log.Logger
+	botLogMu            sync.Mutex
+	alertCallbackMu     sync.RWMutex
+	alertCallbackHandler func(category, ip, userID, nick, action, details string)
 )
+
+// SetSecurityAlertHandler registers a global callback to dispatch security and anticheat events (e.g. to Discord webhook).
+func SetSecurityAlertHandler(handler func(category, ip, userID, nick, action, details string)) {
+	alertCallbackMu.Lock()
+	defer alertCallbackMu.Unlock()
+	alertCallbackHandler = handler
+}
 
 func getBotLogger() *log.Logger {
 	botLoggerOnce.Do(func() {
@@ -62,10 +71,21 @@ func LogSuspiciousActivity(category, ip, userID, nick, action, details string) {
 	botLogMu.Lock()
 	getBotLogger().Println(line)
 	botLogMu.Unlock()
+
+	alertCallbackMu.RLock()
+	cb := alertCallbackHandler
+	alertCallbackMu.RUnlock()
+	if cb != nil {
+		cb(category, ip, userID, nick, action, details)
+	}
 }
 
 func logBotEvent(nick, userID, ip, action, reason string, violationCount int) {
-	details := fmt.Sprintf("%s (violations_in_window=%d)", reason, violationCount)
+	status := ""
+	if violationCount >= botViolationThreshold {
+		status = " ⚠️ [ZFLAGOWANO JAKO AUTOMAT/BOT]"
+	}
+	details := fmt.Sprintf("%s | Naruszenia w oknie 60s: %d%s", reason, violationCount, status)
 	LogSuspiciousActivity("BOT_DETECTION", ip, userID, nick, action, details)
 }
 
@@ -434,8 +454,8 @@ func ValidateLimboTarget(target float64) error {
 }
 
 func ValidateCrashTarget(target float64) error {
-	if target < 1.01 || target > 1000.0 {
-		return fmt.Errorf("%w: cel w Crash musi wynosić od 1.01x do 1,000x", ErrInvalidGameParam)
+	if target < 1.00 || target > 1000.0 {
+		return fmt.Errorf("%w: cel w Crash musi wynosić od 1.00x do 1,000x", ErrInvalidGameParam)
 	}
 	return nil
 }

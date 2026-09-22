@@ -18,9 +18,9 @@ func TestGenerateCrashPoint(t *testing.T) {
 
 func TestPlayCrash(t *testing.T) {
 	// 1. Invalid target multiplier (too low)
-	_, err := PlayCrash(100, 1.00)
+	_, err := PlayCrash(100, 0.99)
 	if err == nil {
-		t.Errorf("expected error for targetMultiplier < 1.01")
+		t.Errorf("expected error for targetMultiplier < 1.00")
 	}
 
 	// 2. Invalid target multiplier (too high)

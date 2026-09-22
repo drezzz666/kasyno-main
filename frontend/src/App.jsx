@@ -27,6 +27,8 @@ import {
   Scale,
   ShieldCheck,
   FileText,
+  Award,
+  Star,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
@@ -38,6 +40,7 @@ import { ProfileModal } from "./components/ProfileModal";
 import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
+import { WinCelebrationModal } from "./components/WinCelebrationModal";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
@@ -48,6 +51,7 @@ export default function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
+  const [rankingType, setRankingType] = useState("balance"); // "balance" | "level"
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const p = window.location.pathname.toLowerCase();
@@ -358,7 +362,7 @@ export default function App() {
   const missions = data?.missions || [];
   const readyMissionsCount = missions.filter((m) => m.ready).length;
   const claimedMissionsCount = missions.filter((m) => m.claimed).length;
-  const totalMissionsCount = missions.length || 6;
+  const totalMissionsCount = missions.length || 4;
 
   // Dynamic remaining time countdown for 6-hour mission resets
   const [missionCountdown, setMissionCountdown] = useState("");
@@ -520,64 +524,6 @@ export default function App() {
           <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
 
-        {/* Desktop Segmented Navigation */}
-        <nav className="desktop-nav" aria-label="Nawigacja główna">
-          <button
-            type="button"
-            className={`nav-tab-btn ${activeTab === "games" ? "active" : ""}`}
-            onClick={() => setActiveTab("games")}
-            aria-current={activeTab === "games" ? "page" : undefined}
-          >
-            <Spade size={15} />
-            <span>Gry</span>
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-btn ${activeTab === "missions" ? "active" : ""}`}
-            onClick={() => setActiveTab("missions")}
-            aria-current={activeTab === "missions" ? "page" : undefined}
-          >
-            <Target size={15} />
-            <span>Misje</span>
-            {readyMissionsCount > 0 ? (
-              <span className="nav-badge ready" aria-label={`${readyMissionsCount} misji do odebrania`}>{readyMissionsCount}</span>
-            ) : (
-              <span className="nav-badge" aria-label={`${claimedMissionsCount} z ${totalMissionsCount} ukończono`}>{claimedMissionsCount}/{totalMissionsCount}</span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-btn ${activeTab === "ranking" ? "active" : ""}`}
-            onClick={() => setActiveTab("ranking")}
-            aria-current={activeTab === "ranking" ? "page" : undefined}
-          >
-            <Trophy size={15} />
-            <span>Ranking</span>
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-btn ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => setActiveTab("history")}
-            aria-current={activeTab === "history" ? "page" : undefined}
-          >
-            <History size={15} />
-            <span>Historia</span>
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-btn ${activeTab === "tos" ? "active" : ""}`}
-            onClick={() => setActiveTab("tos")}
-            aria-current={activeTab === "tos" ? "page" : undefined}
-          >
-            <Scale size={15} />
-            <span>Regulamin i Zasady</span>
-          </button>
-        </nav>
-
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
 
@@ -667,45 +613,6 @@ export default function App() {
               </div>
             </section>
 
-            {/* Mobile Tab Pill Switcher */}
-            <div className="mobile-pill-switcher">
-              <button
-                type="button"
-                className={`pill-btn ${activeTab === "games" ? "active" : ""}`}
-                onClick={() => setActiveTab("games")}
-              >
-                Gry
-              </button>
-              <button
-                type="button"
-                className={`pill-btn ${activeTab === "missions" ? "active" : ""}`}
-                onClick={() => setActiveTab("missions")}
-              >
-                Misje {readyMissionsCount > 0 ? `(${readyMissionsCount}!)` : `(${claimedMissionsCount}/${totalMissionsCount})`}
-              </button>
-              <button
-                type="button"
-                className={`pill-btn ${activeTab === "ranking" ? "active" : ""}`}
-                onClick={() => setActiveTab("ranking")}
-              >
-                Ranking
-              </button>
-              <button
-                type="button"
-                className={`pill-btn ${activeTab === "history" ? "active" : ""}`}
-                onClick={() => setActiveTab("history")}
-              >
-                Historia
-              </button>
-              <button
-                type="button"
-                className={`pill-btn ${activeTab === "tos" ? "active" : ""}`}
-                onClick={() => setActiveTab("tos")}
-              >
-                Regulamin i Zasady
-              </button>
-            </div>
-
             {/* View Tab: Dedicated Terms of Service Page */}
             {activeTab === "tos" && (
               <TosPage
@@ -765,7 +672,7 @@ export default function App() {
                       <h2 className="missions-hub-title">Misje Kasyna (Co 6h)</h2>
                     </div>
                     <p className="missions-hub-subtitle">
-                      Wykonuj zadania w grach, zdobywaj darmowe żetony $FGT i punkty XP. Pula misji odnawia się automatycznie co 6 godzin.
+                      Wykonuj zadania w grach (min. stawka 50 $FGT), zdobywaj żetony $FGT i punkty XP. Pula 4 misji odnawia się automatycznie co 6 godzin.
                     </p>
                   </div>
                   <div className="missions-hub-stats">
@@ -885,16 +792,44 @@ export default function App() {
                       <span className="sub-label">TABELA WYNIKÓW</span>
                       <h3>Ranking graczy</h3>
                     </div>
-                    <Trophy size={16} className="text-amber-400" />
+                    {rankingType === "level" ? (
+                      <Star size={18} className="text-amber-400 fill-amber-400/20" />
+                    ) : (
+                      <Trophy size={18} className="text-amber-400" />
+                    )}
+                  </div>
+
+                  {/* Subtab Switcher: Bogactwo vs Poziom */}
+                  <div className="ranking-subtabs">
+                    <button
+                      className={`ranking-subtab-btn ${rankingType === "balance" ? "active" : ""}`}
+                      onClick={() => setRankingType("balance")}
+                    >
+                      <Coins size={14} />
+                      <span>Bogactwo ($FGT)</span>
+                    </button>
+                    <button
+                      className={`ranking-subtab-btn ${rankingType === "level" ? "active" : ""}`}
+                      onClick={() => setRankingType("level")}
+                    >
+                      <Award size={14} />
+                      <span>Poziom (LVL / XP)</span>
+                    </button>
                   </div>
 
                   {/* Pinned Current User Card at Top */}
                   {data?.player && (
                     <div className="ranking-pinned-user">
                       <div className="ranking-left">
-                        <span className={`rank-place-badge ${data?.playerRank <= 3 ? `place-${data.playerRank}` : ""}`}>
-                          #{data?.playerRank || 1}
-                        </span>
+                        {rankingType === "level" ? (
+                          <span className={`rank-place-badge ${data?.playerLevelRank <= 3 ? `place-${data.playerLevelRank}` : ""}`}>
+                            #{data?.playerLevelRank || 1}
+                          </span>
+                        ) : (
+                          <span className={`rank-place-badge ${data?.playerRank <= 3 ? `place-${data.playerRank}` : ""}`}>
+                            #{data?.playerRank || 1}
+                          </span>
+                        )}
                         <div className="ranking-user-avatar">
                           {data?.player?.avatar ? (
                             <img src={data.player.avatar} alt={userNick} className="ranking-avatar-img" />
@@ -908,14 +843,27 @@ export default function App() {
                             <span className="rank-you-badge">Ty</span>
                           </div>
                           <span className="text-[11px] text-slate-400 font-mono">
-                            Poziom {data.player.level || 1}
+                            {rankingType === "level"
+                              ? `Stan konta: ${money(data.player.balance)}`
+                              : `Poziom ${data.player.level || 1} • ${data.player.xp || 0} XP`}
                           </span>
                         </div>
                       </div>
                       <div className="ranking-right">
-                        <span className="rank-balance font-mono font-bold text-amber-400">
-                          {money(data.player.balance)}
-                        </span>
+                        {rankingType === "level" ? (
+                          <div className="flex flex-col items-end">
+                            <span className="rank-level-badge pinned">
+                              LVL {data.player.level || 1}
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-mono font-bold mt-0.5">
+                              {data.player.xp || 0} XP
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="rank-balance font-mono font-bold text-amber-400">
+                            {money(data.player.balance)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -923,14 +871,20 @@ export default function App() {
                   {/* Divider / Przedziałka */}
                   <div className="ranking-divider">
                     <span className="ranking-divider-line" />
-                    <span className="ranking-divider-text">TOPKA KASYNA</span>
+                    <span className="ranking-divider-text">
+                      {rankingType === "level" ? "NAJWYŻSZE POZIOMY (XP)" : "TOPKA KASYNA ($FGT)"}
+                    </span>
                     <span className="ranking-divider-line" />
                   </div>
 
                   {/* Scrollable Leaderboard List */}
                   <div className="ranking-list-scrollable">
-                    {data?.leaders && data.leaders.length > 0 ? (
-                      data.leaders.map((l, idx) => {
+                    {(() => {
+                      const leadersList = rankingType === "level" ? data?.levelLeaders : data?.leaders;
+                      if (!leadersList || leadersList.length === 0) {
+                        return <p className="empty-text">Brak danych w rankingu.</p>;
+                      }
+                      return leadersList.map((l, idx) => {
                         const isMe = l.nick === userNick;
                         const rankNum = idx + 1;
                         return (
@@ -954,20 +908,27 @@ export default function App() {
                                   <span className="rank-name">{l.nick || "Gracz"}</span>
                                   {isMe && <span className="rank-you-pill">Ty</span>}
                                 </div>
-                                {l.level && (
-                                  <span className="text-[10px] text-slate-500 font-mono">
-                                    Poziom {l.level}
-                                  </span>
-                                )}
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {rankingType === "level"
+                                    ? `Konto: ${money(l.balance)}`
+                                    : `Poziom ${l.level || 1}`}
+                                </span>
                               </div>
                             </div>
-                            <span className="rank-balance">{money(l.balance)}</span>
+                            {rankingType === "level" ? (
+                              <div className="flex flex-col items-end">
+                                <span className="rank-level-badge">LVL {l.level || 1}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {l.xp || 0} XP
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="rank-balance">{money(l.balance)}</span>
+                            )}
                           </div>
                         );
-                      })
-                    ) : (
-                      <p className="empty-text">Brak danych w rankingu.</p>
-                    )}
+                      });
+                    })()}
                   </div>
                 </div>
               </section>

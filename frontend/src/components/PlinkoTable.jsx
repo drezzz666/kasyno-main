@@ -3,37 +3,37 @@ import { sounds } from "../lib/sounds";
 
 export const PLINKO_MULTIPLIERS = {
   low: {
-    8: [5.3, 2.0, 1.05, 0.95, 0.45, 0.95, 1.05, 2.0, 5.3],
-    9: [5.3, 1.9, 1.5, 0.95, 0.65, 0.65, 0.95, 1.5, 1.9, 5.3],
-    10: [8.5, 2.8, 1.3, 1.05, 0.95, 0.45, 0.95, 1.05, 1.3, 2.8, 8.5],
-    11: [8.0, 2.8, 1.8, 1.2, 0.95, 0.65, 0.65, 0.95, 1.2, 1.8, 2.8, 8.0],
-    12: [9.5, 2.8, 1.5, 1.3, 1.05, 0.95, 0.45, 0.95, 1.05, 1.3, 1.5, 2.8, 9.5],
-    13: [7.7, 3.8, 2.8, 1.8, 1.15, 0.85, 0.65, 0.65, 0.85, 1.15, 1.8, 2.8, 3.8, 7.7],
-    14: [6.8, 3.8, 1.8, 1.3, 1.2, 1.05, 0.95, 0.45, 0.95, 1.05, 1.2, 1.3, 1.8, 3.8, 6.8],
-    15: [14.2, 7.6, 2.8, 1.9, 1.4, 1.05, 0.95, 0.65, 0.65, 0.95, 1.05, 1.4, 1.9, 2.8, 7.6, 14.2],
-    16: [15.2, 8.5, 1.9, 1.3, 1.3, 1.15, 1.05, 0.95, 0.45, 0.95, 1.05, 1.15, 1.3, 1.3, 1.9, 8.5, 15.2],
+    8: [10.0, 3.0, 1.5, 1.0, 0.5, 1.0, 1.5, 3.0, 10.0],
+    9: [10.0, 4.0, 1.7, 1.1, 0.7, 0.7, 1.1, 1.7, 4.0, 10.0],
+    10: [11.0, 4.0, 2.0, 1.1, 0.9, 0.5, 0.9, 1.1, 2.0, 4.0, 11.0],
+    11: [12.0, 5.0, 2.0, 1.2, 1.0, 0.7, 0.7, 1.0, 1.2, 2.0, 5.0, 12.0],
+    12: [15.0, 6.0, 3.0, 1.5, 1.1, 0.9, 0.5, 0.9, 1.1, 1.5, 3.0, 6.0, 15.0],
+    13: [16.0, 8.0, 3.0, 1.8, 1.2, 1.0, 0.7, 0.7, 1.0, 1.2, 1.8, 3.0, 8.0, 16.0],
+    14: [20.0, 10.0, 4.0, 2.0, 1.3, 1.0, 0.8, 0.5, 0.8, 1.0, 1.3, 2.0, 4.0, 10.0, 20.0],
+    15: [25.0, 12.0, 5.0, 3.0, 1.5, 1.1, 0.9, 0.6, 0.6, 0.9, 1.1, 1.5, 3.0, 5.0, 12.0, 25.0],
+    16: [30.0, 15.0, 6.0, 3.0, 1.8, 1.2, 1.0, 0.8, 0.5, 0.8, 1.0, 1.2, 1.8, 3.0, 6.0, 15.0, 30.0],
   },
   medium: {
-    8: [12.5, 2.8, 1.2, 0.65, 0.35, 0.65, 1.2, 2.8, 12.5],
-    9: [17.0, 3.8, 1.6, 0.85, 0.45, 0.45, 0.85, 1.6, 3.8, 17.0],
-    10: [21.0, 4.7, 1.9, 1.3, 0.55, 0.35, 0.55, 1.3, 1.9, 4.7, 21.0],
-    11: [23.0, 5.7, 2.8, 1.7, 0.65, 0.45, 0.45, 0.65, 1.7, 2.8, 5.7, 23.0],
-    12: [31.5, 10.5, 3.8, 1.9, 1.05, 0.55, 0.25, 0.55, 1.05, 1.9, 3.8, 10.5, 31.5],
-    13: [41.0, 12.5, 5.7, 2.8, 1.2, 0.65, 0.35, 0.35, 0.65, 1.2, 2.8, 5.7, 12.5, 41.0],
-    14: [55.0, 14.2, 6.6, 3.8, 1.8, 0.95, 0.45, 0.18, 0.45, 0.95, 1.8, 3.8, 6.6, 14.2, 55.0],
-    15: [84.0, 17.0, 10.5, 4.7, 2.8, 1.2, 0.45, 0.25, 0.25, 0.45, 1.2, 2.8, 4.7, 10.5, 17.0, 84.0],
-    16: [105.0, 39.0, 9.5, 4.7, 2.8, 1.4, 0.95, 0.45, 0.25, 0.45, 0.95, 1.4, 2.8, 4.7, 9.5, 39.0, 105.0],
+    8: [20.0, 4.0, 1.5, 0.6, 0.4, 0.6, 1.5, 4.0, 20.0],
+    9: [25.0, 6.0, 2.0, 0.9, 0.5, 0.5, 0.9, 2.0, 6.0, 25.0],
+    10: [30.0, 8.0, 3.0, 1.2, 0.6, 0.4, 0.6, 1.2, 3.0, 8.0, 30.0],
+    11: [40.0, 10.0, 4.0, 1.5, 0.8, 0.5, 0.5, 0.8, 1.5, 4.0, 10.0, 40.0],
+    12: [50.0, 12.0, 5.0, 2.0, 1.1, 0.6, 0.3, 0.6, 1.1, 2.0, 5.0, 12.0, 50.0],
+    13: [70.0, 15.0, 6.0, 3.0, 1.3, 0.7, 0.4, 0.4, 0.7, 1.3, 3.0, 6.0, 15.0, 70.0],
+    14: [100.0, 20.0, 7.0, 4.0, 1.4, 1.0, 0.5, 0.2, 0.5, 1.0, 1.4, 4.0, 7.0, 20.0, 100.0],
+    15: [150.0, 30.0, 10.0, 5.0, 2.0, 1.2, 0.6, 0.3, 0.3, 0.6, 1.2, 2.0, 5.0, 10.0, 30.0, 150.0],
+    16: [200.0, 40.0, 12.0, 6.0, 3.0, 1.5, 1.0, 0.5, 0.2, 0.5, 1.0, 1.5, 3.0, 6.0, 12.0, 40.0, 200.0],
   },
   high: {
-    8: [27.5, 3.8, 1.4, 0.25, 0.15, 0.25, 1.4, 3.8, 27.5],
-    9: [41.0, 6.6, 1.9, 0.55, 0.18, 0.18, 0.55, 1.9, 6.6, 41.0],
-    10: [72.0, 9.5, 2.8, 0.85, 0.25, 0.18, 0.25, 0.85, 2.8, 9.5, 72.0],
-    11: [114.0, 13.3, 4.9, 1.3, 0.35, 0.18, 0.18, 0.35, 1.3, 4.9, 13.3, 114.0],
-    12: [162.0, 22.8, 7.7, 1.9, 0.65, 0.18, 0.18, 0.18, 0.65, 1.9, 7.7, 22.8, 162.0],
-    13: [248.0, 35.0, 10.5, 3.8, 0.95, 0.18, 0.18, 0.18, 0.18, 0.95, 3.8, 10.5, 35.0, 248.0],
-    14: [400.0, 53.0, 17.0, 4.7, 1.8, 0.25, 0.18, 0.18, 0.18, 0.25, 1.8, 4.7, 17.0, 53.0, 400.0],
-    15: [590.0, 79.0, 25.8, 7.6, 2.8, 0.45, 0.18, 0.18, 0.18, 0.18, 0.45, 2.8, 7.6, 25.8, 79.0, 590.0],
-    16: [950.0, 124.0, 24.8, 8.5, 3.8, 1.9, 0.18, 0.18, 0.18, 0.18, 0.18, 1.9, 3.8, 8.5, 24.8, 124.0, 950.0],
+    8: [50.0, 6.0, 1.5, 0.3, 0.0, 0.3, 1.5, 6.0, 50.0],
+    9: [75.0, 10.0, 2.0, 0.5, 0.2, 0.2, 0.5, 2.0, 10.0, 75.0],
+    10: [100.0, 15.0, 3.0, 0.8, 0.3, 0.0, 0.3, 0.8, 3.0, 15.0, 100.0],
+    11: [150.0, 20.0, 5.0, 1.2, 0.3, 0.1, 0.1, 0.3, 1.2, 5.0, 20.0, 150.0],
+    12: [250.0, 30.0, 8.0, 2.0, 0.6, 0.2, 0.0, 0.2, 0.6, 2.0, 8.0, 30.0, 250.0],
+    13: [350.0, 40.0, 10.0, 3.0, 1.0, 0.3, 0.1, 0.1, 0.3, 1.0, 3.0, 10.0, 40.0, 350.0],
+    14: [500.0, 50.0, 14.0, 4.0, 2.0, 0.3, 0.2, 0.0, 0.2, 0.3, 2.0, 4.0, 14.0, 50.0, 500.0],
+    15: [750.0, 80.0, 20.0, 7.0, 3.0, 0.5, 0.2, 0.0, 0.0, 0.2, 0.5, 3.0, 7.0, 20.0, 80.0, 750.0],
+    16: [1000.0, 100.0, 25.0, 9.0, 4.0, 1.5, 0.5, 0.2, 0.0, 0.2, 0.5, 1.5, 4.0, 9.0, 25.0, 100.0, 1000.0],
   },
 };
 
@@ -87,7 +87,7 @@ function cubicBezier(t, p0, p1, p2, p3) {
 }
 
 export const PlinkoTable = forwardRef(function PlinkoTable(
-  { rows = 10, setRows, risk = "medium", setRisk, onBallFinish, loading },
+  { rows = 10, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
   ref
 ) {
   const canvasRef = useRef(null);
@@ -123,10 +123,11 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     dropBall: (ballData) => {
       const path = ballData.path || [];
       const numRows = rows;
+      const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
-      // Peg radius & Larger Prominent 3D Ball Radius
-      const pinRadius = Math.max(4.2, (24 - numRows) / 1.8);
-      const ballRadius = Math.max(13, 20 - numRows * 0.45);
+      // Peg radius & Larger Solid 3D Ball Radius
+      const pinRadius = Math.max(4.5, (25 - numRows) / 2.1);
+      const ballRadius = Math.max(16, 24 - numRows * 0.45);
       const collRadius = pinRadius + ballRadius;
 
       const segments = [];
@@ -134,7 +135,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       // 1. Initial drop segment from top chute down to apex pin (0, 1)
       const apexPin = getPinPos(0, 1, numRows);
       const startX = apexPin.x + (Math.random() - 0.5) * 4;
-      const startY = 8;
+      const startY = 6;
       const firstStep = path[0] ?? (Math.random() < 0.5 ? 0 : 1);
       const firstDir = firstStep === 1 ? 1 : -1;
 
@@ -146,14 +147,14 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
       segments.push({
         p0: { x: startX, y: startY },
-        p1: { x: startX, y: startY + 12 },
+        p1: { x: startX, y: startY + 14 },
         p2: { x: apexContact.x, y: apexContact.y - 18 },
         p3: apexContact,
         pin: { r: 0, c: 1, pos: apexPin },
         isApex: true,
       });
 
-      // 2. Peg to Peg Parabolic Bounces
+      // 2. Peg to Peg Parabolic Bounces with Realistic Gravity
       let curCol = 1;
       let prevContact = apexContact;
 
@@ -178,14 +179,14 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
             y: nextPin.y - collRadius * 0.88,
           };
 
-          // Exaggerated, visible spring bounce upwards & outwards over peg flank
+          // Parabolic bounce upwards & outwards over peg flank with gravity curve
           const bounceApex = {
-            x: currentPin.x + dir * collRadius * 1.35,
-            y: currentPin.y - collRadius * 0.4 - 26, // high visible arc!
+            x: currentPin.x + dir * collRadius * 1.1,
+            y: currentPin.y - collRadius * 0.7 - rowHeight * 0.42,
           };
           const gravityDescent = {
-            x: nextPin.x - dir * collRadius * 0.3,
-            y: nextPin.y - collRadius * 1.45,
+            x: nextPin.x - dir * collRadius * 0.25,
+            y: nextPin.y - collRadius * 1.35,
           };
 
           segments.push({
@@ -210,12 +211,12 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           };
 
           const finalApex = {
-            x: currentPin.x + dir * collRadius * 1.3,
-            y: currentPin.y - collRadius * 0.3 - 22,
+            x: currentPin.x + dir * collRadius * 1.1,
+            y: currentPin.y - collRadius * 0.6 - rowHeight * 0.35,
           };
           const binDescent = {
             x: slotCenterX,
-            y: HEIGHT - 42,
+            y: HEIGHT - 40,
           };
 
           segments.push({
@@ -238,13 +239,12 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         segments,
         curSegIndex: 0,
         segProgress: 0,
-        stepDuration: 135, // Clear, well-paced bounce timing (135ms per hop)
+        stepDuration: turbo ? 70 : 260, // Smooth, realistic gravity bounce speed
         color: ballColor,
         radius: ballRadius,
         slot: ballData.slot ?? 0,
         x: startX,
         y: startY,
-        trail: [],
       };
 
       activeBallsRef.current.push(newBall);
@@ -422,66 +422,60 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           let scaleX = 1.0;
           let scaleY = 1.0;
 
-          if (t < 0.18) {
-            // Impact squash against the pin
-            const squash = Math.sin((t / 0.18) * Math.PI);
-            scaleX = 1.0 + squash * 0.22;
-            scaleY = 1.0 - squash * 0.22;
-          } else if (t > 0.3 && t < 0.85) {
-            // Airborne vertical stretch
-            scaleX = 0.92;
-            scaleY = 1.1;
+          if (t < 0.15) {
+            // Subtle impact cushion against the pin
+            const squash = Math.sin((t / 0.15) * Math.PI);
+            scaleX = 1.0 + squash * 0.14;
+            scaleY = 1.0 - squash * 0.14;
+          } else if (t > 0.25 && t < 0.85) {
+            // Natural parabolic motion
+            scaleX = 0.96;
+            scaleY = 1.04;
           }
 
-          // Trail
-          b.trail.push({ x: b.x, y: b.y });
-          if (b.trail.length > 8) {
-            b.trail.shift();
-          }
-
-          // Draw Glowing Ball Trail
-          b.trail.forEach((tr, trIdx) => {
-            const trAlpha = (trIdx / b.trail.length) * 0.35;
-            ctx.fillStyle = b.color;
-            ctx.globalAlpha = trAlpha;
-            ctx.beginPath();
-            ctx.arc(tr.x, tr.y, b.radius * (0.35 + 0.65 * (trIdx / b.trail.length)), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
-          });
-
-          // Draw Ball with 3D Glossy Finish & Glow
+          // Draw Clean Solid Physical 3D Ball (No neon glow / no blur / no ghost trail)
           ctx.save();
           ctx.translate(b.x, b.y);
           ctx.scale(scaleX, scaleY);
 
-          ctx.shadowColor = b.color;
-          ctx.shadowBlur = 14;
-
-          // Ball Base Shadow
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+          // 1. Subtle physical ambient shadow underneath
+          ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
           ctx.beginPath();
-          ctx.arc(1, 3, b.radius * 0.95, 0, Math.PI * 2);
+          ctx.ellipse(0, b.radius * 0.9, b.radius * 0.7, b.radius * 0.28, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // 3D Sphere Radial Gradient
+          // 2. Realistic 3D Sphere Radial Gradient
           const grad = ctx.createRadialGradient(
             -b.radius * 0.35,
             -b.radius * 0.35,
-            b.radius * 0.1,
+            b.radius * 0.05,
             0,
             0,
             b.radius
           );
           grad.addColorStop(0, "#ffffff");
-          grad.addColorStop(0.25, b.color);
-          grad.addColorStop(0.85, b.color);
-          grad.addColorStop(1, "#0a0a0a");
+          grad.addColorStop(0.22, b.color);
+          grad.addColorStop(0.82, b.color);
+          grad.addColorStop(1, "#0f172a");
 
           ctx.fillStyle = grad;
           ctx.beginPath();
           ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
           ctx.fill();
+
+          // 3. Crisp spherical rim contour
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // 4. Clean specular gloss highlight
+          ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+          ctx.beginPath();
+          ctx.arc(-b.radius * 0.34, -b.radius * 0.34, b.radius * 0.24, 0, Math.PI * 2);
+          ctx.fill();
+
           ctx.restore();
 
           aliveBalls.push(b);

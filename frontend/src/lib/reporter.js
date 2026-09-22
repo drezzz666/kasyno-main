@@ -35,6 +35,11 @@ export function reportClientError({
     const errorStack =
       stack || (error && error.stack) || "";
     
+    // Ignore routine client-side offline drops
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      return;
+    }
+
     // Deduplication check: ignore exact same error occurring within 5 seconds
     const key = `${errorType}:${sourceFile}:${errorMsg}`;
     const now = Date.now();

@@ -62,6 +62,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
         <div className="casino-bet-actions-left">
           <button
             type="button"
+            tabIndex={-1}
             className="casino-bet-mod-btn"
             onClick={() => setBet(Math.max(1, Math.floor(bet / 2)))}
             title="Zmniejsz o połowę"
@@ -71,6 +72,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
           </button>
           <button
             type="button"
+            tabIndex={-1}
             className="casino-bet-mod-btn"
             onClick={() => setBet(Math.min(safeMax, bet * 2))}
             title="Podwój stawkę"
@@ -96,6 +98,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
         <div className="casino-bet-actions-right">
           <button
             type="button"
+            tabIndex={-1}
             className="casino-bet-mod-btn min-btn"
             onClick={() => setBet(10)}
             title="Minimalna stawka (10 $FGT)"
@@ -105,6 +108,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
           </button>
           <button
             type="button"
+            tabIndex={-1}
             className="casino-bet-mod-btn max-btn"
             onClick={() => setBet(safeMax)}
             title="Maksymalna stawka"
@@ -121,6 +125,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
           <button
             key={chip.val}
             type="button"
+            tabIndex={-1}
             className={`casino-chip-item bg-gradient-to-b ${chip.color} ${chip.border}`}
             onClick={() => setBet(Math.min(safeMax, bet + chip.val))}
             aria-label={`Dodaj ${chip.val} $FGT do stawki`}

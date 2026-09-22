@@ -72,16 +72,23 @@ type FrontendErrorReport struct {
 }
 
 type Reporter struct {
-	webhookURL   string
-	httpClient   *http.Client
-	mu           sync.Mutex
-	dedupCache   map[string]time.Time
-	globalWindow []time.Time
+	errorWebhookURL    string
+	securityWebhookURL string
+	httpClient         *http.Client
+	mu                 sync.Mutex
+	dedupCache         map[string]time.Time
+	globalWindow       []time.Time
 }
 
-func NewReporter(webhookURL string) *Reporter {
+func NewReporter(errorWebhookURL, securityWebhookURL string) *Reporter {
+	errURL := strings.TrimSpace(errorWebhookURL)
+	secURL := strings.TrimSpace(securityWebhookURL)
+	if secURL == "" {
+		secURL = errURL
+	}
 	return &Reporter{
-		webhookURL: strings.TrimSpace(webhookURL),
+		errorWebhookURL:    errURL,
+		securityWebhookURL: secURL,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
@@ -90,8 +97,16 @@ func NewReporter(webhookURL string) *Reporter {
 	}
 }
 
+func (r *Reporter) HasErrorWebhook() bool {
+	return r != nil && r.errorWebhookURL != ""
+}
+
+func (r *Reporter) HasSecurityWebhook() bool {
+	return r != nil && r.securityWebhookURL != ""
+}
+
 func (r *Reporter) HasWebhook() bool {
-	return r != nil && r.webhookURL != ""
+	return r != nil && (r.errorWebhookURL != "" || r.securityWebhookURL != "")
 }
 
 // shouldThrottle checks if an identical error was sent recently (dedup) OR if global outbound limit (20/min) is reached.
@@ -134,8 +149,8 @@ func (r *Reporter) shouldThrottle(fingerprint string) bool {
 	return false
 }
 
-func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
-	if !r.HasWebhook() {
+func (r *Reporter) sendAsyncToURL(webhookURL string, payload DiscordWebhookPayload) {
+	if r == nil || webhookURL == "" {
 		return
 	}
 
@@ -154,7 +169,7 @@ func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
 			return
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.webhookURL, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(data))
 		if err != nil {
 			log.Printf("[Reporter] Error creating webhook request: %v", err)
 			return
@@ -172,6 +187,13 @@ func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
 			log.Printf("[Reporter] Discord webhook returned status %d", resp.StatusCode)
 		}
 	}()
+}
+
+func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
+	if !r.HasErrorWebhook() {
+		return
+	}
+	r.sendAsyncToURL(r.errorWebhookURL, payload)
 }
 
 // ReportFrontendError sends a comprehensive report of a frontend crash or client-side error to Discord.
@@ -433,6 +455,83 @@ func (r *Reporter) ReportBackendError(category, message, stack string, details m
 	r.sendAsync(DiscordWebhookPayload{
 		Username:  "Kasyno Error Watcher",
 		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/alert-octagon.png",
+		Embeds:    []DiscordEmbed{embed},
+	})
+}
+
+// ReportSecurityAlert reports an anticheat, bot detection, or security violation to the dedicated security webhook.
+func (r *Reporter) ReportSecurityAlert(category, ip, userID, nick, action, details string) {
+	if r == nil || !r.HasSecurityWebhook() {
+		return
+	}
+
+	fingerprint := hashFingerprint(fmt.Sprintf("SEC:%s:%s:%s:%s", category, userID, action, details))
+	if r.shouldThrottle(fingerprint) {
+		return
+	}
+
+	titlePrefix := "🛡️ [ANTICHEAT / SECURITY ALERT]"
+	color := ColorWarning
+	switch category {
+	case "BOT_DETECTION":
+		titlePrefix = "🤖 [BOT DETECTION]"
+		color = 0xEA580C // Dark Orange
+	case "SECURITY_VIOLATION", "EXPLOIT_ATTEMPT", "PROOF_TAMPERING", "CHALLENGE_VERIFICATION_FAILED":
+		titlePrefix = "🚨 [SECURITY VIOLATION]"
+		color = ColorCritical
+	case "RATE_LIMIT":
+		titlePrefix = "⚡ [RATE LIMIT EXCEEDED]"
+		color = ColorWarning
+	}
+
+	title := truncate(fmt.Sprintf("%s %s", titlePrefix, category), 250)
+
+	userInfo := "Anonim / Niezalogowany"
+	if nick != "" || userID != "" {
+		userInfo = fmt.Sprintf("**%s**\nID: `%s`", nick, userID)
+	}
+	if ip != "" {
+		userInfo += fmt.Sprintf("\nIP: `%s`", ip)
+	}
+
+	fields := []DiscordField{
+		{
+			Name:   "👤 Gracz",
+			Value:  userInfo,
+			Inline: true,
+		},
+	}
+
+	if action != "" {
+		fields = append(fields, DiscordField{
+			Name:   "🎯 Wywołana Akcja / Gra",
+			Value:  fmt.Sprintf("`%s`", action),
+			Inline: true,
+		})
+	}
+
+	if details != "" {
+		fields = append(fields, DiscordField{
+			Name:   "🛑 Szczegóły Naruszenia",
+			Value:  fmt.Sprintf("```\n%s\n```", truncate(details, 950)),
+			Inline: false,
+		})
+	}
+
+	embed := DiscordEmbed{
+		Title:       title,
+		Description: "Wykryto podejrzaną aktywność lub naruszenie reguł gry przez system Anticheat.",
+		Color:       color,
+		Fields:      fields,
+		Footer: &DiscordFooter{
+			Text: "2FGT Casino • Anticheat & Security Watcher",
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	r.sendAsyncToURL(r.securityWebhookURL, DiscordWebhookPayload{
+		Username:  "Kasyno Anticheat Watcher",
+		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.png",
 		Embeds:    []DiscordEmbed{embed},
 	})
 }

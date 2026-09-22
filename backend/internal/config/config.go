@@ -24,7 +24,12 @@ type Config struct {
 	DefaultBalance        int64
 	DailyMissionTarget    int
 	DailyMissionReward    int64
-	DiscordErrorWebhookURL string
+	DiscordErrorWebhookURL    string
+	DiscordSecurityWebhookURL string
+	DiscordBotToken           string
+	DiscordGuildID            string
+	DiscordAdminRole          string
+	DiscordAdminUsers         []string
 }
 
 func Load() *Config {
@@ -43,9 +48,31 @@ func Load() *Config {
 
 	devAuth := getEnvBool("DEV_AUTH_ENABLED", false)
 
-	discordWebhook := getEnv("DISCORD_ERROR_WEBHOOK_URL", "")
-	if discordWebhook == "" {
-		discordWebhook = getEnv("DISCORD_WEBHOOK_URL", "")
+	discordErrorWebhook := getEnv("DISCORD_ERROR_WEBHOOK_URL", "")
+	if discordErrorWebhook == "" {
+		discordErrorWebhook = getEnv("DISCORD_WEBHOOK_URL", "")
+	}
+
+	discordSecurityWebhook := getEnv("DISCORD_SECURITY_WEBHOOK_URL", "")
+	if discordSecurityWebhook == "" {
+		discordSecurityWebhook = getEnv("DISCORD_ANTICHEAT_WEBHOOK_URL", "")
+	}
+	if discordSecurityWebhook == "" {
+		discordSecurityWebhook = discordErrorWebhook
+	}
+
+	discordBotToken := getEnv("DISCORD_BOT_TOKEN", "")
+	discordGuildID := getEnv("DISCORD_GUILD_ID", "")
+	discordAdminRole := getEnv("DISCORD_ADMIN_ROLE", "Admin")
+	rawAdminUsers := getEnv("DISCORD_ADMIN_USER_IDS", "")
+	var adminUsers []string
+	if rawAdminUsers != "" {
+		for _, u := range strings.Split(rawAdminUsers, ",") {
+			trimmed := strings.TrimSpace(u)
+			if trimmed != "" {
+				adminUsers = append(adminUsers, trimmed)
+			}
+		}
 	}
 
 	return &Config{
@@ -64,7 +91,12 @@ func Load() *Config {
 		DefaultBalance:        getEnvInt64("DEFAULT_BALANCE", 1000),
 		DailyMissionTarget:    getEnvInt("DAILY_MISSION_TARGET", 5),
 		DailyMissionReward:    getEnvInt64("DAILY_MISSION_REWARD", 250),
-		DiscordErrorWebhookURL: discordWebhook,
+		DiscordErrorWebhookURL:    discordErrorWebhook,
+		DiscordSecurityWebhookURL: discordSecurityWebhook,
+		DiscordBotToken:           discordBotToken,
+		DiscordGuildID:            discordGuildID,
+		DiscordAdminRole:          discordAdminRole,
+		DiscordAdminUsers:         adminUsers,
 	}
 }
 

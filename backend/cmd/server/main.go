@@ -14,6 +14,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/db"
+	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
@@ -46,6 +47,22 @@ func main() {
 	wsHub := ws.NewHub()
 	go wsHub.Run()
 
+	// 3b. Optional Discord Bot Service
+	var discordBot *discordbot.Bot
+	if cfg.DiscordBotToken != "" {
+		bot, err := discordbot.New(cfg, ledgerService)
+		if err != nil {
+			log.Printf("⚠️ [Server] Nie udało się zainicjalizować bota Discord: %v", err)
+		} else {
+			if err := bot.Start(); err != nil {
+				log.Printf("⚠️ [Server] Błąd uruchamiania bota Discord: %v", err)
+			} else {
+				discordBot = bot
+				log.Println("🤖 [Server] Bot Discord Kasyna 2FGT został pomyślnie uruchomiony w tle.")
+			}
+		}
+	}
+
 	// 4. Setup Router
 	router := api.NewRouter(cfg, ledgerService, oidcClient, wsHub)
 
@@ -77,6 +94,10 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("[Server] Server forced to shutdown: %v", err)
+	}
+
+	if discordBot != nil {
+		discordBot.Stop()
 	}
 
 	log.Println("[Server] Server exited cleanly.")

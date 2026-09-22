@@ -3,9 +3,55 @@ package crash
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math"
 )
+
+const FlightSpeed = 0.09
+
+type ActivePayload struct {
+	CrashPoint  float64 `json:"crash_point"`
+	AutoCashout float64 `json:"auto_cashout"`
+	StartedAt   int64   `json:"started_at"`
+	FlightSpeed float64 `json:"flight_speed"`
+}
+
+type MaskedPayload struct {
+	CrashPoint  float64 `json:"crash_point"`
+	AutoCashout float64 `json:"auto_cashout"`
+	StartedAt   int64   `json:"started_at"`
+	FlightSpeed float64 `json:"flight_speed"`
+}
+
+func MaskActive(p ActivePayload) MaskedPayload {
+	return MaskedPayload{
+		CrashPoint:  p.CrashPoint,
+		AutoCashout: p.AutoCashout,
+		StartedAt:   p.StartedAt,
+		FlightSpeed: p.FlightSpeed,
+	}
+}
+
+func ParsePayload(data string) (*ActivePayload, error) {
+	var p ActivePayload
+	if err := json.Unmarshal([]byte(data), &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// MultiplierAtElapsed returns the flight multiplier at given elapsed seconds starting from 1.00x.
+func MultiplierAtElapsed(elapsedSec float64, flightSpeed float64) float64 {
+	if elapsedSec <= 0 {
+		return 1.00
+	}
+	if flightSpeed <= 0 {
+		flightSpeed = FlightSpeed
+	}
+	m := 1.00 * math.Exp(flightSpeed * elapsedSec)
+	return math.Floor(m*100.0) / 100.0
+}
 
 type Payload struct {
 	CrashPoint float64 `json:"crash_point"`
@@ -21,7 +67,7 @@ type Result struct {
 	Payload    Payload `json:"payload"`
 }
 
-// GenerateCrashPoint generates a cryptographically secure crash multiplier with 99% RTP (1% instant 1.00x house edge).
+// GenerateCrashPoint generates a cryptographically secure crash multiplier with 99% RTP starting from 1.00x.
 func GenerateCrashPoint() float64 {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -53,8 +99,8 @@ func GenerateCrashPoint() float64 {
 // PlayCrash executes a single round of Crash.
 // targetMultiplier is the player's cashout point (manual or auto-cashout).
 func PlayCrash(bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 1.01 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 1.01x - 10000x")
+	if targetMultiplier < 1.00 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 1.00x - 10000x")
 	}
 
 	crashPoint := GenerateCrashPoint()

@@ -2,16 +2,14 @@ import React, { useState } from "react";
 import { ShieldAlert, CheckCircle2, ChevronRight, Scale, AlertTriangle, Coins } from "lucide-react";
 
 export function TosAcceptModal({ open, onAccept, onReadMore }) {
-  const [agreed18, setAgreed18] = useState(false);
   const [agreedVirtual, setAgreedVirtual] = useState(false);
   const [agreedFair, setAgreedFair] = useState(false);
 
   if (!open) return null;
 
-  const allAgreed = agreed18 && agreedVirtual && agreedFair;
+  const allAgreed = agreedVirtual && agreedFair;
 
   const handleQuickAcceptAll = () => {
-    setAgreed18(true);
     setAgreedVirtual(true);
     setAgreedFair(true);
     onAccept();
@@ -47,16 +45,6 @@ export function TosAcceptModal({ open, onAccept, onReadMore }) {
 
         <div className="tos-highlights-grid">
           <div className="tos-highlight-card">
-            <div className="tos-highlight-icon bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <ShieldAlert size={20} />
-            </div>
-            <div>
-              <span className="tos-highlight-title">Wymóg 18+</span>
-              <p className="tos-highlight-desc">Platforma przeznaczona wyłącznie dla osób pełnoletnich.</p>
-            </div>
-          </div>
-
-          <div className="tos-highlight-card">
             <div className="tos-highlight-icon bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <Coins size={20} />
             </div>
@@ -78,18 +66,6 @@ export function TosAcceptModal({ open, onAccept, onReadMore }) {
         </div>
 
         <div className="tos-checkboxes-box">
-          <label className="tos-check-item">
-            <input
-              type="checkbox"
-              checked={agreed18}
-              onChange={(e) => setAgreed18(e.target.checked)}
-              className="tos-check-input"
-            />
-            <span className="tos-check-label">
-              Oświadczam, że mam <strong>ukończone 18 lat</strong>.
-            </span>
-          </label>
-
           <label className="tos-check-item">
             <input
               type="checkbox"

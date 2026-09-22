@@ -28,13 +28,17 @@ export async function fetchCasinoState() {
     return data;
   } catch (e) {
     if (e.message && !e.message.includes("401")) {
-      reportClientError({
-        error: e,
-        errorType: "API_NETWORK_ERROR",
-        message: e.message || "Błąd pobierania stanu kasyna",
-        context: "GET /api/casino",
-        sourceFile: "frontend/src/lib/api.js:fetchCasinoState",
-      });
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isFailedFetch = e.name === "TypeError" && e.message.includes("Failed to fetch");
+      if (!isOffline && !isFailedFetch) {
+        reportClientError({
+          error: e,
+          errorType: "API_NETWORK_ERROR",
+          message: e.message || "Błąd pobierania stanu kasyna",
+          context: "GET /api/casino",
+          sourceFile: "frontend/src/lib/api.js:fetchCasinoState",
+        });
+      }
     }
     throw e;
   }

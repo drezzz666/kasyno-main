@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/drezzz666/kasyno/backend/internal/anticheat"
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
@@ -19,12 +20,13 @@ import (
 func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *auth.OIDCClient, wsHub *ws.Hub) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Initialize Discord Error & Crash Reporter
-	rep := reporter.NewReporter(cfg.DiscordErrorWebhookURL)
+	// Initialize Discord Error & Security Reporter
+	rep := reporter.NewReporter(cfg.DiscordErrorWebhookURL, cfg.DiscordSecurityWebhookURL)
+	anticheat.SetSecurityAlertHandler(rep.ReportSecurityAlert)
 
 	// Standard middlewares
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(RealIPMiddleware)
 	r.Use(middleware.Logger)
 
 	// Custom Panic Recoverer with Discord Webhook reporting

@@ -38,6 +38,7 @@ services:
       - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
       - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-false}
       - DISCORD_ERROR_WEBHOOK_URL=${DISCORD_ERROR_WEBHOOK_URL:-}
+      - DISCORD_SECURITY_WEBHOOK_URL=${DISCORD_SECURITY_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
       interval: 15s

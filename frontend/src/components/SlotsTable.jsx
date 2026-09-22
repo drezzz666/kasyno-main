@@ -3,7 +3,7 @@ import { sounds } from "../lib/sounds";
 
 const ALL_SYMBOLS = ["2", "F", "G", "T", "◆", "♛"];
 
-export function SlotsTable({ last, loading, slotsSpinning }) {
+export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
   const currentReels = last?.payload?.reels || [
     ["2", "2", "F"],
     ["F", "F", "G"],
@@ -27,6 +27,8 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
       spinIntervalsRef.current.forEach((id) => clearInterval(id));
       spinIntervalsRef.current = [];
 
+      const intervalSpeed = turbo ? 15 : 45;
+
       // Start rapid rolling shuffle for all reels
       const newIntervals = [0, 1, 2, 3, 4].map((reelIdx) => {
         return setInterval(() => {
@@ -39,12 +41,15 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
             ];
             return next;
           });
-        }, 50);
+        }, intervalSpeed);
       });
       spinIntervalsRef.current = newIntervals;
 
-      // Staggered reel landings
-      const stopDelays = [400, 650, 900, 1150, 1400];
+      // Staggered reel landings (lightning fast in turbo)
+      const stopDelays = turbo
+        ? [40, 75, 110, 145, 180]
+        : [250, 450, 650, 850, 1050];
+
       const stopTimers = stopDelays.map((delay, reelIdx) => {
         return setTimeout(() => {
           // Stop this reel's rapid roll
@@ -80,7 +85,7 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
                 setIsWinHighlighted(true);
                 sounds.playWin();
               }
-            }, 100);
+            }, turbo ? 30 : 80);
           }
         }, delay);
       });
@@ -99,7 +104,7 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
         setIsWinHighlighted(false);
       }
     }
-  }, [slotsSpinning, last?.id]);
+  }, [slotsSpinning, last?.id, turbo]);
 
   // Check which middle symbols are part of the winning combo
   const middleSymbols = displayedReels.map((col) => col[1]);
@@ -107,15 +112,16 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
   middleSymbols.forEach((s) => {
     symbolCounts[s] = (symbolCounts[s] || 0) + 1;
   });
-  let maxMatchingSymbol = "";
-  let maxCount = 0;
-  Object.entries(symbolCounts).forEach(([s, count]) => {
-    if (count > maxCount) {
-      maxCount = count;
-      maxMatchingSymbol = s;
-    }
-  });
-  const isWinningSpin = maxCount >= 3 && isWinHighlighted;
+
+  const isWinningSpin = Boolean(
+    (last?.payload?.winning || (last?.payout && last.payout > 0)) && isWinHighlighted
+  );
+
+  const winningSymbolsSet = new Set(
+    Object.entries(symbolCounts)
+      .filter(([sym, cnt]) => cnt >= 2 || (sym === "♛" && isWinningSpin))
+      .map(([sym]) => sym)
+  );
 
   return (
     <div className={`slots-container ${isWinningSpin ? "winner-glow" : ""}`}>
@@ -143,7 +149,7 @@ export function SlotsTable({ last, loading, slotsSpinning }) {
                 const isWinningBox =
                   isCenter &&
                   isWinningSpin &&
-                  symbol === maxMatchingSymbol;
+                  winningSymbolsSet.has(symbol);
 
                 return (
                   <div

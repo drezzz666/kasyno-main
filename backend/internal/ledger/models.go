@@ -46,6 +46,7 @@ type LeaderboardEntry struct {
 	Nick    string  `json:"nick"`
 	Balance int64   `json:"balance"`
 	Level   int     `json:"level"`
+	XP      int     `json:"xp"`
 	Avatar  *string `json:"avatar,omitempty"`
 }
 

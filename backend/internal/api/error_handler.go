@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -91,13 +90,8 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 1. Client IP determination
-	ip := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		ip = strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		ip = realIP
-	}
+	// 1. Client IP determination (X-Remote-Ip, CF-Connecting-Ip, X-Forwarded-For, X-Real-IP)
+	ip := GetClientIP(r)
 
 	// 2. Extract Session User if logged in
 	sess := auth.GetSessionFromContext(r.Context())

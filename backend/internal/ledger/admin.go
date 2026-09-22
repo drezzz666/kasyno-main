@@ -309,3 +309,64 @@ func (s *Service) AdminDeleteUser(ctx context.Context, identifier string) (strin
 	return p.Nick, nil
 }
 
+type GlobalCasinoStats struct {
+	TotalPlayers   int64   `json:"total_players"`
+	TotalRounds    int64   `json:"total_rounds"`
+	TotalWagered   int64   `json:"total_wagered"`
+	TotalPayout    int64   `json:"total_payout"`
+	BiggestWin     int64   `json:"biggest_win"`
+	BiggestWinNick string  `json:"biggest_win_nick"`
+	BiggestWinGame string  `json:"biggest_win_game"`
+	MaxMultiplier  float64 `json:"max_multiplier"`
+}
+
+// AdminGetGlobalCasinoStats aggregates global casino activity metrics.
+func (s *Service) AdminGetGlobalCasinoStats(ctx context.Context) (*GlobalCasinoStats, error) {
+	stats := &GlobalCasinoStats{}
+	pool := s.db.Pool
+
+	// Total players
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM players`).Scan(&stats.TotalPlayers)
+
+	// Game rounds stats
+	_ = pool.QueryRow(ctx, `
+		SELECT 
+			COUNT(*),
+			COALESCE(SUM(bet), 0),
+			COALESCE(SUM(payout), 0),
+			COALESCE(MAX(payout), 0)
+		FROM game_rounds
+		WHERE state = 'settled'
+	`).Scan(&stats.TotalRounds, &stats.TotalWagered, &stats.TotalPayout, &stats.BiggestWin)
+
+	// Biggest win details
+	if stats.BiggestWin > 0 {
+		var uID, game string
+		err := pool.QueryRow(ctx, `
+			SELECT user_id, game
+			FROM game_rounds
+			WHERE state = 'settled' AND payout = $1
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, stats.BiggestWin).Scan(&uID, &game)
+		if err == nil {
+			stats.BiggestWinGame = game
+			var nick string
+			if err := pool.QueryRow(ctx, `SELECT nick FROM players WHERE user_id = $1`, uID).Scan(&nick); err == nil {
+				stats.BiggestWinNick = nick
+			} else {
+				stats.BiggestWinNick = uID
+			}
+		}
+	}
+
+	// Max multiplier
+	_ = pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(CASE WHEN bet > 0 THEN (payout::float / bet::float) ELSE 0 END), 0)
+		FROM game_rounds
+		WHERE state = 'settled' AND payout > 0
+	`).Scan(&stats.MaxMultiplier)
+
+	return stats, nil
+}
+

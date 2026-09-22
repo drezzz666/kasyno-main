@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
@@ -61,7 +62,7 @@ func JSONError(w http.ResponseWriter, status int, message string) {
 	JSON(w, status, map[string]string{"error": message})
 }
 
-// MaskActivePayload ensures dealer hole cards and hidden mines are never leaked during active game state
+// MaskActivePayload ensures dealer hole cards, hidden mines, and unreached crash points are never leaked during active game state
 func MaskActivePayload(game, payloadJSON string) interface{} {
 	if game == "blackjack" {
 		p, err := blackjack.ParsePayload(payloadJSON)
@@ -72,6 +73,11 @@ func MaskActivePayload(game, payloadJSON string) interface{} {
 		p, err := mines.ParsePayload(payloadJSON)
 		if err == nil {
 			return mines.MaskMines(*p)
+		}
+	} else if game == "crash" {
+		p, err := crash.ParsePayload(payloadJSON)
+		if err == nil {
+			return crash.MaskActive(*p)
 		}
 	}
 
@@ -151,7 +157,9 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 	today := ledger.TodayString()
 	missionClaimed, _ := h.ledger.IsDailyMissionClaimed(r.Context(), p.UserID, today)
 	leaders, _ := h.ledger.GetLeaderboard(r.Context(), 50)
+	levelLeaders, _ := h.ledger.GetLevelLeaderboard(r.Context(), 50)
 	playerRank, _ := h.ledger.GetPlayerRank(r.Context(), p.UserID)
+	playerLevelRank, _ := h.ledger.GetPlayerLevelRank(r.Context(), p.UserID)
 	missions, missionNextReset, _ := h.ledger.GetDailyMissions(r.Context(), p.UserID)
 	recentWins, _ := h.ledger.GetRecentGlobalWins(r.Context(), 15)
 	playerStats, _ := h.ledger.GetPlayerStats(r.Context(), p.UserID)
@@ -159,6 +167,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"player":           p,
 		"playerRank":       playerRank,
+		"playerLevelRank":  playerLevelRank,
 		"stats":            playerStats,
 		"active":           ToPublicRound(activeRound),
 		"history":          historyResp.Entries,
@@ -169,6 +178,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"missions":         missions,
 		"missionNextReset": missionNextReset,
 		"leaders":          leaders,
+		"levelLeaders":     levelLeaders,
 		"today":            today,
 		"recentWins":       recentWins,
 		"challenge":        anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
@@ -285,6 +295,12 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleStartMines(w, r, p, body)
 	case "mines":
 		h.handleActMines(w, r, p, body)
+	case "start_crash":
+		h.handleStartCrash(w, r, p, body)
+	case "cashout_crash", "crash_cashout":
+		h.handleCashoutCrash(w, r, p, body)
+	case "settle_crash", "crash_settle":
+		h.handleSettleCrash(w, r, p, body)
 	default:
 		h.handleInstantGame(w, r, p, body)
 	}
@@ -999,6 +1015,240 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	})
 }
 
+func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	betFloat, ok := body["bet"].(float64)
+	if !ok {
+		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet")
+		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
+		return
+	}
+	bet := int64(betFloat)
+	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+		h.recordFraud(r, p, "INVALID_BET", err.Error())
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	autoCashout, _ := body["auto_cashout"].(float64)
+	if autoCashout < 1.00 {
+		autoCashout, _ = body["target_multiplier"].(float64)
+	}
+	if autoCashout < 1.00 {
+		autoCashout = 1000.00
+	}
+	if autoCashout > 10000.00 {
+		autoCashout = 10000.00
+	}
+
+	isTurbo, _ := body["turbo"].(bool)
+	flightSpeed := crash.FlightSpeed
+	if isTurbo {
+		flightSpeed = crash.FlightSpeed * 2.5
+	}
+
+	crashPoint := crash.GenerateCrashPoint()
+	startedAt := time.Now().UnixMilli()
+
+	activePayload := crash.ActivePayload{
+		CrashPoint:  crashPoint,
+		AutoCashout: autoCashout,
+		StartedAt:   startedAt,
+		FlightSpeed: flightSpeed,
+	}
+	payloadBytes, _ := json.Marshal(activePayload)
+
+	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "crash", bet, string(payloadBytes))
+	if errors.Is(err, ledger.ErrActiveRoundExists) {
+		JSONError(w, http.StatusConflict, "Masz już aktywną grę.")
+		return
+	}
+	if errors.Is(err, ledger.ErrInsufficientFunds) {
+		JSONError(w, http.StatusBadRequest, "Brak wystarczających środków na koncie.")
+		return
+	}
+	if err != nil {
+		h.reportBackendError("START_CRASH_ERROR", err, map[string]interface{}{"user_id": p.UserID, "bet": bet})
+		JSONError(w, http.StatusInternalServerError, "Błąd uruchamiania gry Crash")
+		return
+	}
+
+	h.hub.SendToUser(p.UserID, ws.Event{
+		Type: ws.EventBalanceUpdate,
+		Payload: ws.BalanceUpdatePayload{
+			Balance: balAfterBet,
+			XP:      p.XP,
+			Level:   p.Level,
+		},
+	})
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(round),
+		"balance":        balAfterBet,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
+
+func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
+	if err != nil || activeRound == nil || activeRound.Game != "crash" {
+		JSONError(w, http.StatusBadRequest, "Brak aktywnej gry Crash do wypłaty.")
+		return
+	}
+
+	payload, err := crash.ParsePayload(activeRound.Payload)
+	if err != nil {
+		h.reportBackendError("CRASH_PAYLOAD_PARSE_ERROR", err, map[string]interface{}{"round_id": activeRound.ID})
+		JSONError(w, http.StatusInternalServerError, "Błąd stanu gry Crash.")
+		return
+	}
+
+	nowMs := time.Now().UnixMilli()
+	elapsedSec := float64(nowMs-payload.StartedAt) / 1000.0
+
+	// Server calculates current multiplier with generous network latency buffer (1.20s)
+	maxAllowedMult := crash.MultiplierAtElapsed(elapsedSec+1.20, payload.FlightSpeed)
+
+	// Client requested multiplier if provided
+	reqMult, _ := body["requested_mult"].(float64)
+	if reqMult < 1.00 {
+		reqMult, _ = body["mult"].(float64)
+	}
+	cashedMult := maxAllowedMult
+	if reqMult >= 1.00 && reqMult <= maxAllowedMult {
+		cashedMult = math.Floor(reqMult*100.0) / 100.0
+	}
+	if payload.AutoCashout >= 1.00 && cashedMult > payload.AutoCashout {
+		cashedMult = payload.AutoCashout
+	}
+
+	won := cashedMult <= payload.CrashPoint
+
+	var payout int64
+	var resultText string
+	var finalMult float64
+
+	if won {
+		finalMult = cashedMult
+		payout = int64(math.Floor(float64(activeRound.Bet) * finalMult))
+		resultText = fmt.Sprintf("Wypłacono przy %.2fx (Rozbicie: %.2fx) - Wygrana ×%.2f!", finalMult, payload.CrashPoint, finalMult)
+	} else {
+		finalMult = 0
+		payout = 0
+		resultText = fmt.Sprintf("Rakieta rozbiła się przy %.2fx (Próba: %.2fx) - Przegrana", payload.CrashPoint, cashedMult)
+	}
+
+	finalPayload := crash.Payload{
+		CrashPoint: payload.CrashPoint,
+		CashedAt:   cashedMult,
+		Won:        won,
+		Multiplier: finalMult,
+	}
+	finalPayloadBytes, _ := json.Marshal(finalPayload)
+
+	outcome, err := h.ledger.SettleActiveRound(r.Context(), activeRound.ID, p.UserID, payout, resultText, string(finalPayloadBytes))
+	if err != nil {
+		h.reportBackendError("SETTLE_CRASH_CASHOUT_ERROR", err, map[string]interface{}{"round_id": activeRound.ID})
+		JSONError(w, http.StatusInternalServerError, "Błąd rozliczania wypłaty Crash")
+		return
+	}
+
+	h.hub.SendToUser(p.UserID, ws.Event{
+		Type: ws.EventBalanceUpdate,
+		Payload: ws.BalanceUpdatePayload{
+			Balance: outcome.Balance,
+			XP:      outcome.XP,
+			Level:   outcome.Level,
+		},
+	})
+
+	if won && payout > activeRound.Bet {
+		h.broadcastWin(outcome.Round.ID, p.Nick, "crash", p.Avatar, payout, activeRound.Bet, resultText)
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(outcome.Round),
+		"balance":        outcome.Balance,
+		"xp":             outcome.XP,
+		"level":          outcome.Level,
+		"roundsToday":    outcome.RoundsToday,
+		"leveledUp":      outcome.LeveledUp,
+		"levelUpBonus":   outcome.LevelUpBonus,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
+
+func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
+	if err != nil || activeRound == nil || activeRound.Game != "crash" {
+		JSONError(w, http.StatusBadRequest, "Brak aktywnej gry Crash.")
+		return
+	}
+
+	payload, err := crash.ParsePayload(activeRound.Payload)
+	if err != nil {
+		h.reportBackendError("CRASH_PAYLOAD_PARSE_ERROR", err, map[string]interface{}{"round_id": activeRound.ID})
+		JSONError(w, http.StatusInternalServerError, "Błąd stanu gry Crash.")
+		return
+	}
+
+	won := payload.AutoCashout >= 1.00 && payload.AutoCashout <= payload.CrashPoint
+
+	var payout int64
+	var resultText string
+	var finalMult float64
+
+	if won {
+		finalMult = payload.AutoCashout
+		payout = int64(math.Floor(float64(activeRound.Bet) * finalMult))
+		resultText = fmt.Sprintf("Wypłacono przy %.2fx (Rozbicie: %.2fx) - Wygrana ×%.2f!", finalMult, payload.CrashPoint, finalMult)
+	} else {
+		finalMult = 0
+		payout = 0
+		resultText = fmt.Sprintf("Rakieta rozbiła się przy %.2fx - Przegrana", payload.CrashPoint)
+	}
+
+	finalPayload := crash.Payload{
+		CrashPoint: payload.CrashPoint,
+		CashedAt:   payload.AutoCashout,
+		Won:        won,
+		Multiplier: finalMult,
+	}
+	finalPayloadBytes, _ := json.Marshal(finalPayload)
+
+	outcome, err := h.ledger.SettleActiveRound(r.Context(), activeRound.ID, p.UserID, payout, resultText, string(finalPayloadBytes))
+	if err != nil {
+		h.reportBackendError("SETTLE_CRASH_AUTO_ERROR", err, map[string]interface{}{"round_id": activeRound.ID})
+		JSONError(w, http.StatusInternalServerError, "Błąd finalizacji gry Crash")
+		return
+	}
+
+	h.hub.SendToUser(p.UserID, ws.Event{
+		Type: ws.EventBalanceUpdate,
+		Payload: ws.BalanceUpdatePayload{
+			Balance: outcome.Balance,
+			XP:      outcome.XP,
+			Level:   outcome.Level,
+		},
+	})
+
+	if won && payout > activeRound.Bet {
+		h.broadcastWin(outcome.Round.ID, p.Nick, "crash", p.Avatar, payout, activeRound.Bet, resultText)
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(outcome.Round),
+		"balance":        outcome.Balance,
+		"xp":             outcome.XP,
+		"level":          outcome.Level,
+		"roundsToday":    outcome.RoundsToday,
+		"leveledUp":      outcome.LeveledUp,
+		"levelUpBonus":   outcome.LevelUpBonus,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
 
 // GetProvablyFairSeed handles GET /api/casino/provably-fair
 func (h *CasinoHandler) GetProvablyFairSeed(w http.ResponseWriter, r *http.Request) {

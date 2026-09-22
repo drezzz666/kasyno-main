@@ -47,6 +47,8 @@ export function GameTableDialog({
   const [pendingSpin, setPendingSpin] = useState(null);
   const [pendingTiles, setPendingTiles] = useState(() => new Set());
   const [blackjackPreview, setBlackjackPreview] = useState(null);
+  const lastActionTimeRef = useRef(0);
+  const dialogRef = useRef(null);
 
   const handleTilePending = (tile, isPending) => {
     setPendingTiles((prev) => {
@@ -71,6 +73,7 @@ export function GameTableDialog({
   const [rouletteSelected, setRouletteSelected] = useState(() => new Set());
 
   const handleRouletteToggle = (spot) => {
+    setSpinResult(null);
     const isCategory = ["red", "black", "even", "odd", "low", "high", "dozen1", "dozen2", "dozen3", "col1", "col2", "col3"].includes(spot);
     setRouletteSelected((prev) => {
       const next = new Set(prev);
@@ -94,6 +97,7 @@ export function GameTableDialog({
   };
 
   const handleRouletteSelectAll = () => {
+    setSpinResult(null);
     const all = new Set();
     for (let i = 0; i <= 36; i++) {
       all.add(String(i));
@@ -102,6 +106,7 @@ export function GameTableDialog({
   };
 
   const handleRouletteClear = () => {
+    setSpinResult(null);
     setRouletteSelected(new Set());
   };
 
@@ -118,7 +123,7 @@ export function GameTableDialog({
   const [crashMult, setCrashMult] = useState(1.0);
   const [crashCrashed, setCrashCrashed] = useState(false);
   const [crashCashedOut, setCrashCashedOut] = useState(false);
-  const [crashGraphPoints, setCrashGraphPoints] = useState([]);
+  const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 1.0 }]);
   const crashAnimRef = useRef(null);
   const crashRoundRef = useRef(null);
 
@@ -155,17 +160,60 @@ export function GameTableDialog({
       animatingRef?.current
   );
 
-  // Escape key handler: close game only when NOT busy
+  // Modal Keyboard handler: Focus Trap for Tab, Escape to close, prevent key repeat on Enter/Space
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // 1. Enter/Space repeat suppression
+      if (e.key === "Enter" || e.key === " ") {
+        if (e.repeat) {
+          e.preventDefault();
+        }
+      }
+
+      // 2. Escape closes modal when not busy
       if (e.key === "Escape") {
         if (!isBusy) {
           onClose();
         }
+        return;
+      }
+
+      // 3. Focus Trap: constrain Tab navigation exclusively inside the open game modal
+      if (e.key === "Tab") {
+        if (!dialogRef.current) return;
+
+        const focusableElements = Array.from(
+          dialogRef.current.querySelectorAll(
+            'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"]):not([disabled])'
+          )
+        );
+
+        if (focusableElements.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          // Shift + Tab: if on first element or outside, wrap to last
+          if (document.activeElement === firstElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          // Tab: if on last element or outside, wrap to first
+          if (document.activeElement === lastElement || !dialogRef.current.contains(document.activeElement)) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [isBusy, onClose]);
 
   const shownRound = blackjackPreview || round;
@@ -192,47 +240,44 @@ export function GameTableDialog({
     }
   };
 
-  const handleManualCrashCashout = () => {
+  const handleManualCrashCashout = async () => {
     if (!crashPlaying || crashCrashed || crashCashedOut) return;
     if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
-    const roundData = crashRoundRef.current;
-    if (!roundData) return;
 
-    const cashedAt = crashMult;
-    if (cashedAt <= roundData.crashPoint) {
-      const actualPayout = Math.floor(bet * cashedAt);
-      const settledRound = {
-        ...roundData.round,
-        payout: actualPayout,
-        result: `Wypłacono przy ${cashedAt.toFixed(2)}x (Rozbicie: ${roundData.crashPoint.toFixed(2)}x)`,
-        payload: {
-          ...roundData.round.payload,
-          cashed_at: cashedAt,
-          multiplier: cashedAt,
-          won: true,
-        },
-      };
-      setCrashPlaying(false);
-      setCrashCashedOut(true);
-      setLast(settledRound);
-      if (typeof roundData.balance === "number") {
-        syncBalance(roundData.balance + actualPayout);
+    const targetMult = crashMult;
+    try {
+      const j = await post(
+        { game: "crash", action: "cashout_crash", mult: targetMult },
+        { deferBalance: true, deferRefresh: true }
+      );
+      if (j && j.round) {
+        setCrashPlaying(false);
+        const won = Boolean(j.round.payload?.won);
+        if (won) {
+          setCrashCashedOut(true);
+          setCrashMult(j.round.payload.cashed_at || targetMult);
+        } else {
+          setCrashCrashed(true);
+          setCrashMult(j.round.payload?.crash_point || targetMult);
+        }
+        setLast(j.round);
+        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (animatingRef) animatingRef.current = false;
+        triggerOutcome(j.round);
+        void load();
       }
-      if (animatingRef) animatingRef.current = false;
-      triggerOutcome(settledRound);
-      void load();
-    } else {
-      setCrashPlaying(false);
-      setCrashCrashed(true);
-      setLast(roundData.round);
-      if (typeof roundData.balance === "number") syncBalance(roundData.balance);
-      if (animatingRef) animatingRef.current = false;
-      triggerOutcome(roundData.round);
-      void load();
+    } catch (e) {
+      toast.error(e.message || "Błąd podczas wypłaty Crash");
     }
   };
 
   const start = async () => {
+    const now = Date.now();
+    if (now - lastActionTimeRef.current < 1000) {
+      return;
+    }
+    lastActionTimeRef.current = now;
+
     if (!tosAccepted) {
       if (onOpenTosModal) onOpenTosModal();
       toast.error("Musisz zaakceptować regulamin, aby zagrać.");
@@ -284,7 +329,7 @@ export function GameTableDialog({
       );
       if (j && j.round?.payload) {
         const finalMult = j.round.payload.result_multiplier;
-        const duration = turbo ? 200 : 850;
+        const duration = turbo ? 100 : 700;
         const startTime = Date.now();
 
         const rollStep = () => {
@@ -324,56 +369,77 @@ export function GameTableDialog({
       setCrashMult(1.0);
       setCrashGraphPoints([{ x: 0, y: 1.0 }]);
 
-      const targetCashout = crashAutoCashout > 1.0 ? crashAutoCashout : 2.0;
+      const targetCashout = crashAutoCashout >= 1.0 ? crashAutoCashout : 1000.0;
 
       const j = await post(
-        { game, bet, target_multiplier: targetCashout },
+        { game: "crash", action: "start_crash", bet, auto_cashout: targetCashout, turbo: Boolean(turbo) },
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
-      if (j && j.round?.payload) {
-        const crashPoint = j.round.payload.crash_point;
-        const won = j.round.payload.won;
-        const cashedAt = j.round.payload.cashed_at;
-        crashRoundRef.current = { ...j, crashPoint, won, cashedAt };
+      if (j && j.round) {
+        const serverCrashPoint = Number(j.round.payload?.crash_point) || 1.0;
+        const flightSpeed = j.round.payload?.flight_speed || (turbo ? 0.225 : 0.09);
+        const startTime = performance.now();
 
-        const startTime = Date.now();
-        const flightSpeed = 0.09;
-
-        const animateFlight = () => {
+        const animateFlight = async (currentTime) => {
           try {
-            const elapsed = (Date.now() - startTime) / 1000;
-            const currentM = Math.pow(Math.E, flightSpeed * elapsed);
-            setCrashMult(currentM);
-            setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: currentM }]);
+            const now = typeof currentTime === "number" ? currentTime : performance.now();
+            const elapsed = Math.max(0, (now - startTime) / 1000);
+            const currentM = Math.max(1.0, 1.0 * Math.pow(Math.E, flightSpeed * elapsed));
 
-            if (won && currentM >= cashedAt) {
-              setCrashPlaying(false);
-              setCrashCashedOut(true);
-              setCrashMult(cashedAt);
-              setLast(j.round);
-              if (typeof j.balance === "number") syncBalance(j.balance);
-              if (animatingRef) animatingRef.current = false;
-              triggerOutcome(j.round);
-              void load();
-            } else if (currentM >= crashPoint) {
+            // 1. Crash point reached (Loss)
+            if (currentM >= serverCrashPoint) {
+              if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
+              setCrashMult(serverCrashPoint);
+              setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: serverCrashPoint }]);
               setCrashPlaying(false);
               setCrashCrashed(true);
-              setCrashMult(crashPoint);
-              setLast(j.round);
-              if (typeof j.balance === "number") syncBalance(j.balance);
+
+              const res = await post(
+                { game: "crash", action: "settle_crash" },
+                { deferBalance: true, deferRefresh: true }
+              );
+              if (res?.round) {
+                setLast(res.round);
+                if (typeof res.balance === "number") syncBalance(res.balance);
+                triggerOutcome(res.round);
+              }
               if (animatingRef) animatingRef.current = false;
-              triggerOutcome(j.round);
               void load();
-            } else {
-              crashAnimRef.current = requestAnimationFrame(animateFlight);
+              return;
             }
+
+            // 2. Auto-cashout target reached before crash (Win)
+            if (targetCashout >= 1.0 && targetCashout <= serverCrashPoint && currentM >= targetCashout) {
+              if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
+              setCrashMult(targetCashout);
+              setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: targetCashout }]);
+              setCrashPlaying(false);
+              setCrashCashedOut(true);
+
+              const res = await post(
+                { game: "crash", action: "settle_crash" },
+                { deferBalance: true, deferRefresh: true }
+              );
+              if (res?.round) {
+                setLast(res.round);
+                if (typeof res.balance === "number") syncBalance(res.balance);
+                triggerOutcome(res.round);
+              }
+              if (animatingRef) animatingRef.current = false;
+              void load();
+              return;
+            }
+
+            // 3. Normal in-flight frame
+            setCrashMult(currentM);
+            setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: currentM }]);
+            crashAnimRef.current = requestAnimationFrame(animateFlight);
           } catch (err) {
             reportClientError({
               error: err,
               errorType: "GAME_ACTION_ERROR",
               message: err.message || "Błąd podczas animacji lotu Crash",
               game: "crash",
-              actionPayload: { bet, targetCashout, crashPoint },
               sourceFile: "frontend/src/components/GameTableDialog.jsx:animateFlight",
             });
             setCrashPlaying(false);
@@ -409,7 +475,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 400 : 1600);
+        }, turbo ? 220 : 1200);
       } else {
         setSlotsSpinning(false);
         setPendingSlotsRound(null);
@@ -434,7 +500,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 250 : 1300);
+        }, turbo ? 180 : 1200);
       } else {
         setIsFlipping(false);
         if (animatingRef) animatingRef.current = false;
@@ -458,7 +524,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 250 : 1000);
+        }, turbo ? 180 : 900);
       } else {
         setIsShootingRPS(false);
         if (animatingRef) animatingRef.current = false;
@@ -535,13 +601,14 @@ export function GameTableDialog({
     return res;
   };
 
-  const winningNumber =
-    spinResult?.payload?.number ?? last?.payload?.number ?? 0;
-  const prize = Math.max(0, wheelOrder.indexOf(winningNumber));
+  const hasSettledSpin = Boolean(spinResult && !spinning && !rouletteWaiting);
+  const rawWinningNumber = spinResult?.payload?.number ?? 0;
+  const prize = Math.max(0, wheelOrder.indexOf(rawWinningNumber));
 
   return (
     <div className="modal-backdrop game-modal-backdrop" role="presentation">
       <div
+        ref={dialogRef}
         className="modal-dialog game-dialog-box"
         role="dialog"
         aria-modal="true"
@@ -574,7 +641,7 @@ export function GameTableDialog({
         <div className="game-table-body horizontal-layout">
           {/* Left Side: Game Visual / Board Surface */}
           <div className="game-visual-column">
-            <div className={`table-visual ${game}`}>
+            <div className={`table-visual ${game} ${turbo ? "turbo" : ""}`}>
               {game === "roulette" && (
                 <>
                   <div
@@ -583,6 +650,7 @@ export function GameTableDialog({
                     <RouletteWheelVisual
                       mustStartSpinning={spinning}
                       prizeNumber={prize}
+                      turbo={turbo}
                       onStopSpinning={() => {
                         setSpinning(false);
                         if (pendingSpin) {
@@ -597,9 +665,9 @@ export function GameTableDialog({
                         if (animatingRef) animatingRef.current = false;
                       }}
                     />
-                    {spinResult && !spinning && !rouletteWaiting && (
+                    {hasSettledSpin && (
                       <div className="roulette-result" aria-live="polite">
-                        <strong>{winningNumber}</strong>
+                        <strong>{rawWinningNumber}</strong>
                       </div>
                     )}
                   </div>
@@ -608,14 +676,19 @@ export function GameTableDialog({
                     onToggleBet={handleRouletteToggle}
                     onSelectAllNumbers={handleRouletteSelectAll}
                     onClearBets={handleRouletteClear}
-                    winningNumber={spinning ? null : winningNumber}
+                    winningNumber={hasSettledSpin ? rawWinningNumber : null}
                     disabled={spinning || rouletteWaiting}
                   />
                 </>
               )}
 
               {game === "slots" && (
-                <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} />
+                <SlotsTable
+                  last={pendingSlotsRound || last}
+                  loading={loading}
+                  slotsSpinning={slotsSpinning}
+                  turbo={turbo}
+                />
               )}
 
               {game === "blackjack" && (
@@ -662,6 +735,7 @@ export function GameTableDialog({
                   setRisk={setPlinkoRisk}
                   onBallFinish={handlePlinkoBallFinish}
                   loading={loading}
+                  turbo={turbo}
                 />
               )}
 
@@ -697,9 +771,9 @@ export function GameTableDialog({
             {last && !shownRound && !blackjackPreview && !spinning && !slotsSpinning && !isFlipping && !isShootingRPS && !limboAnimating && !crashPlaying && (
               <div className={`result-box ${last.payout && last.payout > last.bet ? "winner" : ""}`}>
                 <b>{last.result}</b>
-                <span>
-                  {last.payout ? `Wypłata: ${money(last.payout)}` : "Bez wygranej"}
-                </span>
+                {last.payout > 0 && (
+                  <span>Wypłata: {money(last.payout)}</span>
+                )}
               </div>
             )}
           </div>
@@ -802,12 +876,37 @@ export function GameTableDialog({
                     return "Rozpocznij rundę";
                   };
 
+                  if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
+                    return (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="btn-crash-cashout w-full"
+                        onClick={handleManualCrashCashout}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            if (e.repeat) e.preventDefault();
+                          }
+                        }}
+                      >
+                        <span className="btn-crash-cashout-main">WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
+                        <span className="btn-crash-cashout-sub">Wypłata: {money(Math.floor(bet * crashMult))}</span>
+                      </button>
+                    );
+                  }
+
                   return (
                     <button
                       type="button"
+                      tabIndex={-1}
                       className="btn-play-action primary"
                       disabled={isButtonDisabled}
                       onClick={start}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          if (e.repeat) e.preventDefault();
+                        }
+                      }}
                     >
                       {getPlayButtonText()}
                     </button>
@@ -821,6 +920,7 @@ export function GameTableDialog({
               <div className="table-actions-row three">
                 <button
                   type="button"
+                  tabIndex={-1}
                   className="btn-play-action secondary"
                   disabled={loading}
                   onClick={() => showSettledBlackjack("stand")}
@@ -829,6 +929,7 @@ export function GameTableDialog({
                 </button>
                 <button
                   type="button"
+                  tabIndex={-1}
                   className="btn-play-action secondary"
                   disabled={loading || round.payload.cards.length !== 2}
                   onClick={() => showSettledBlackjack("double")}
@@ -837,6 +938,7 @@ export function GameTableDialog({
                 </button>
                 <button
                   type="button"
+                  tabIndex={-1}
                   className="btn-play-action primary"
                   disabled={loading}
                   onClick={() => showSettledBlackjack("hit")}

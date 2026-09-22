@@ -74,7 +74,7 @@ export function TosPage({ onBack, onAccept, accepted }) {
                 className={`tos-toc-link ${activeSection === "age" ? "active" : ""}`}
                 onClick={() => scrollTo("age")}
               >
-                2. Wymóg 18+ i Odpowiedzialność
+                2. Odpowiedzialna Rozrywka
               </button>
               <button
                 type="button"
@@ -152,17 +152,17 @@ export function TosPage({ onBack, onAccept, accepted }) {
             <div className="tos-section-header">
               <div className="tos-section-num">02</div>
               <div>
-                <h2>Wymóg Pełnoletności (18+) i Odpowiedzialna Rozrywka</h2>
-                <p className="tos-section-lead">Zasady dostępu i kontrola czasu gry</p>
+                <h2>Odpowiedzialna Rozrywka i Higiena Cyfrowa</h2>
+                <p className="tos-section-lead">Zasady dostępu, zdrowy balans i kontrola czasu gry</p>
               </div>
             </div>
             <div className="tos-section-text">
               <div className="tos-callout warning">
                 <AlertTriangle size={20} className="text-amber-400 shrink-0" />
                 <div>
-                  <strong>Dostęp wyłącznie dla osób od 18. roku życia</strong>
+                  <strong>Zasady bezpiecznej rozgrywki</strong>
                   <p>
-                    Korzystając z serwisu, użytkownik deklaruje ukończenie 18 lat i pełną zdolność do czynności prawnych.
+                    Rozgrywka ma charakter czysto symulacyjny. Wszystkie punkty i żetony generowane są wirtualnie.
                   </p>
                 </div>
               </div>
