@@ -45,32 +45,15 @@ func main() {
 
 	ledgerService := ledger.NewService(database)
 
-	sign := ""
-	if amount > 0 {
-		sign = "+"
-	}
-
-	if identifier == "*" || identifier == "all" || identifier == "wszyscy" {
-		count, total, err := ledgerService.GrantBalanceAll(ctx, amount, reason)
-		if err != nil {
-			fmt.Printf("Błąd: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Println("==================================================")
-		fmt.Println("✓ Pomyślnie zrealizowano GLOBALNE przyznanie środków (*):")
-		fmt.Printf("  Powód:                  %s\n", reason)
-		fmt.Printf("  Kwota na gracza:        %s%d $FGT\n", sign, amount)
-		fmt.Printf("  Zaktualizowano kont:    %d graczy\n", count)
-		fmt.Printf("  Łączny transfer:        %s%d $FGT\n", sign, total)
-		fmt.Println("==================================================")
-		return
-	}
-
 	nick, prevBal, newBal, err := ledgerService.GrantBalance(ctx, identifier, amount, reason)
 	if err != nil {
 		fmt.Printf("Błąd: %v\n", err)
 		os.Exit(1)
+	}
+
+	sign := ""
+	if amount > 0 {
+		sign = "+"
 	}
 
 	fmt.Println("==================================================")

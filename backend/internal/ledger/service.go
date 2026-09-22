@@ -1546,15 +1546,6 @@ func (s *Service) GrantBalance(ctx context.Context, identifier string, amount in
 		return "", 0, 0, fmt.Errorf("kwota musi być różna od 0")
 	}
 
-	trimmed := strings.TrimSpace(strings.ToLower(identifier))
-	if trimmed == "*" || trimmed == "all" || trimmed == "wszyscy" || trimmed == "@everyone" {
-		count, total, err := s.GrantBalanceAll(ctx, amount, reason)
-		if err != nil {
-			return "", 0, 0, err
-		}
-		return fmt.Sprintf("Wszyscy gracze (%d)", count), 0, total, nil
-	}
-
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
 		SELECT p.user_id, p.email, p.nick, COALESCE(SUM(l.amount), 0)
