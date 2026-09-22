@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kasyno_pass}
       POSTGRES_DB: ${POSTGRES_DB:-kasyno}
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - casino_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,40 +19,30 @@ services:
 
   kasyno_backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: kasyno_backend
+    container_name: kasyno_backend_go
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "8080:8080"
     environment:
       - PORT=8080
-      - APP_URL=${APP_URL:-https://drezzz.tech}
+      - APP_URL=${APP_URL:-https://zagraj.2fgt.pl}
       - DATABASE_URL=${DATABASE_URL:-postgres://kasyno:kasyno_pass@postgres:5432/kasyno}
       - SESSION_SECRET=${SESSION_SECRET:-kasyno-2fgt-secret-key-replace-in-env-production-32-chars}
-      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://auth.drezzz.tech/application/o/kasyno/}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://login.2fgt.pl/application/o/kasyno/}
       - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
       - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
-      - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-true}
+      - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-false}
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 5s
-
-  kasyno_frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: kasyno_frontend
-    restart: unless-stopped
-    depends_on:
-      kasyno_backend:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT:-8010}:80"
 
 volumes:
   casino_pgdata:

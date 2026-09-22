@@ -1,0 +1,71 @@
+import React, { useState, useEffect } from "react";
+import { money } from "../lib/formatters";
+import { Sparkles, ArrowRightLeft } from "lucide-react";
+
+export function CoinflipTable({
+  choice,
+  setChoice,
+  last,
+  loading,
+  isFlipping,
+}) {
+  const p = last?.payload || {};
+  const outcome = p.outcome || "heads";
+  const won = p.won;
+
+  return (
+    <div className="coinflip-container">
+      {/* 3D Coin Arena */}
+      <div className="coin-arena">
+        <div className={`coin-3d ${isFlipping ? "flipping" : ""} ${!isFlipping && outcome ? `show-${outcome}` : "show-heads"}`}>
+          <div className="coin-face coin-front">
+            <div className="coin-ring">
+              <span className="coin-symbol">🦅</span>
+              <span className="coin-text">ORZEŁ</span>
+            </div>
+          </div>
+          <div className="coin-face coin-back">
+            <div className="coin-ring">
+              <span className="coin-symbol">👑</span>
+              <span className="coin-text">RESZKA</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Choice Selector */}
+      <div className="coinflip-controls">
+        <span className="text-xs uppercase tracking-wider font-bold text-slate-400 text-center">
+          Wybierz stronę monety:
+        </span>
+        <div className="coin-choices-row">
+          <button
+            type="button"
+            disabled={loading || isFlipping}
+            className={`coin-choice-btn ${choice === "heads" ? "active" : ""}`}
+            onClick={() => setChoice("heads")}
+          >
+            <span className="text-xl">🦅</span>
+            <div className="flex flex-col text-left">
+              <strong className="text-sm">Orzeł (Heads)</strong>
+              <span className="text-[10px] text-amber-400 font-mono">Mnożnik ×1.98</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            disabled={loading || isFlipping}
+            className={`coin-choice-btn ${choice === "tails" ? "active" : ""}`}
+            onClick={() => setChoice("tails")}
+          >
+            <span className="text-xl">👑</span>
+            <div className="flex flex-col text-left">
+              <strong className="text-sm">Reszka (Tails)</strong>
+              <span className="text-[10px] text-amber-400 font-mono">Mnożnik ×1.98</span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
