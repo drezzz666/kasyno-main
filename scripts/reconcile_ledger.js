@@ -27,8 +27,9 @@ async function main() {
       COUNT(l.id)::int AS entry_count
     FROM players p
     LEFT JOIN ledger_entries l ON p.user_id = l.user_id
-    GROUP BY p.user_id, p.nick, p.email
-    ORDER BY balance DESC
+    GROUP BY p.user_id, p.nick, p.email, p.created_at
+    ORDER BY p.created_at DESC
+    LIMIT 30
   `;
 
   if (players.length === 0) {

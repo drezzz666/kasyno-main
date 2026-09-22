@@ -84,6 +84,7 @@ async function handlePlayers(sql, args) {
         p.email,
         p.level,
         p.streak,
+        p.created_at,
         COALESCE(l.balance, 0)::bigint AS balance,
         COALESCE(g.rounds_count, 0)::int AS rounds_count
       FROM players p
@@ -93,7 +94,8 @@ async function handlePlayers(sql, args) {
       LEFT JOIN (
         SELECT user_id, COUNT(*) AS rounds_count FROM game_rounds GROUP BY user_id
       ) g ON p.user_id = g.user_id
-      ORDER BY balance DESC
+      ORDER BY p.created_at DESC
+      LIMIT 30
     `;
 
     console.log(`\n=== LISTA GRACZY (${list.length}) ===`);
@@ -212,8 +214,9 @@ async function handleLedger(sql, args) {
         COUNT(l.id)::int AS entry_count
       FROM players p
       LEFT JOIN ledger_entries l ON p.user_id = l.user_id
-      GROUP BY p.user_id, p.nick
-      ORDER BY balance DESC
+      GROUP BY p.user_id, p.nick, p.created_at
+      ORDER BY p.created_at DESC
+      LIMIT 30
     `;
 
     console.log(`\n=== AUDYT KSIĘGI LEDGER_ENTRIES ===`);

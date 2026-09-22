@@ -31,7 +31,7 @@ async function main() {
       SELECT id, user_id, nick, previous_balance, reason, details, created_at, restored_at
       FROM fraud_logs
       ORDER BY created_at DESC
-      LIMIT 50
+      LIMIT 30
     `;
 
     if (logs.length === 0) {
@@ -40,7 +40,7 @@ async function main() {
       return;
     }
 
-    console.log("\n=== HISTORIA WYKRYĆ ANTYFRAUDOWYCH (ostatnie 50) ===");
+    console.log("\n=== HISTORIA WYKRYĆ ANTYFRAUDOWYCH (ostatnie 30) ===");
     console.table(
       logs.map((l) => ({
         ID: l.id,
