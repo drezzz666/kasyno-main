@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: kasyno_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kasyno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kasyno_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-kasyno}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - casino_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kasyno} -d ${POSTGRES_DB:-kasyno}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  kasyno_backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kasyno_backend_go
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - APP_URL=${APP_URL:-https://zagraj.2fgt.pl}
+      - DATABASE_URL=${DATABASE_URL:-postgres://kasyno:kasyno_pass@postgres:5432/kasyno}
+      - SESSION_SECRET=${SESSION_SECRET:-kasyno-2fgt-secret-key-replace-in-env-production-32-chars}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://login.2fgt.pl/application/o/kasyno/}
+      - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
+      - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
+      - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-false}
+      - DISCORD_ERROR_WEBHOOK_URL=${DISCORD_ERROR_WEBHOOK_URL:-}
+      - DISCORD_SECURITY_WEBHOOK_URL=${DISCORD_SECURITY_WEBHOOK_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  casino_pgdata:
+    driver: local

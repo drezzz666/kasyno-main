@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# =============================================================================
+# 2FGT Casino CLI - Skrypt zarządzania kasynem i użytkownikami
+# =============================================================================
+set -e
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ -f "$DIR/casino-cli" ]; then
+    exec "$DIR/casino-cli" "$@"
+else
+    cd "$DIR/backend"
+    exec go run cmd/cli/main.go "$@"
+fi
+

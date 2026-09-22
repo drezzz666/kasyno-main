@@ -1,14 +1,26 @@
-node_modules/
-.next/
-.vinext/
-.wrangler/
-.sites-runtime/
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
 dist/
+build/
+bin/
+casino-cli
+*.exe
+*.test
+*.out
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Logs & temp
 *.log
-.env*
 data/
 _data/
-_data.backup/
 *.db
 *.db-*
 *.sql
+!schema.sql

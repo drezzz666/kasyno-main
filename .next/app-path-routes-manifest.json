@@ -1,0 +1,12 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/backchannel-logout/route": "/api/auth/backchannel-logout",
+  "/api/auth/callback/route": "/api/auth/callback",
+  "/api/auth/login/route": "/api/auth/login",
+  "/api/auth/logout/route": "/api/auth/logout",
+  "/api/auth/me/route": "/api/auth/me",
+  "/api/casino/history/route": "/api/casino/history",
+  "/api/casino/route": "/api/casino",
+  "/page": "/"
+}
