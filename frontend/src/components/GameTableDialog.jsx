@@ -216,6 +216,29 @@ export function GameTableDialog({
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
   }, [isBusy, onClose]);
 
+  // Listen for realtime crash settlement from server
+  useEffect(() => {
+    const handleRoundSettled = (e) => {
+      const data = e.detail;
+      if (data?.game === "crash" && data?.crashed) {
+        if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
+        const cp = Number(data.crash_point) || 1.0;
+        setCrashMult(cp);
+        setCrashPlaying(false);
+        setCrashCrashed(true);
+        if (data.round) {
+          setLast(data.round);
+          triggerOutcome(data.round);
+        }
+        if (typeof data.balance === "number") syncBalance(data.balance);
+        if (animatingRef) animatingRef.current = false;
+        void load();
+      }
+    };
+    window.addEventListener("casino:round_settled", handleRoundSettled);
+    return () => window.removeEventListener("casino:round_settled", handleRoundSettled);
+  }, [load, syncBalance, triggerOutcome]);
+
   const shownRound = blackjackPreview || round;
 
   const showSettledBlackjack = async (move) => {
@@ -376,7 +399,6 @@ export function GameTableDialog({
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
       if (j && j.round) {
-        const serverCrashPoint = Number(j.round.payload?.crash_point) || 1.0;
         const flightSpeed = j.round.payload?.flight_speed || (turbo ? 0.225 : 0.09);
         const startTime = performance.now();
 
@@ -386,21 +408,26 @@ export function GameTableDialog({
             const elapsed = Math.max(0, (now - startTime) / 1000);
             const currentM = Math.max(1.0, 1.0 * Math.pow(Math.E, flightSpeed * elapsed));
 
-            // 1. Crash point reached (Loss)
-            if (currentM >= serverCrashPoint) {
+            // Auto-cashout target reached before crash (Win)
+            if (targetCashout >= 1.01 && currentM >= targetCashout) {
               if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
-              setCrashMult(serverCrashPoint);
-              setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: serverCrashPoint }]);
               setCrashPlaying(false);
-              setCrashCrashed(true);
 
               const res = await post(
-                { game: "crash", action: "settle_crash" },
+                { game: "crash", action: "cashout_crash", mult: targetCashout },
                 { deferBalance: true, deferRefresh: true }
               );
               if (res?.round) {
                 setLast(res.round);
                 if (typeof res.balance === "number") syncBalance(res.balance);
+                const won = Boolean(res.round.payload?.won);
+                if (won) {
+                  setCrashCashedOut(true);
+                  setCrashMult(res.round.payload.cashed_at || targetCashout);
+                } else {
+                  setCrashCrashed(true);
+                  setCrashMult(res.round.payload?.crash_point || targetCashout);
+                }
                 triggerOutcome(res.round);
               }
               if (animatingRef) animatingRef.current = false;
@@ -408,29 +435,7 @@ export function GameTableDialog({
               return;
             }
 
-            // 2. Auto-cashout target reached before crash (Win)
-            if (targetCashout >= 1.0 && targetCashout <= serverCrashPoint && currentM >= targetCashout) {
-              if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
-              setCrashMult(targetCashout);
-              setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: targetCashout }]);
-              setCrashPlaying(false);
-              setCrashCashedOut(true);
-
-              const res = await post(
-                { game: "crash", action: "settle_crash" },
-                { deferBalance: true, deferRefresh: true }
-              );
-              if (res?.round) {
-                setLast(res.round);
-                if (typeof res.balance === "number") syncBalance(res.balance);
-                triggerOutcome(res.round);
-              }
-              if (animatingRef) animatingRef.current = false;
-              void load();
-              return;
-            }
-
-            // 3. Normal in-flight frame
+            // Normal in-flight frame
             setCrashMult(currentM);
             setCrashGraphPoints((prev) => [...prev, { x: elapsed, y: currentM }]);
             crashAnimRef.current = requestAnimationFrame(animateFlight);

@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+
+	"github.com/drezzz666/kasyno/backend/internal/games/provablyfair"
 )
+
 
 const FlightSpeed = 0.09
 
@@ -18,7 +21,6 @@ type ActivePayload struct {
 }
 
 type MaskedPayload struct {
-	CrashPoint  float64 `json:"crash_point"`
 	AutoCashout float64 `json:"auto_cashout"`
 	StartedAt   int64   `json:"started_at"`
 	FlightSpeed float64 `json:"flight_speed"`
@@ -26,7 +28,6 @@ type MaskedPayload struct {
 
 func MaskActive(p ActivePayload) MaskedPayload {
 	return MaskedPayload{
-		CrashPoint:  p.CrashPoint,
 		AutoCashout: p.AutoCashout,
 		StartedAt:   p.StartedAt,
 		FlightSpeed: p.FlightSpeed,
@@ -132,3 +133,64 @@ func PlayCrash(bet int64, targetMultiplier float64) (*Result, error) {
 		},
 	}, nil
 }
+
+// GenerateCrashPointProvablyFair generates a deterministic crash point using provably fair seeds
+func GenerateCrashPointProvablyFair(serverSeed, clientSeed string, nonce int64) float64 {
+	u := provablyfair.GenerateFloat(serverSeed, clientSeed, nonce)
+
+	// 1 in 100 rounds instant crash at 1.00x
+	if u < 0.01 {
+		return 1.00
+	}
+
+	if u >= 0.9999999999 {
+		u = 0.9999999999
+	}
+
+	raw := 0.99 / (1.0 - u)
+	mult := math.Floor(raw*100.0) / 100.0
+	if mult < 1.00 {
+		mult = 1.00
+	}
+	if mult > 10000.00 {
+		mult = 10000.00
+	}
+	return mult
+}
+
+// PlayCrashProvablyFair executes a deterministic single round of Crash
+func PlayCrashProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, targetMultiplier float64) (*Result, error) {
+	if targetMultiplier < 1.00 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 1.00x - 10000x")
+	}
+
+	crashPoint := GenerateCrashPointProvablyFair(serverSeed, clientSeed, nonce)
+	won := targetMultiplier <= crashPoint
+
+	var payout int64
+	var resultText string
+	var actualMult float64
+
+	if won {
+		actualMult = targetMultiplier
+		payout = int64(math.Floor(float64(bet) * actualMult))
+		resultText = fmt.Sprintf("Wypłacono przy %.2fx (Rozbicie: %.2fx) - Wygrana ×%.2f!", actualMult, crashPoint, actualMult)
+	} else {
+		actualMult = 0
+		payout = 0
+		resultText = fmt.Sprintf("Rakieta rozbiła się przy %.2fx (Próba: %.2fx) - Przegrana", crashPoint, targetMultiplier)
+	}
+
+	return &Result{
+		Won:        won,
+		Payout:     payout,
+		ResultText: resultText,
+		Payload: Payload{
+			CrashPoint: crashPoint,
+			CashedAt:   targetMultiplier,
+			Won:        won,
+			Multiplier: actualMult,
+		},
+	}, nil
+}
+

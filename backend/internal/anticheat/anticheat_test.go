@@ -119,16 +119,16 @@ func TestRateLimiter(t *testing.T) {
 	rl := NewRateLimiter()
 	uid := "user_burst_test"
 
-	// 1. First 4 rapid game actions should pass (gameActionMaxPerSec = 4)
-	for i := 0; i < 4; i++ {
+	// 1. First 6 rapid game actions should pass (gameActionMaxPerSec = 6)
+	for i := 0; i < 6; i++ {
 		if !rl.Allow(uid) {
 			t.Errorf("request %d within allowed limit should pass", i)
 		}
 	}
 
-	// 2. 5th rapid request should be blocked
+	// 2. 7th rapid request should be blocked
 	if rl.Allow(uid) {
-		t.Errorf("5th immediate request should exceed rate limit")
+		t.Errorf("7th immediate request should exceed rate limit")
 	}
 
 	// 3. Test Plinko and Mines rate limiter (supports 20 CPS)

@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS players (
     email TEXT NOT NULL,
     nick TEXT NOT NULL,
     avatar TEXT,
-    balance BIGINT NOT NULL DEFAULT 1000,
     xp BIGINT NOT NULL DEFAULT 0,
     level INTEGER NOT NULL DEFAULT 1,
     streak INTEGER NOT NULL DEFAULT 0,
@@ -11,6 +10,8 @@ CREATE TABLE IF NOT EXISTS players (
     created_at BIGINT NOT NULL,
     updated_at BIGINT NOT NULL
 );
+
+ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_players_nick_unique ON players (nick);
 

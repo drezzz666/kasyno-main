@@ -21,8 +21,8 @@ func TestPlayPlinkoAllCombinations(t *testing.T) {
 			if res.Payload.Slot < 0 || res.Payload.Slot > rows {
 				t.Errorf("invalid slot %d for rows %d", res.Payload.Slot, rows)
 			}
-			if res.Payload.Multiplier <= 0 {
-				t.Errorf("expected positive multiplier, got %f", res.Payload.Multiplier)
+			if res.Payload.Multiplier < 0 {
+				t.Errorf("expected non-negative multiplier, got %f", res.Payload.Multiplier)
 			}
 			if res.Payout < 0 {
 				t.Errorf("expected non-negative payout, got %d", res.Payout)

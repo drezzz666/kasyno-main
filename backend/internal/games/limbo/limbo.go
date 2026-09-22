@@ -5,7 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/drezzz666/kasyno/backend/internal/games/provablyfair"
 )
+
 
 type Payload struct {
 	ResultMultiplier float64 `json:"result_multiplier"`
@@ -80,3 +83,54 @@ func PlayLimbo(bet int64, targetMultiplier float64) (*Result, error) {
 		},
 	}, nil
 }
+
+// GenerateLimboMultiplierProvablyFair computes the multiplier deterministically using provably fair seeds
+func GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed string, nonce int64) float64 {
+	u := provablyfair.GenerateFloat(serverSeed, clientSeed, nonce)
+	if u >= 0.9999999999 {
+		u = 0.9999999999
+	}
+	raw := 0.99 / (1.0 - u)
+	mult := math.Floor(raw*100.0) / 100.0
+	if mult < 1.00 {
+		mult = 1.00
+	}
+	if mult > 1000000.00 {
+		mult = 1000000.00
+	}
+	return mult
+}
+
+// PlayLimboProvablyFair executes a deterministic round of Limbo
+func PlayLimboProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, targetMultiplier float64) (*Result, error) {
+	if targetMultiplier < 1.01 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.01x - 10000x")
+	}
+
+	resultMult := GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed, nonce)
+	won := resultMult >= targetMultiplier
+
+	var payout int64
+	var resultText string
+
+	if won {
+		payout = int64(math.Floor(float64(bet) * targetMultiplier))
+		resultText = fmt.Sprintf("Wylosowano %.2fx (Cel: %.2fx) - Wygrana ×%.2f!", resultMult, targetMultiplier, targetMultiplier)
+	} else {
+		payout = 0
+		resultText = fmt.Sprintf("Wylosowano %.2fx (Cel: %.2fx) - Przegrana", resultMult, targetMultiplier)
+	}
+
+	return &Result{
+		Won:        won,
+		Payout:     payout,
+		ResultText: resultText,
+		Payload: Payload{
+			ResultMultiplier: resultMult,
+			TargetMultiplier: targetMultiplier,
+			Won:              won,
+			Multiplier:       targetMultiplier,
+		},
+	}, nil
+}
+

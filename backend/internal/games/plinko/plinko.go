@@ -113,3 +113,57 @@ func PlayPlinko(bet int64, rows int, risk string) (*Result, error) {
 		},
 	}, nil
 }
+
+// PlayPlinkoProvablyFair executes a deterministic game of Plinko using player seeds and nonce
+func PlayPlinkoProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, rows int, risk string) (*Result, error) {
+	if rows < 8 || rows > 16 {
+		rows = 10
+	}
+
+	risk = strings.ToLower(strings.TrimSpace(risk))
+	if risk != "low" && risk != "medium" && risk != "high" {
+		risk = "medium"
+	}
+
+	multsRow, ok := Multipliers[risk][rows]
+	if !ok {
+		return nil, fmt.Errorf("nieobsługiwana konfiguracja plinko: rows=%d, risk=%s", rows, risk)
+	}
+
+	path := make([]int, rows)
+	rightCount := 0
+
+	for i := 0; i < rows; i++ {
+		step := provablyfair.GenerateInt(serverSeed, clientSeed, nonce*20+int64(i), 2) // 0 for left, 1 for right
+		path[i] = step
+		if step == 1 {
+			rightCount++
+		}
+	}
+
+	slot := rightCount
+	if slot < 0 {
+		slot = 0
+	}
+	if slot >= len(multsRow) {
+		slot = len(multsRow) - 1
+	}
+
+	mult := multsRow[slot]
+	payout := int64(float64(bet) * mult)
+	resultText := fmt.Sprintf("Plinko: Slot #%d (×%.2f)", slot+1, mult)
+
+	return &Result{
+		Payout:     payout,
+		ResultText: resultText,
+		Payload: Payload{
+			Rows:        rows,
+			Risk:        risk,
+			Path:        path,
+			Slot:        slot,
+			Multiplier:  mult,
+			Multipliers: multsRow,
+		},
+	}, nil
+}
+

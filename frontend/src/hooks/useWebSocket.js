@@ -33,6 +33,11 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
               callbacksRef.current.onBalanceUpdate(data.payload);
             } else if (data.type === "global_win" && callbacksRef.current.onGlobalWin) {
               callbacksRef.current.onGlobalWin(data.payload);
+            } else if (data.type === "round_settled") {
+              window.dispatchEvent(new CustomEvent("casino:round_settled", { detail: data.payload }));
+              if (callbacksRef.current.onRoundSettled) {
+                callbacksRef.current.onRoundSettled(data.payload);
+              }
             }
           } catch {
             // Ignore parse errors

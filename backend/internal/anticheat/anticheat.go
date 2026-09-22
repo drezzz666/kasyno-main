@@ -152,11 +152,11 @@ func (m *UserLockManager) cleanupLoop() {
 
 const (
 	// Game action limits (standard turn-based games)
-	gameActionMaxPerSec = 4
-	gameActionMaxPer10s = 12
-	gameActionMaxPerMin = 30
+	gameActionMaxPerSec = 6
+	gameActionMaxPer10s = 25
+	gameActionMaxPerMin = 90
 
-	// Rapid action limits (supports continuous rapid drops & tile reveals: Plinko, Mines moves up to 20 CPS)
+	// Rapid action limits (supports continuous rapid drops & spins: Plinko, Slots, Limbo, Mines moves)
 	rapidActionMaxPerSec = 20
 	rapidActionMaxPer10s = 200
 	rapidActionMaxPerMin = 1200
@@ -228,8 +228,14 @@ func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bo
 	e := rl.getEntry(userID)
 	now := time.Now()
 
-	isRapid := action == "plinko" || (len(game) > 0 && game[0] == "plinko") ||
-		action == "mines" || (len(game) > 0 && game[0] == "mines" && action != "start_mines")
+	gName := ""
+	if len(game) > 0 {
+		gName = game[0]
+	}
+	isRapid := action == "plinko" || gName == "plinko" ||
+		action == "mines" || (gName == "mines" && action != "start_mines") ||
+		action == "slots" || gName == "slots" ||
+		action == "limbo" || gName == "limbo"
 
 	if isRapid {
 		e.rapidActions = pruneOlderThan(e.rapidActions, now, time.Minute)

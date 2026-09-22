@@ -54,9 +54,9 @@ func (s *Service) AdminCreateUser(ctx context.Context, userID, nick, email strin
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO players (user_id, email, nick, avatar, balance, xp, level, streak, created_at, updated_at)
-		VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8, $9)
-	`, p.UserID, p.Email, p.Nick, p.Balance, p.XP, p.Level, p.Streak, p.CreatedAt, p.UpdatedAt)
+		INSERT INTO players (user_id, email, nick, avatar, xp, level, streak, created_at, updated_at)
+		VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8)
+	`, p.UserID, p.Email, p.Nick, p.XP, p.Level, p.Streak, p.CreatedAt, p.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("błąd podczas tworzenia gracza: %w", err)
 	}
@@ -86,9 +86,11 @@ func (s *Service) AdminCreateUser(ctx context.Context, userID, nick, email strin
 func (s *Service) AdminGetUser(ctx context.Context, identifier string) (*Player, *PlayerStats, *GameRound, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT user_id, email, nick, avatar, balance, xp, level, streak, last_bonus_day, created_at, updated_at
-		FROM players
-		WHERE user_id = $1 OR nick = $1 OR email = $1
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		WHERE p.user_id = $1 OR p.nick = $1 OR p.email = $1
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
 	`, identifier).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -108,26 +110,20 @@ func (s *Service) AdminGetUser(ctx context.Context, identifier string) (*Player,
 		WHERE user_id = $1 AND state = 'active'
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, p.UserID).Scan(
-		&activeRound.ID, &activeRound.UserID, &activeRound.Game, &activeRound.State,
-		&activeRound.Bet, &activeRound.Payout, &activeRound.Result, &activeRound.Payload,
-		&activeRound.Revision, &activeRound.CreatedAt, &activeRound.SettledAt,
-	)
-	var active *GameRound
+	`, p.UserID).Scan(&activeRound.ID, &activeRound.UserID, &activeRound.Game, &activeRound.State, &activeRound.Bet, &activeRound.Payout, &activeRound.Result, &activeRound.Payload, &activeRound.Revision, &activeRound.CreatedAt, &activeRound.SettledAt)
+
+	var activePtr *GameRound
 	if err == nil {
-		active = &activeRound
+		activePtr = &activeRound
 	}
 
-	return &p, stats, active, nil
+	return &p, stats, activePtr, nil
 }
 
 // AdminListUsers returns a list of players with pagination and search.
 func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offset int) ([]Player, int, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 500 {
-		limit = 500
+	if limit <= 0 || limit > 100 {
+		limit = 20
 	}
 	if offset < 0 {
 		offset = 0
@@ -141,10 +137,12 @@ func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offs
 		searchPattern := "%" + strings.ToLower(search) + "%"
 		countQuery := `SELECT COUNT(*) FROM players WHERE LOWER(user_id) LIKE $1 OR LOWER(nick) LIKE $1 OR LOWER(email) LIKE $1`
 		listQuery := `
-			SELECT user_id, email, nick, avatar, balance, xp, level, streak, last_bonus_day, created_at, updated_at
-			FROM players
-			WHERE LOWER(user_id) LIKE $1 OR LOWER(nick) LIKE $1 OR LOWER(email) LIKE $1
-			ORDER BY balance DESC, created_at DESC
+			SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0) AS balance, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+			FROM players p
+			LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+			WHERE LOWER(p.user_id) LIKE $1 OR LOWER(p.nick) LIKE $1 OR LOWER(p.email) LIKE $1
+			GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+			ORDER BY balance DESC, p.created_at DESC
 			LIMIT $2 OFFSET $3
 		`
 		if err := s.db.Pool.QueryRow(ctx, countQuery, searchPattern).Scan(&total); err != nil {
@@ -154,9 +152,11 @@ func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offs
 	} else {
 		countQuery := `SELECT COUNT(*) FROM players`
 		listQuery := `
-			SELECT user_id, email, nick, avatar, balance, xp, level, streak, last_bonus_day, created_at, updated_at
-			FROM players
-			ORDER BY balance DESC, created_at DESC
+			SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0) AS balance, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+			FROM players p
+			LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+			GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+			ORDER BY balance DESC, p.created_at DESC
 			LIMIT $1 OFFSET $2
 		`
 		if err := s.db.Pool.QueryRow(ctx, countQuery).Scan(&total); err != nil {
@@ -193,9 +193,11 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT user_id, email, nick, balance
-		FROM players
-		WHERE user_id = $1 OR nick = $1 OR email = $1
+		SELECT p.user_id, p.email, p.nick, COALESCE(SUM(l.amount), 0)
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		WHERE p.user_id = $1 OR p.nick = $1 OR p.email = $1
+		GROUP BY p.user_id, p.email, p.nick
 	`, identifier).Scan(&p.UserID, &p.Email, &p.Nick, &p.Balance)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", 0, 0, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)
@@ -215,9 +217,9 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 
 	_, err = tx.Exec(ctx, `
 		UPDATE players
-		SET balance = $1, updated_at = $2
-		WHERE user_id = $3
-	`, newBalance, t, p.UserID)
+		SET updated_at = $1
+		WHERE user_id = $2
+	`, t, p.UserID)
 	if err != nil {
 		return "", 0, 0, err
 	}

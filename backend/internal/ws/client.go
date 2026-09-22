@@ -32,6 +32,9 @@ type Client struct {
 
 func (c *Client) readPump() {
 	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WS Client] Panic recovered in readPump: %v", r)
+		}
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
@@ -57,6 +60,9 @@ func (c *Client) readPump() {
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WS Client] Panic recovered in writePump: %v", r)
+		}
 		ticker.Stop()
 		c.Conn.Close()
 	}()

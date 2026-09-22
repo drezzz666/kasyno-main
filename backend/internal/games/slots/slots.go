@@ -156,3 +156,27 @@ func PlaySlots(bet int64) (*SpinResult, error) {
 	reels := GenerateReels()
 	return EvaluateReels(reels, bet), nil
 }
+
+// GenerateReelsProvablyFair generates a 5x3 grid deterministically using provably fair seeds
+func GenerateReelsProvablyFair(serverSeed, clientSeed string, nonce int64) [][]string {
+	reels := make([][]string, 5)
+	for i := 0; i < 5; i++ {
+		reels[i] = make([]string, 3)
+		for j := 0; j < 3; j++ {
+			sIdx := provablyfair.GenerateInt(serverSeed, clientSeed, nonce*20+int64(i*3+j), len(Symbols))
+			reels[i][j] = Symbols[sIdx]
+		}
+	}
+	return reels
+}
+
+// PlaySlotsProvablyFair executes a deterministic slot spin
+func PlaySlotsProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64) (*SpinResult, error) {
+	if bet <= 0 {
+		return nil, fmt.Errorf("stawka musi być większa od 0")
+	}
+
+	reels := GenerateReelsProvablyFair(serverSeed, clientSeed, nonce)
+	return EvaluateReels(reels, bet), nil
+}
+

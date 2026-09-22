@@ -49,8 +49,8 @@ func TestGetActiveMissionsForWindow(t *testing.T) {
 	missions1 := getActiveMissionsForWindow("2026-09-22_12h")
 	missions2 := getActiveMissionsForWindow("2026-09-22_12h")
 
-	if len(missions1) != 6 {
-		t.Errorf("expected 6 active missions, got %d", len(missions1))
+	if len(missions1) != 4 {
+		t.Errorf("expected 4 active missions, got %d", len(missions1))
 	}
 
 	// Deterministic selection check

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -239,7 +240,9 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge
 	proofHeader := r.Header.Get("X-Browser-Proof")
 	if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
-		h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
+		if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
+			h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
+		}
 		JSON(w, http.StatusForbidden, map[string]interface{}{
 			"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
 			"code":      "REQ_FAILED",
@@ -415,19 +418,28 @@ func (h *CasinoHandler) recordFraud(r *http.Request, p *ledger.Player, reason, d
 }
 
 func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	// Block instant games if player has an active round in a turn-based game
+	active, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
+	if err == nil && active != nil {
+		JSONError(w, http.StatusConflict, "Posiadasz już aktywną rundę w grze turowej. Dokończ ją przed rozpoczęciem nowej.")
+		return
+	}
+
 	game, _ := body["game"].(string)
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
-		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
-		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Fetch or initialize provably fair seeds and increment nonce
+	serverSeed, clientSeed, nonce, _, pfErr := h.ledger.GetAndIncrementNonce(r.Context(), p.UserID)
+	hasPF := (pfErr == nil && serverSeed != "" && clientSeed != "")
 
 	var payout int64
 	var resultText string
@@ -450,8 +462,15 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 				if amt <= 0 {
 					continue
 				}
+				if amt > 10_000_000 {
+					JSONError(w, http.StatusBadRequest, "Stawka na pojedyncze pole przekracza limit 10,000,000 $FGT.")
+					return
+				}
+				if math.MaxInt64-calculatedTotal < amt {
+					JSONError(w, http.StatusBadRequest, "Łączna stawka przekracza dopuszczalny limit.")
+					return
+				}
 				if err := anticheat.ValidateRouletteChoice(spot); err != nil {
-					h.recordFraud(r, p, "INVALID_ROULETTE_SPOT", err.Error())
 					JSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}
@@ -459,19 +478,22 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 				calculatedTotal += amt
 			}
 			if len(betsMap) == 0 {
-				h.recordFraud(r, p, "EMPTY_ROULETTE_BETS", "No valid spots selected")
 				JSONError(w, http.StatusBadRequest, "Brak prawidłowych stawek na stole ruletki.")
 				return
 			}
 			bet = calculatedTotal
 			if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
-				h.recordFraud(r, p, "INVALID_ROULETTE_TOTAL_BET", err.Error())
 				JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			res, err := roulette.PlayRouletteMulti(betsMap)
+
+			var res *roulette.SpinResult
+			if hasPF {
+				res, err = roulette.PlayRouletteMultiProvablyFair(serverSeed, clientSeed, nonce, betsMap)
+			} else {
+				res, err = roulette.PlayRouletteMulti(betsMap)
+			}
 			if err != nil {
-				h.recordFraud(r, p, "ROULETTE_ERROR", err.Error())
 				JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -484,13 +506,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 				choice = "red"
 			}
 			if err := anticheat.ValidateRouletteChoice(choice); err != nil {
-				h.recordFraud(r, p, "INVALID_ROULETTE_CHOICE", err.Error())
 				JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			res, err := roulette.PlayRoulette(bet, choice)
+			var res *roulette.SpinResult
+			if hasPF {
+				res, err = roulette.PlayRouletteProvablyFair(serverSeed, clientSeed, nonce, bet, choice)
+			} else {
+				res, err = roulette.PlayRoulette(bet, choice)
+			}
 			if err != nil {
-				h.recordFraud(r, p, "ROULETTE_ERROR", err.Error())
 				JSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -499,9 +524,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			payloadBytes, _ = json.Marshal(res.Payload)
 		}
 	} else if game == "slots" {
-		res, err := slots.PlaySlots(bet)
+		var res *slots.SpinResult
+		if hasPF {
+			res, err = slots.PlaySlotsProvablyFair(serverSeed, clientSeed, nonce, bet)
+		} else {
+			res, err = slots.PlaySlots(bet)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "SLOTS_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -514,13 +543,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			choice = "heads"
 		}
 		if err := anticheat.ValidateCoinflipChoice(choice); err != nil {
-			h.recordFraud(r, p, "INVALID_COINFLIP_CHOICE", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		res, err := coinflip.PlayCoinflip(bet, choice)
+		var res *coinflip.Result
+		if hasPF {
+			res, err = coinflip.PlayCoinflipProvablyFair(serverSeed, clientSeed, nonce, bet, choice)
+		} else {
+			res, err = coinflip.PlayCoinflip(bet, choice)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "COINFLIP_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -533,13 +565,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			choice = "rock"
 		}
 		if err := anticheat.ValidateRPSChoice(choice); err != nil {
-			h.recordFraud(r, p, "INVALID_RPS_CHOICE", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		res, err := rps.PlayRPS(bet, choice)
+		var res *rps.Result
+		if hasPF {
+			res, err = rps.PlayRPSProvablyFair(serverSeed, clientSeed, nonce, bet, choice)
+		} else {
+			res, err = rps.PlayRPS(bet, choice)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "RPS_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -551,13 +586,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		rows := int(rowsFloat)
 		risk, _ := body["risk"].(string)
 		if err := anticheat.ValidatePlinkoParams(rows, risk); err != nil {
-			h.recordFraud(r, p, "INVALID_PLINKO_PARAMS", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		res, err := plinko.PlayPlinko(bet, rows, risk)
+		var res *plinko.Result
+		if hasPF {
+			res, err = plinko.PlayPlinkoProvablyFair(serverSeed, clientSeed, nonce, bet, rows, risk)
+		} else {
+			res, err = plinko.PlayPlinko(bet, rows, risk)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "PLINKO_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -567,13 +605,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	} else if game == "limbo" {
 		targetMult, _ := body["target_multiplier"].(float64)
 		if err := anticheat.ValidateLimboTarget(targetMult); err != nil {
-			h.recordFraud(r, p, "INVALID_LIMBO_TARGET", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		res, err := limbo.PlayLimbo(bet, targetMult)
+		var res *limbo.Result
+		if hasPF {
+			res, err = limbo.PlayLimboProvablyFair(serverSeed, clientSeed, nonce, bet, targetMult)
+		} else {
+			res, err = limbo.PlayLimbo(bet, targetMult)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "LIMBO_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -583,13 +624,16 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	} else if game == "crash" {
 		targetMult, _ := body["target_multiplier"].(float64)
 		if err := anticheat.ValidateCrashTarget(targetMult); err != nil {
-			h.recordFraud(r, p, "INVALID_CRASH_TARGET", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		res, err := crash.PlayCrash(bet, targetMult)
+		var res *crash.Result
+		if hasPF {
+			res, err = crash.PlayCrashProvablyFair(serverSeed, clientSeed, nonce, bet, targetMult)
+		} else {
+			res, err = crash.PlayCrash(bet, targetMult)
+		}
 		if err != nil {
-			h.recordFraud(r, p, "CRASH_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -597,12 +641,15 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		resultText = res.ResultText
 		payloadBytes, _ = json.Marshal(res.Payload)
 	} else {
-		h.recordFraud(r, p, "UNKNOWN_GAME", fmt.Sprintf("game: %q", game))
 		JSONError(w, http.StatusBadRequest, "Nieznana gra.")
 		return
 	}
 
 	outcome, err := h.ledger.SettleInstantRound(r.Context(), p.UserID, game, bet, payout, resultText, string(payloadBytes))
+	if errors.Is(err, ledger.ErrActiveRoundExists) {
+		JSONError(w, http.StatusConflict, "Posiadasz aktywną rundę w innej grze. Dokończ ją przed rozpoczęciem nowej.")
+		return
+	}
 	if errors.Is(err, ledger.ErrInsufficientFunds) {
 		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
 		return
@@ -659,13 +706,11 @@ func (h *CasinoHandler) broadcastWin(roundID, nick, game string, avatar *string,
 func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
-		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet in deal_blackjack")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
-		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -675,12 +720,10 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 
 	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "blackjack", bet, string(payloadBytes))
 	if errors.Is(err, ledger.ErrActiveRoundExists) {
-		h.recordFraud(r, p, "DUPLICATE_ACTIVE_ROUND", "Tried to start blackjack while another round is active")
 		JSONError(w, http.StatusConflict, "Najpierw dokończ aktywną rundę.")
 		return
 	}
 	if errors.Is(err, ledger.ErrInsufficientFunds) {
-		h.recordFraud(r, p, "INSUFFICIENT_FUNDS", "Tried to start blackjack with insufficient balance")
 		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
 		return
 	}
@@ -728,7 +771,6 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.ID != roundID {
-		h.recordFraud(r, p, "INVALID_ROUND_ACTION", fmt.Sprintf("Blackjack action on invalid or mismatch roundId: %s", roundID))
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -740,14 +782,12 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := anticheat.ValidateBlackjackMove(move, len(payload.Cards)); err != nil {
-		h.recordFraud(r, p, "ILLEGAL_BLACKJACK_MOVE", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if move == "double" {
 		if p.Balance < activeRound.Bet {
-			h.recordFraud(r, p, "INSUFFICIENT_FUNDS_DOUBLE", "Attempted double down with insufficient balance")
 			JSONError(w, http.StatusBadRequest, "Za mało żetonów na podwojenie.")
 			return
 		}
@@ -760,14 +800,16 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 		settleRes := blackjack.SettleBlackjack(newBet, *payload)
 		finalPayloadBytes, _ := json.Marshal(settleRes.Payload)
 
-		// Atomic double deduction + settlement
-		_, err = h.ledger.DoubleBlackjackBet(r.Context(), activeRound.ID, p.UserID, activeRound.Revision, activeRound.Bet, string(finalPayloadBytes))
+		// 100% Atomic double deduction + settlement in a single transaction
+		outcome, err := h.ledger.DoubleAndSettleBlackjackRound(r.Context(), activeRound.ID, p.UserID, activeRound.Revision, activeRound.Bet, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
 		if errors.Is(err, ledger.ErrRevisionConflict) {
 			JSONError(w, http.StatusConflict, "Akcja została już przetworzona.")
 			return
 		}
-
-		outcome, err := h.ledger.SettleActiveRound(r.Context(), activeRound.ID, p.UserID, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
+		if errors.Is(err, ledger.ErrInsufficientFunds) {
+			JSONError(w, http.StatusBadRequest, "Za mało żetonów na podwojenie.")
+			return
+		}
 		if err != nil {
 			JSONError(w, http.StatusInternalServerError, "Błąd rozliczania podwojenia")
 			return
@@ -847,13 +889,11 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
-		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet in start_mines")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
-		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -863,7 +903,6 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 		mineCount = int(mc)
 	}
 	if err := anticheat.ValidateMinesStart(mineCount); err != nil {
-		h.recordFraud(r, p, "INVALID_MINES_COUNT", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -873,12 +912,10 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 
 	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "mines", bet, string(payloadBytes))
 	if errors.Is(err, ledger.ErrActiveRoundExists) {
-		h.recordFraud(r, p, "DUPLICATE_ACTIVE_ROUND", "Tried to start mines while another round is active")
 		JSONError(w, http.StatusConflict, "Najpierw dokończ aktywną rundę.")
 		return
 	}
 	if errors.Is(err, ledger.ErrInsufficientFunds) {
-		h.recordFraud(r, p, "INSUFFICIENT_FUNDS", "Tried to start mines with insufficient balance")
 		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
 		return
 	}
@@ -901,7 +938,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.ID != roundID {
-		h.recordFraud(r, p, "INVALID_ROUND_ACTION", fmt.Sprintf("Mines action on invalid or mismatch roundId: %s", roundID))
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -914,13 +950,11 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 	if move == "cashout" {
 		if err := anticheat.ValidateMinesCashout(len(payload.Revealed)); err != nil {
-			h.recordFraud(r, p, "ILLEGAL_MINES_CASHOUT", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		settleRes, err := mines.Cashout(activeRound.Bet, *payload)
 		if err != nil {
-			h.recordFraud(r, p, "MINES_CASHOUT_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -952,14 +986,12 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	// move == "reveal"
 	tileFloat, ok := body["tile"].(float64)
 	if !ok {
-		h.recordFraud(r, p, "INVALID_TILE_FORMAT", "Missing or non-numeric tile index")
 		JSONError(w, http.StatusBadRequest, "Wymagany parametr 'tile'.")
 		return
 	}
 	tile := int(tileFloat)
 
 	if err := anticheat.ValidateMinesReveal(tile, payload.Revealed); err != nil {
-		h.recordFraud(r, p, "ILLEGAL_MINES_REVEAL", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1018,13 +1050,11 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
-		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
-		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -1046,7 +1076,13 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 		flightSpeed = crash.FlightSpeed * 2.5
 	}
 
-	crashPoint := crash.GenerateCrashPoint()
+	serverSeed, clientSeed, nonce, _, pfErr := h.ledger.GetAndIncrementNonce(r.Context(), p.UserID)
+	var crashPoint float64
+	if pfErr == nil && serverSeed != "" && clientSeed != "" {
+		crashPoint = crash.GenerateCrashPointProvablyFair(serverSeed, clientSeed, nonce)
+	} else {
+		crashPoint = crash.GenerateCrashPoint()
+	}
 	startedAt := time.Now().UnixMilli()
 
 	activePayload := crash.ActivePayload{
@@ -1071,6 +1107,46 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 		JSONError(w, http.StatusInternalServerError, "Błąd uruchamiania gry Crash")
 		return
 	}
+
+	// Auto-settle timer if player never sends cashout/settle
+	var crashSec float64
+	if crashPoint > 1.00 && flightSpeed > 0 {
+		crashSec = math.Log(crashPoint) / flightSpeed
+	}
+	crashDuration := time.Duration(crashSec * float64(time.Second))
+	if crashDuration < 50*time.Millisecond {
+		crashDuration = 50 * time.Millisecond
+	}
+	roundID := round.ID
+	userID := p.UserID
+	time.AfterFunc(crashDuration, func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		active, err := h.ledger.GetActiveRound(ctx, userID)
+		if err == nil && active != nil && active.ID == roundID && active.Game == "crash" {
+			finalPayload := crash.Payload{
+				CrashPoint: crashPoint,
+				CashedAt:   0,
+				Won:        false,
+				Multiplier: 0,
+			}
+			b, _ := json.Marshal(finalPayload)
+			outcome, err := h.ledger.SettleActiveRound(ctx, roundID, userID, 0, fmt.Sprintf("Rakieta rozbiła się przy %.2fx - Przegrana", crashPoint), string(b))
+			if err == nil {
+				h.hub.SendToUser(userID, ws.Event{
+					Type: ws.EventRoundSettled,
+					Payload: map[string]interface{}{
+						"game":        "crash",
+						"round_id":    roundID,
+						"crashed":     true,
+						"crash_point": crashPoint,
+						"round":       ToPublicRound(outcome.Round),
+						"balance":     outcome.Balance,
+					},
+				})
+			}
+		}
+	})
 
 	h.hub.SendToUser(p.UserID, ws.Event{
 		Type: ws.EventBalanceUpdate,
@@ -1106,8 +1182,13 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 	nowMs := time.Now().UnixMilli()
 	elapsedSec := float64(nowMs-payload.StartedAt) / 1000.0
 
-	// Server calculates current multiplier with generous network latency buffer (1.20s)
-	maxAllowedMult := crash.MultiplierAtElapsed(elapsedSec+1.20, payload.FlightSpeed)
+	var crashSec float64
+	if payload.CrashPoint > 1.00 && payload.FlightSpeed > 0 {
+		crashSec = math.Log(payload.CrashPoint) / payload.FlightSpeed
+	}
+
+	// Server calculates current multiplier with tight latency buffer (0.15s)
+	maxAllowedMult := crash.MultiplierAtElapsed(elapsedSec+0.15, payload.FlightSpeed)
 
 	// Client requested multiplier if provided
 	reqMult, _ := body["requested_mult"].(float64)
@@ -1122,7 +1203,11 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 		cashedMult = payload.AutoCashout
 	}
 
-	won := cashedMult <= payload.CrashPoint
+	// Verify if crash already happened before cashout reached server
+	won := true
+	if elapsedSec > crashSec+0.15 || cashedMult > payload.CrashPoint {
+		won = false
+	}
 
 	var payout int64
 	var resultText string
