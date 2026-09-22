@@ -350,10 +350,10 @@ func (b *Bot) buildGlobalStatsEmbed(ctx context.Context) *discordgo.MessageEmbed
 func (b *Bot) buildHelpEmbed(isAdmin bool) *discordgo.MessageEmbed {
 	fields := []*discordgo.MessageEmbedField{
 		{
-			Name: "💰 Zarządzanie Finansami Graczy",
-			Value: "`/casino-money-add <gracz> <kwota> [powód]` lub `!user money <gracz> add <kwota>`\n" +
-				"`/casino-money-remove <gracz> <kwota> [powód]` lub `!user money <gracz> remove <kwota>`\n" +
-				"`/casino-money-set <gracz> <kwota> [powód]` lub `!user money <gracz> set <kwota>`",
+			Name: "💰 Zarządzanie Finansami Graczy (Użyj '*' dla wszystkich graczy)",
+			Value: "`/casino-money-add <gracz|*> <kwota> [powód]` lub `!user money <gracz|*> add <kwota>`\n" +
+				"`/casino-money-remove <gracz|*> <kwota> [powód]` lub `!user money <gracz|*> remove <kwota>`\n" +
+				"`/casino-money-set <gracz|*> <kwota> [powód]` lub `!user money <gracz|*> set <kwota>`",
 			Inline: false,
 		},
 		{
@@ -386,7 +386,51 @@ func (b *Bot) buildHelpEmbed(isAdmin bool) *discordgo.MessageEmbed {
 	}
 }
 
+func isAllUsersIdentifier(identifier string) bool {
+	t := strings.TrimSpace(strings.ToLower(identifier))
+	if t == "" {
+		return false
+	}
+	return strings.Contains(t, "*") ||
+		strings.HasPrefix(t, "all") ||
+		strings.HasPrefix(t, "wszysc") ||
+		strings.HasPrefix(t, "@everyone") ||
+		strings.HasPrefix(t, "everyone") ||
+		t == "@here" || t == "global"
+}
+
 func (b *Bot) executeGrantMoney(ctx context.Context, identifier string, amount int64, reason string) *discordgo.MessageEmbed {
+	if isAllUsersIdentifier(identifier) {
+		count, totalTransferred, err := b.ledger.GrantBalanceAll(ctx, amount, reason)
+		if err != nil {
+			return &discordgo.MessageEmbed{
+				Color:       ColorRose,
+				Title:       "❌ Błąd masowej operacji na środkach",
+				Description: fmt.Sprintf("Nie udało się zaktualizować sald dla wszystkich graczy: **%v**", err),
+			}
+		}
+
+		actionTitle := "👑 [GLOBAL] Doładowano środki dla WSZYSTKICH graczy (*)"
+		actionColor := ColorEmerald
+		if amount < 0 {
+			actionTitle = "👑 [GLOBAL] Odjęto środki od WSZYSTKICH graczy (*)"
+			actionColor = ColorGold
+		}
+
+		return &discordgo.MessageEmbed{
+			Color: actionColor,
+			Title: actionTitle,
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
+				{Name: "💎 Zmiana na konto", Value: fmt.Sprintf("**%+d $FGT**", amount), Inline: true},
+				{Name: "💰 Łączny transfer", Value: fmt.Sprintf("**%+d $FGT**", totalTransferred), Inline: true},
+				{Name: "📝 Powód", Value: reason, Inline: false},
+			},
+			Footer: &discordgo.MessageEmbedFooter{Text: "Operacja masowa (*) została pomyślnie zarejestrowana w bazie danych"},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
 	nick, prevBal, newBal, err := b.ledger.GrantBalance(ctx, identifier, amount, reason)
 	if err != nil {
 		return &discordgo.MessageEmbed{
@@ -414,10 +458,34 @@ func (b *Bot) executeGrantMoney(ctx context.Context, identifier string, amount i
 			{Name: "Nowe saldo", Value: fmt.Sprintf("**%s**", formatFGT(newBal)), Inline: true},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Rejestr transakcji został zaktualizowany w bazie danych"},
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
 }
 
 func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance int64, reason string) *discordgo.MessageEmbed {
+	if isAllUsersIdentifier(identifier) {
+		count, err := b.ledger.AdminSetBalanceAll(ctx, newBalance, reason)
+		if err != nil {
+			return &discordgo.MessageEmbed{
+				Color:       ColorRose,
+				Title:       "❌ Błąd masowego ustawiania salda",
+				Description: fmt.Sprintf("Nie udało się ustawić sald dla wszystkich graczy: **%v**", err),
+			}
+		}
+
+		return &discordgo.MessageEmbed{
+			Color: ColorEmerald,
+			Title: "👑 [GLOBAL] Ustawiono nowe saldo dla WSZYSTKICH graczy (*)",
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
+				{Name: "💰 Nowe saldo każdego konta", Value: fmt.Sprintf("**%s**", formatFGT(newBalance)), Inline: true},
+				{Name: "📝 Powód", Value: reason, Inline: false},
+			},
+			Footer: &discordgo.MessageEmbedFooter{Text: "Operacja masowa (*) została pomyślnie zarejestrowana w bazie danych"},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
 	nick, prevBal, newBal, err := b.ledger.AdminSetBalance(ctx, identifier, newBalance, reason)
 	if err != nil {
 		return &discordgo.MessageEmbed{
@@ -437,6 +505,7 @@ func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance
 			{Name: "Nowe saldo", Value: fmt.Sprintf("**%s**", formatFGT(newBal)), Inline: true},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Rejestr transakcji został zaktualizowany w bazie danych"},
+		Timestamp: time.Now().Format(time.RFC3339),
 	}
 }
 

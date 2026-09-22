@@ -229,6 +229,8 @@ func handleMoney(ctx context.Context, svc *ledger.Service, identifier, action st
 		reason = strings.Join(args[1:], " ")
 	}
 
+	isAll := identifier == "*" || identifier == "all" || identifier == "wszyscy"
+
 	switch action {
 	case "add", "grant", "give":
 		if amount <= 0 {
@@ -238,6 +240,23 @@ func handleMoney(ctx context.Context, svc *ledger.Service, identifier, action st
 		if reason == "" {
 			reason = "Doładowanie administratora (CLI)"
 		}
+
+		if isAll {
+			count, total, err := svc.GrantBalanceAll(ctx, amount, reason)
+			if err != nil {
+				fmt.Printf("❌ Błąd: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("==================================================")
+			fmt.Println("✅ [GLOBAL] Dodano środki dla WSZYSTKICH graczy (*):")
+			fmt.Printf("   Kwota na gracza:        +%d $FGT\n", amount)
+			fmt.Printf("   Powód:                  %s\n", reason)
+			fmt.Printf("   Zaktualizowano kont:    %d graczy\n", count)
+			fmt.Printf("   Łączny transfer:        +%d $FGT\n", total)
+			fmt.Println("==================================================")
+			return
+		}
+
 		nick, prevBal, newBal, err := svc.GrantBalance(ctx, identifier, amount, reason)
 		if err != nil {
 			fmt.Printf("❌ Błąd: %v\n", err)
@@ -259,6 +278,23 @@ func handleMoney(ctx context.Context, svc *ledger.Service, identifier, action st
 		if reason == "" {
 			reason = "Korekta salda (CLI)"
 		}
+
+		if isAll {
+			count, total, err := svc.GrantBalanceAll(ctx, -amount, reason)
+			if err != nil {
+				fmt.Printf("❌ Błąd: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("==================================================")
+			fmt.Println("✅ [GLOBAL] Odjęto środki od WSZYSTKICH graczy (*):")
+			fmt.Printf("   Kwota na gracza:        -%d $FGT\n", amount)
+			fmt.Printf("   Powód:                  %s\n", reason)
+			fmt.Printf("   Zaktualizowano kont:    %d graczy\n", count)
+			fmt.Printf("   Łączny transfer:        %d $FGT\n", total)
+			fmt.Println("==================================================")
+			return
+		}
+
 		nick, prevBal, newBal, err := svc.GrantBalance(ctx, identifier, -amount, reason)
 		if err != nil {
 			fmt.Printf("❌ Błąd: %v\n", err)
@@ -280,6 +316,22 @@ func handleMoney(ctx context.Context, svc *ledger.Service, identifier, action st
 		if reason == "" {
 			reason = "Ręczne ustawienie salda (CLI)"
 		}
+
+		if isAll {
+			count, err := svc.AdminSetBalanceAll(ctx, amount, reason)
+			if err != nil {
+				fmt.Printf("❌ Błąd: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("==================================================")
+			fmt.Println("✅ [GLOBAL] Ustawiono saldo dla WSZYSTKICH graczy (*):")
+			fmt.Printf("   Nowe saldo:             %d $FGT\n", amount)
+			fmt.Printf("   Powód:                  %s\n", reason)
+			fmt.Printf("   Zaktualizowano kont:    %d graczy\n", count)
+			fmt.Println("==================================================")
+			return
+		}
+
 		nick, prevBal, newBal, err := svc.AdminSetBalance(ctx, identifier, amount, reason)
 		if err != nil {
 			fmt.Printf("❌ Błąd: %v\n", err)

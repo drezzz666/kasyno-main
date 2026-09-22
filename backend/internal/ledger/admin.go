@@ -191,6 +191,15 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 		reason = "Ręczna zmiana salda przez administratora"
 	}
 
+	trimmed := strings.TrimSpace(strings.ToLower(identifier))
+	if trimmed == "*" || trimmed == "all" || trimmed == "wszyscy" || trimmed == "@everyone" {
+		count, err := s.AdminSetBalanceAll(ctx, newBalance, reason)
+		if err != nil {
+			return "", 0, 0, err
+		}
+		return fmt.Sprintf("Wszyscy gracze (%d)", count), 0, newBalance, nil
+	}
+
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
 		SELECT p.user_id, p.email, p.nick, COALESCE(SUM(l.amount), 0)
@@ -237,6 +246,158 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 	}
 
 	return p.Nick, p.Balance, newBalance, nil
+}
+
+// GrantBalanceAll adds (or removes) balance for ALL registered players.
+func (s *Service) GrantBalanceAll(ctx context.Context, amount int64, reason string) (int, int64, error) {
+	if amount == 0 {
+		return 0, 0, fmt.Errorf("kwota musi być różna od 0")
+	}
+	if reason == "" {
+		reason = "Masowe doładowanie kont (*)"
+	}
+
+	t := NowMs()
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(123456789)")
+
+	rows, err := tx.Query(ctx, `
+		SELECT p.user_id, COALESCE(SUM(l.amount), 0) AS balance
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		GROUP BY p.user_id
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
+	}
+
+	type pBal struct {
+		userID string
+		bal    int64
+	}
+	var playerList []pBal
+	for rows.Next() {
+		var pb pBal
+		if err := rows.Scan(&pb.userID, &pb.bal); err == nil {
+			playerList = append(playerList, pb)
+		}
+	}
+	rows.Close()
+
+	if len(playerList) == 0 {
+		return 0, 0, fmt.Errorf("brak graczy w bazie danych")
+	}
+
+	var totalTransferred int64
+	count := 0
+
+	for _, p := range playerList {
+		actualAmount := amount
+		if amount < 0 && p.bal+amount < 0 {
+			actualAmount = -p.bal
+		}
+		if actualAmount == 0 && amount != 0 {
+			continue
+		}
+
+		newBal := p.bal + actualAmount
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'grant', $3, $4, $5)
+		`, uuid.NewString(), p.userID, actualAmount, newBal, t)
+		if err != nil {
+			return 0, 0, fmt.Errorf("błąd zapisu ledger dla gracza %s: %w", p.userID, err)
+		}
+
+		totalTransferred += actualAmount
+		count++
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE players SET updated_at = $1`, t)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+
+	return count, totalTransferred, nil
+}
+
+// AdminSetBalanceAll sets the exact balance for ALL registered players.
+func (s *Service) AdminSetBalanceAll(ctx context.Context, newBalance int64, reason string) (int, error) {
+	if newBalance < 0 {
+		return 0, fmt.Errorf("saldo nie może być ujemne")
+	}
+	if reason == "" {
+		reason = "Masowe ustawienie salda (*)"
+	}
+
+	t := NowMs()
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(123456789)")
+
+	rows, err := tx.Query(ctx, `
+		SELECT p.user_id, COALESCE(SUM(l.amount), 0) AS balance
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		GROUP BY p.user_id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
+	}
+
+	type pBal struct {
+		userID string
+		bal    int64
+	}
+	var playerList []pBal
+	for rows.Next() {
+		var pb pBal
+		if err := rows.Scan(&pb.userID, &pb.bal); err == nil {
+			playerList = append(playerList, pb)
+		}
+	}
+	rows.Close()
+
+	if len(playerList) == 0 {
+		return 0, fmt.Errorf("brak graczy w bazie danych")
+	}
+
+	count := 0
+	for _, p := range playerList {
+		delta := newBalance - p.bal
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, 'admin_set', $3, $4, $5)
+		`, uuid.NewString(), p.userID, delta, newBalance, t)
+		if err != nil {
+			return 0, fmt.Errorf("błąd zapisu ledger dla gracza %s: %w", p.userID, err)
+		}
+		count++
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE players SET updated_at = $1`, t)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // AdminSetNick changes player's nickname.
