@@ -190,6 +190,26 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirectDestination, http.StatusFound)
 }
 
+// Verify handles GET & HEAD /api/auth/verify (used by reverse proxy auth_request)
+func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
+	token := auth.GetSessionToken(r)
+	if token == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	_, err := auth.VerifySession(token, h.cfg.SessionSecret)
+	if err != nil {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+}
+
 // Me handles GET /api/auth/me
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	token := auth.GetSessionToken(r)

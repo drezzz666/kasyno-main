@@ -6,9 +6,21 @@ class CasinoSoundEngine {
     this.lastWin = 0;
     this.lastLoss = 0;
     this.lastPush = 0;
+    this.muted = false;
+    try {
+      this.muted = localStorage.getItem("fgt_muted") === "true";
+    } catch {}
+  }
+
+  setMuted(val) {
+    this.muted = Boolean(val);
+    try {
+      localStorage.setItem("fgt_muted", String(this.muted));
+    } catch {}
   }
 
   init() {
+    if (this.muted) return;
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -21,6 +33,7 @@ class CasinoSoundEngine {
   }
 
   playWin(multiplier = 2) {
+    if (this.muted) return;
     const nowMs = Date.now();
     if (nowMs - this.lastWin < 600) return; // Prevent duplicate overlap
     this.lastWin = nowMs;
@@ -60,6 +73,7 @@ class CasinoSoundEngine {
   }
 
   playCoins() {
+    if (this.muted) return;
     try {
       this.init();
       if (!this.ctx) return;
@@ -83,6 +97,7 @@ class CasinoSoundEngine {
   }
 
   playPegTick() {
+    if (this.muted) return;
     try {
       this.init();
       if (!this.ctx) return;
@@ -105,6 +120,7 @@ class CasinoSoundEngine {
   }
 
   playLoss() {
+    if (this.muted) return;
     const nowMs = Date.now();
     if (nowMs - this.lastLoss < 600) return; // Prevent duplicate overlap
     this.lastLoss = nowMs;
@@ -132,7 +148,81 @@ class CasinoSoundEngine {
     } catch (e) {}
   }
 
+  playTileClick() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(800 + Math.random() * 200, now);
+
+      gain.gain.setValueAtTime(0.09, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } catch (e) {}
+  }
+
+  playGemReveal(pitchMultiplier = 1) {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const baseFreq = 587.33 * Math.min(2.0, pitchMultiplier); // D5 scaled
+
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.08);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.2);
+    } catch (e) {}
+  }
+
+  playExplosion() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } catch (e) {}
+  }
+
   playPush() {
+    if (this.muted) return;
     const nowMs = Date.now();
     if (nowMs - this.lastPush < 600) return; // Prevent duplicate overlap
     this.lastPush = nowMs;
@@ -159,3 +249,4 @@ class CasinoSoundEngine {
 }
 
 export const sounds = new CasinoSoundEngine();
+

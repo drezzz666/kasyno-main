@@ -1,6 +1,7 @@
 import React from "react";
 import { money, format } from "../lib/formatters";
 import { Flame, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
+import { sounds } from "../lib/sounds";
 
 // Gem SVG with crisp faceted cuts
 export function GemIcon({ className = "w-7 h-7" }) {
@@ -100,9 +101,18 @@ export function MinesTable({
   last,
   post,
   loading,
-  pendingMine,
+  pendingTiles = new Set(),
   onPending,
 }) {
+  const [explodedTile, setExplodedTile] = React.useState(null);
+
+  // Reset explodedTile when a new active round starts
+  React.useEffect(() => {
+    if (round) {
+      setExplodedTile(null);
+    }
+  }, [round?.id]);
+
   const r = round || last;
   const p = r?.payload || {};
   const revealed = p.revealed || [];
@@ -116,6 +126,48 @@ export function MinesTable({
   const nextMultiplier = calculateMultiplier(revealed.length + 1, mineCount);
   const currentBet = round?.bet || last?.bet || 10;
   const currentProfit = Math.floor(currentBet * currentMultiplier);
+
+  const isTilePending = (tileIdx) => {
+    if (pendingTiles instanceof Set) return pendingTiles.has(tileIdx);
+    if (Array.isArray(pendingTiles)) return pendingTiles.includes(tileIdx);
+    return pendingTiles === tileIdx;
+  };
+
+  const handleTileClick = async (i) => {
+    if (!round || isSettled || revealed.includes(i) || isTilePending(i)) return;
+
+    sounds.playTileClick();
+    if (onPending) onPending(i, true);
+
+    try {
+      const res = await post(
+        {
+          action: "mines",
+          roundId: round.id,
+          move: "reveal",
+          tile: i,
+        },
+        { silent: true }
+      );
+
+      if (res?.round) {
+        if (res.round.state === "settled") {
+          if (res.round.payout && res.round.payout > 0) {
+            sounds.playWin();
+          } else {
+            setExplodedTile(i);
+            sounds.playExplosion();
+          }
+        } else {
+          // Gem revealed!
+          const newGemsCount = res.round.payload?.revealed?.length || (revealed.length + 1);
+          sounds.playGemReveal(1 + (newGemsCount - 1) * 0.08);
+        }
+      }
+    } finally {
+      if (onPending) onPending(i, false);
+    }
+  };
 
   return (
     <div className="mines-craft-container">
@@ -157,42 +209,37 @@ export function MinesTable({
       {/* 5x5 Mines Board */}
       <div className="mines-grid-surface">
         {Array.from({ length: 25 }, (_, i) => {
+          const isExplodedMine = isSettled && explodedTile === i;
           const isMineHit = allMines.includes(i);
           const isRevealedGem = revealed.includes(i);
-          const isPending = pendingMine === i;
+          const isPending = isTilePending(i);
 
           // End of game reveal for unpicked tiles
-          const isUnrevealedSettledMine = isSettled && isMineHit && !isRevealedGem;
+          const isUnrevealedSettledMine = isSettled && isMineHit && !isRevealedGem && !isExplodedMine;
           const isUnrevealedSettledGem = isSettled && !isMineHit && !isRevealedGem;
 
           let tileStateClass = "tile-idle";
           if (isRevealedGem) tileStateClass = "tile-gem";
-          else if (isMineHit && !isSettled) tileStateClass = "tile-mine-hit";
+          else if (isExplodedMine) tileStateClass = "tile-mine-hit";
           else if (isUnrevealedSettledMine) tileStateClass = "tile-mine-ghost";
           else if (isUnrevealedSettledGem) tileStateClass = "tile-gem-ghost";
+
+          const isDisabled = !round || isSettled || isRevealedGem || isPending;
 
           return (
             <button
               key={i}
               type="button"
-              disabled={!round || loading || isRevealedGem || isPending}
+              disabled={isDisabled}
               className={`mines-cell ${tileStateClass} ${isPending ? "tile-pending" : ""}`}
-              onClick={() => {
-                onPending(i);
-                void post({
-                  action: "mines",
-                  roundId: round.id,
-                  move: "reveal",
-                  tile: i,
-                }).then(() => onPending(null));
-              }}
+              onClick={() => void handleTileClick(i)}
               aria-label={`Pole ${i + 1}`}
             >
               {isRevealedGem ? (
                 <div className="tile-content flip-in">
                   <GemIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
-              ) : isMineHit ? (
+              ) : isExplodedMine ? (
                 <div className="tile-content explode-in">
                   <MineIcon className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
@@ -219,11 +266,12 @@ export function MinesTable({
         <div className="mines-active-action-bar">
           <button
             type="button"
-            disabled={loading || revealed.length === 0}
+            disabled={revealed.length === 0}
             className={`btn-mines-cashout ${revealed.length > 0 ? "active" : "disabled"}`}
-            onClick={() =>
-              post({ action: "mines", roundId: round.id, move: "cashout" })
-            }
+            onClick={async () => {
+              sounds.playCoins();
+              await post({ action: "mines", roundId: round.id, move: "cashout" });
+            }}
           >
             {revealed.length === 0 ? (
               <span>Wybierz pierwsze pole</span>
@@ -239,3 +287,4 @@ export function MinesTable({
     </div>
   );
 }
+

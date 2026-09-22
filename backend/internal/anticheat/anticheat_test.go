@@ -131,18 +131,40 @@ func TestRateLimiter(t *testing.T) {
 		t.Errorf("5th immediate request should exceed rate limit")
 	}
 
-	// 3. Test state read rate limiter (max 8/sec)
+	// 3. Test Plinko and Mines rate limiter (supports 20 CPS)
+	plinkoUID := "user_plinko_spam_test"
+	for i := 0; i < 20; i++ {
+		if !rl.AllowGameAction(plinkoUID, "play", "plinko") {
+			t.Errorf("plinko request %d within 20 CPS limit should pass", i+1)
+		}
+	}
+	// 21st request within the same second should be blocked
+	if rl.AllowGameAction(plinkoUID, "play", "plinko") {
+		t.Errorf("21st plinko request within 1s should be rate limited")
+	}
+
+	minesUID := "user_mines_rapid_test"
+	for i := 0; i < 20; i++ {
+		if !rl.AllowGameAction(minesUID, "mines", "mines") {
+			t.Errorf("mines rapid move %d within 20 CPS limit should pass", i+1)
+		}
+	}
+	if rl.AllowGameAction(minesUID, "mines", "mines") {
+		t.Errorf("21st mines move within 1s should be rate limited")
+	}
+
+	// 4. Test state read rate limiter (max 15/sec)
 	readUID := "user_read_test"
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 15; i++ {
 		if !rl.AllowStateRead(readUID) {
 			t.Errorf("state read %d should be allowed", i)
 		}
 	}
 	if rl.AllowStateRead(readUID) {
-		t.Errorf("9th immediate state read should be blocked")
+		t.Errorf("16th immediate state read should be blocked")
 	}
 
-	// 4. Test bot detection flag after threshold violations
+	// 5. Test bot detection flag after threshold violations
 	botUID := "user_bot_candidate"
 	rl.SetIdentity(botUID, "BotPlayer", "127.0.0.1")
 	// Exceed limit multiple times to trigger bot flag

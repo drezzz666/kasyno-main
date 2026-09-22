@@ -1,5 +1,5 @@
 import React from "react";
-import { Swords, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { Swords } from "lucide-react";
 
 export function RPSTable({
   choice,
@@ -9,8 +9,9 @@ export function RPSTable({
   isShooting,
 }) {
   const p = last?.payload || {};
-  const playerChoice = isShooting ? choice : p.player_choice || choice;
-  const houseChoice = isShooting ? "rock" : p.house_choice || "scissors";
+  const currentChoice = isShooting ? choice : (choice || p.player_choice);
+  const playerChoice = currentChoice;
+  const houseChoice = isShooting ? "rock" : (p.house_choice || null);
   const outcome = p.outcome; // "win", "tie", "loss"
 
   const iconMap = {
@@ -31,8 +32,8 @@ export function RPSTable({
       <div className="rps-arena">
         <div className={`rps-fighter-card ${isShooting ? "shaking" : ""} ${outcome === "win" ? "winner" : ""}`}>
           <span className="rps-fighter-label">Twój wybór</span>
-          <div className="rps-gesture-icon">{iconMap[playerChoice] || "✊"}</div>
-          <span className="rps-gesture-name">{nameMap[playerChoice] || "Kamień"}</span>
+          <div className="rps-gesture-icon">{playerChoice ? (iconMap[playerChoice] || "✊") : "❓"}</div>
+          <span className="rps-gesture-name">{playerChoice ? (nameMap[playerChoice] || playerChoice) : "Wybierz poniżej"}</span>
         </div>
 
         <div className="rps-vs-badge">
@@ -43,10 +44,10 @@ export function RPSTable({
         <div className={`rps-fighter-card house ${isShooting ? "shaking-house" : ""} ${outcome === "loss" ? "winner" : ""}`}>
           <span className="rps-fighter-label">Krupier</span>
           <div className="rps-gesture-icon">
-            {isShooting ? "❓" : iconMap[houseChoice] || "✌️"}
+            {isShooting ? "❓" : (houseChoice ? (iconMap[houseChoice] || "✌️") : "❓")}
           </div>
           <span className="rps-gesture-name">
-            {isShooting ? "Wybieranie…" : nameMap[houseChoice] || "Nożyce"}
+            {isShooting ? "Wybieranie…" : (houseChoice ? (nameMap[houseChoice] || houseChoice) : "Oczekuje")}
           </span>
         </div>
       </div>
@@ -54,7 +55,7 @@ export function RPSTable({
       {/* Choice Selector */}
       <div className="rps-choices-panel">
         <span className="text-xs uppercase tracking-wider font-bold text-slate-400 text-center">
-          Wybierz swój gest:
+          Wybierz swój gest przed rozpoczęciem:
         </span>
         <div className="rps-choices-grid">
           {[

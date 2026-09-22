@@ -181,6 +181,11 @@ func (c *OIDCClient) ExchangeCodeForTokens(ctx context.Context, code, redirectUR
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) 2fgt-casino/1.0")
+
+	// Set HTTP Basic Auth for providers requiring client_secret_basic
+	basicAuth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", c.cfg.AuthentikClientID, c.cfg.AuthentikClientSecret)))
+	req.Header.Set("Authorization", fmt.Sprintf("Basic %s", basicAuth))
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -218,6 +223,7 @@ func (c *OIDCClient) FetchUserInfo(ctx context.Context, accessToken string) (*Us
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) 2fgt-casino/1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

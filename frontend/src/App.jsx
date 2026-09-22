@@ -113,9 +113,20 @@ export default function App() {
     [activeGame]
   );
 
-  const [choice, setChoice] = useState("red");
+  const [choice, setChoice] = useState(null);
   const [mineCount, setMineCount] = useState(5);
   const [lastRound, setLastRound] = useState(null);
+
+  const handleOpenGame = useCallback((gameId) => {
+    if (!tosAccepted) {
+      setTosModalOpen(true);
+      toast.error("Musisz zaakceptować regulamin, aby rozpocząć grę.");
+      return;
+    }
+    setActiveGame(gameId);
+    setLastRound(null);
+    setChoice(null);
+  }, [tosAccepted]);
 
   // Turbo Mode
   const [turbo, setTurbo] = useState(() => {
@@ -266,11 +277,19 @@ export default function App() {
   };
 
   const post = async (body, opts) => {
-    setLoading(true);
+    if (!tosAccepted) {
+      setTosModalOpen(true);
+      toast.error("Musisz zaakceptować regulamin, aby zagrać.");
+      return null;
+    }
+    const isSilent = Boolean(opts?.silent);
+    if (!isSilent) {
+      setLoading(true);
+    }
     try {
       const j = await postCasinoAction(body);
       if (!j) {
-        setLoading(false);
+        if (!isSilent) setLoading(false);
         return null;
       }
 
@@ -300,7 +319,7 @@ export default function App() {
               }
             : prev
         );
-        setLoading(false);
+        if (!isSilent) setLoading(false);
         if (j.leveledUp && j.levelUpBonus) {
           try {
             confetti({
@@ -323,10 +342,11 @@ export default function App() {
       await load();
       return j;
     } catch (e) {
-
-      toast.error(e.message || "Błąd operacji");
-      setLoading(false);
+      toast.error(e.message || "Błąd wykonania akcji");
+      void load();
       return null;
+    } finally {
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -705,15 +725,11 @@ export default function App() {
                       type="button"
                       className="game-card"
                       aria-label={`Zagraj w ${g.name}`}
-                      onClick={() => {
-                        setActiveGame(g.id);
-                        setLastRound(null);
-                      }}
+                      onClick={() => handleOpenGame(g.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setActiveGame(g.id);
-                          setLastRound(null);
+                          handleOpenGame(g.id);
                         }
                       }}
                     >
@@ -1110,6 +1126,8 @@ export default function App() {
           loading={loading}
           turbo={turbo}
           setTurbo={handleSetTurbo}
+          tosAccepted={tosAccepted}
+          onOpenTosModal={() => setTosModalOpen(true)}
         />
       )}
 

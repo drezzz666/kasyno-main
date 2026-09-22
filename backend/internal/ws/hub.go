@@ -41,32 +41,43 @@ func (h *Hub) Run() {
 			log.Printf("[WS Hub] Client registered: %s (Total: %d)", client.UserID, len(h.clients))
 
 		case client := <-h.unregister:
-			h.mu.Lock()
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-				if client.UserID != "" && h.userClients[client.UserID] != nil {
-					delete(h.userClients[client.UserID], client)
-					if len(h.userClients[client.UserID]) == 0 {
-						delete(h.userClients, client.UserID)
-					}
-				}
-			}
-			h.mu.Unlock()
-			log.Printf("[WS Hub] Client disconnected: %s", client.UserID)
+			h.removeClient(client)
 
 		case message := <-h.broadcast:
-			h.mu.RLock()
+			h.mu.Lock()
+			var deadClients []*Client
 			for client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
-					close(client.send)
-					delete(h.clients, client)
+					deadClients = append(deadClients, client)
 				}
 			}
-			h.mu.RUnlock()
+			for _, client := range deadClients {
+				h.internalRemoveClient(client)
+			}
+			h.mu.Unlock()
 		}
+	}
+}
+
+func (h *Hub) removeClient(client *Client) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.internalRemoveClient(client)
+}
+
+func (h *Hub) internalRemoveClient(client *Client) {
+	if _, ok := h.clients[client]; ok {
+		delete(h.clients, client)
+		close(client.send)
+		if client.UserID != "" && h.userClients[client.UserID] != nil {
+			delete(h.userClients[client.UserID], client)
+			if len(h.userClients[client.UserID]) == 0 {
+				delete(h.userClients, client.UserID)
+			}
+		}
+		log.Printf("[WS Hub] Client disconnected: %s (Remaining: %d)", client.UserID, len(h.clients))
 	}
 }
 
@@ -75,7 +86,11 @@ func (h *Hub) Broadcast(event Event) {
 	if err != nil {
 		return
 	}
-	h.broadcast <- data
+	select {
+	case h.broadcast <- data:
+	default:
+		// Drop broadcast if channel is congested to prevent blocking caller
+	}
 }
 
 func (h *Hub) SendToUser(userID string, event Event) {
@@ -96,3 +111,4 @@ func (h *Hub) SendToUser(userID string, event Event) {
 		}
 	}
 }
+

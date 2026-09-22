@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { sounds } from "../lib/sounds";
 
 export function useAudio() {
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(() => {
+    try {
+      return localStorage.getItem("fgt_muted") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [volume, setVolume] = useState(0.2);
   const audioRef = useRef(null);
 
@@ -33,6 +40,7 @@ export function useAudio() {
   }, []);
 
   useEffect(() => {
+    sounds.setMuted(muted);
     if (!audioRef.current) return;
     audioRef.current.volume = muted ? 0 : volume;
     if (muted || volume === 0) {

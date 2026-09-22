@@ -49,21 +49,24 @@ func getBotLogger() *log.Logger {
 	return botLogger
 }
 
-func logBotEvent(nick, userID, ip, action, reason string, violationCount int) {
+func LogSuspiciousActivity(category, ip, userID, nick, action, details string) {
 	now := time.Now().UTC()
 	line := fmt.Sprintf(
-		"[%s] BOT_DETECTED | nick=%q | user_id=%s | ip=%s | action=%q | reason=%s | violations=%d",
+		"[%s] [%s] ip=%s | user_id=%s | nick=%q | action=%q | details=%s",
 		now.Format("2006-01-02 15:04:05 UTC"),
-		nick, userID, ip, action, reason, violationCount,
+		category, ip, userID, nick, action, details,
 	)
 
-	// Always print to stdout for docker logs
-	log.Printf("[ANTICHEAT/BOT] %s", line)
+	log.Printf("[ANTICHEAT/%s] %s", category, line)
 
-	// Write to file
 	botLogMu.Lock()
 	getBotLogger().Println(line)
 	botLogMu.Unlock()
+}
+
+func logBotEvent(nick, userID, ip, action, reason string, violationCount int) {
+	details := fmt.Sprintf("%s (violations_in_window=%d)", reason, violationCount)
+	LogSuspiciousActivity("BOT_DETECTION", ip, userID, nick, action, details)
 }
 
 // ============================================================================
@@ -128,16 +131,21 @@ func (m *UserLockManager) cleanupLoop() {
 // ============================================================================
 
 const (
-	// Game action limits
-	gameActionMaxPerSec  = 4
-	gameActionMaxPer10s  = 12
-	gameActionMaxPerMin  = 30
+	// Game action limits (standard turn-based games)
+	gameActionMaxPerSec = 4
+	gameActionMaxPer10s = 12
+	gameActionMaxPerMin = 30
+
+	// Rapid action limits (supports continuous rapid drops & tile reveals: Plinko, Mines moves up to 20 CPS)
+	rapidActionMaxPerSec = 20
+	rapidActionMaxPer10s = 200
+	rapidActionMaxPerMin = 1200
 
 	// Read state limits
-	stateReadMaxPerSec = 8
+	stateReadMaxPerSec = 15
 
 	// How many violations before we flag as bot
-	botViolationThreshold = 3
+	botViolationThreshold = 4
 	botViolationWindow    = 60 * time.Second
 )
 
@@ -146,8 +154,10 @@ type requestRecord struct {
 }
 
 type userRateEntry struct {
-	// Sliding window timestamps for game actions
+	// Sliding window timestamps for standard game actions
 	gameActions []time.Time
+	// Sliding window timestamps for rapid actions (plinko, mines moves)
+	rapidActions []time.Time
 	// Sliding window timestamps for state reads
 	stateReads []time.Time
 	// Violation tracking
@@ -190,17 +200,57 @@ func (rl *RateLimiter) SetIdentity(userID, nick, ip string) {
 }
 
 // AllowGameAction checks a POST game action. Returns false + logs if bot detected.
-func (rl *RateLimiter) AllowGameAction(userID, action string) bool {
+// Supports custom high-frequency limits for rapid games like Plinko and Mines tile reveals (20 CPS).
+func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
 	e := rl.getEntry(userID)
 	now := time.Now()
 
-	// Prune old timestamps
+	isRapid := action == "plinko" || (len(game) > 0 && game[0] == "plinko") ||
+		action == "mines" || (len(game) > 0 && game[0] == "mines" && action != "start_mines")
+
+	if isRapid {
+		e.rapidActions = pruneOlderThan(e.rapidActions, now, time.Minute)
+
+		var violationReason string
+		lastSec := countSince(e.rapidActions, now, time.Second)
+		last10s := countSince(e.rapidActions, now, 10*time.Second)
+		lastMin := countSince(e.rapidActions, now, time.Minute)
+
+		switch {
+		case lastSec >= rapidActionMaxPerSec:
+			violationReason = fmt.Sprintf("%d rapid req/s (limit %d/s)", lastSec+1, rapidActionMaxPerSec)
+		case last10s >= rapidActionMaxPer10s:
+			violationReason = fmt.Sprintf("%d rapid req/10s (limit %d/10s)", last10s+1, rapidActionMaxPer10s)
+		case lastMin >= rapidActionMaxPerMin:
+			violationReason = fmt.Sprintf("%d rapid req/min (limit %d/min)", lastMin+1, rapidActionMaxPerMin)
+		}
+
+		e.rapidActions = append(e.rapidActions, now)
+
+		if violationReason == "" {
+			return true
+		}
+
+		e.violations = pruneOlderThan(e.violations, now, botViolationWindow)
+		e.violations = append(e.violations, now)
+		e.lastViolation = now
+
+		botFlag := len(e.violations) >= botViolationThreshold
+		if botFlag && !e.flaggedAsBot {
+			e.flaggedAsBot = true
+			e.flaggedAt = now
+		}
+
+		logBotEvent(e.nick, userID, e.ip, action, violationReason, len(e.violations))
+		return false
+	}
+
+	// Standard turn-based games
 	e.gameActions = pruneOlderThan(e.gameActions, now, time.Minute)
 
-	// Check limits (most strict first for performance)
 	var violationReason string
 	lastSec := countSince(e.gameActions, now, time.Second)
 	last10s := countSince(e.gameActions, now, 10*time.Second)
@@ -215,7 +265,6 @@ func (rl *RateLimiter) AllowGameAction(userID, action string) bool {
 		violationReason = fmt.Sprintf("%d req/min (limit %d/min)", lastMin+1, gameActionMaxPerMin)
 	}
 
-	// Record the request regardless (so we track bursts accurately)
 	e.gameActions = append(e.gameActions, now)
 
 	if violationReason == "" {
@@ -283,7 +332,7 @@ func (rl *RateLimiter) cleanupLoop() {
 		rl.mu.Lock()
 		cutoff := time.Now().Add(-60 * time.Minute)
 		for uid, e := range rl.entries {
-			if e.lastViolation.Before(cutoff) && len(e.gameActions) == 0 {
+			if e.lastViolation.Before(cutoff) && len(e.gameActions) == 0 && len(e.rapidActions) == 0 && len(e.stateReads) == 0 {
 				delete(rl.entries, uid)
 			}
 		}
@@ -336,6 +385,9 @@ func ValidateRouletteChoice(choice string) error {
 		"red": true, "black": true, "even": true, "odd": true,
 		"low": true, "high": true, "dozen1": true, "dozen2": true, "dozen3": true,
 		"1-18": true, "19-36": true, "1st12": true, "2nd12": true, "3rd12": true,
+		"col1": true, "col2": true, "col3": true,
+		"column1": true, "column2": true, "column3": true,
+		"2to1_1": true, "2to1_2": true, "2to1_3": true,
 	}
 	if validKeywords[choice] {
 		return nil
@@ -427,10 +479,5 @@ func ValidateBlackjackMove(move string, cardsLen int) error {
 
 // LogSecurityAlert logs suspicious or illegal operations to both stdout and bot log file.
 func LogSecurityAlert(userID, action, details string) {
-	msg := fmt.Sprintf("[%s] SECURITY_ALERT | user_id=%s | action=%q | details=%s",
-		time.Now().UTC().Format("2006-01-02 15:04:05 UTC"), userID, action, details)
-	log.Printf("[ANTICHEAT] %s", msg)
-	botLogMu.Lock()
-	getBotLogger().Println(msg)
-	botLogMu.Unlock()
+	LogSuspiciousActivity("SECURITY_ALERT", "unknown", userID, "", action, details)
 }

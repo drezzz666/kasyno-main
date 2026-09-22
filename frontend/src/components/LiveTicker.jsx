@@ -7,7 +7,9 @@ export function LiveTicker({ wins = [] }) {
   return (
     <div className="live-ticker-wrap" role="region" aria-label="Ostatnie wygrane">
       <div className="live-ticker-label">
-        <span>Ostatnie wygrane</span>
+        <span className="ticker-live-dot" />
+        <span className="ticker-label-text">Ostatnie wygrane</span>
+        <span className="ticker-label-text-mobile">Live</span>
       </div>
       <div className="live-ticker-list">
         {wins.map((w, idx) => {
@@ -23,7 +25,7 @@ export function LiveTicker({ wins = [] }) {
               {w.avatar && (
                 <img src={w.avatar} alt={nick} className="ticker-avatar" />
               )}
-              <span className="ticker-nick">{nick}</span>
+              <span className="ticker-nick" title={nick}>{nick}</span>
               <span className="ticker-game">{gName}</span>
               <span className="ticker-win">+{money(w.payout)}</span>
             </div>
@@ -33,3 +35,4 @@ export function LiveTicker({ wins = [] }) {
     </div>
   );
 }
+

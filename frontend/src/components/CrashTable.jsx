@@ -2,6 +2,14 @@ import React, { useEffect, useRef } from "react";
 import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
+const CRASH_PRESETS = [
+  { label: "1.5×", val: 1.5 },
+  { label: "2.0×", val: 2.0 },
+  { label: "3.0×", val: 3.0 },
+  { label: "5.0×", val: 5.0 },
+  { label: "10×", val: 10.0 },
+];
+
 export function CrashTable({
   bet,
   autoCashout,
@@ -142,11 +150,15 @@ export function CrashTable({
 
       {/* Interactive Controls & Auto-Cashout */}
       <div className="crash-controls-row">
-        <div className="crash-auto-cashout-box">
-          <div className="crash-auto-header">
-            <Target size={14} className="text-amber-400" />
-            <span>Auto Cashout</span>
+        <div className="crash-auto-cashout-box w-full">
+          <div className="crash-auto-header flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Target size={14} className="text-amber-400" />
+              <span>Docelowy Cashout</span>
+            </div>
+            <span className="text-[11px] text-slate-400 font-mono">Min: 1.01× | Max: 1,000×</span>
           </div>
+
           <div className="crash-auto-input-wrap">
             <input
               type="number"
@@ -158,25 +170,28 @@ export function CrashTable({
               onChange={(e) => {
                 const v = parseFloat(e.target.value);
                 if (!isNaN(v) && v >= 1.01) {
-                  setAutoCashout(v);
+                  setAutoCashout(Math.min(1000, v));
                 }
               }}
               className="crash-auto-input"
             />
             <span className="crash-auto-suffix">×</span>
           </div>
-        </div>
 
-        {isPlaying && (
-          <button
-            type="button"
-            className="btn-crash-cashout"
-            onClick={onCashout}
-          >
-            <span className="btn-crash-cashout-main">WYPŁAĆ</span>
-            <span className="btn-crash-cashout-sub">{money(livePayout)}</span>
-          </button>
-        )}
+          <div className="limbo-presets-row mt-2">
+            {CRASH_PRESETS.map((p) => (
+              <button
+                key={p.val}
+                type="button"
+                disabled={isPlaying || loading}
+                className={`limbo-preset-btn ${autoCashout === p.val ? "active" : ""}`}
+                onClick={() => setAutoCashout(p.val)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

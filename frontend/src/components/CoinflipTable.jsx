@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { money } from "../lib/formatters";
-import { Sparkles, ArrowRightLeft } from "lucide-react";
+import React from "react";
 
 export function CoinflipTable({
   choice,
@@ -10,14 +8,14 @@ export function CoinflipTable({
   isFlipping,
 }) {
   const p = last?.payload || {};
-  const outcome = p.outcome || "heads";
-  const won = p.won;
+  const outcome = p.outcome;
+  const currentSide = isFlipping ? "" : (outcome || choice || "heads");
 
   return (
     <div className="coinflip-container">
       {/* 3D Coin Arena */}
       <div className="coin-arena">
-        <div className={`coin-3d ${isFlipping ? "flipping" : ""} ${!isFlipping && outcome ? `show-${outcome}` : "show-heads"}`}>
+        <div className={`coin-3d ${isFlipping ? "flipping" : ""} ${!isFlipping && currentSide ? `show-${currentSide}` : "show-heads"}`}>
           <div className="coin-face coin-front">
             <div className="coin-ring">
               <span className="coin-symbol">🦅</span>
@@ -36,7 +34,7 @@ export function CoinflipTable({
       {/* Choice Selector */}
       <div className="coinflip-controls">
         <span className="text-xs uppercase tracking-wider font-bold text-slate-400 text-center">
-          Wybierz stronę monety:
+          Wybierz stronę monety przed rozpoczęciem:
         </span>
         <div className="coin-choices-row">
           <button

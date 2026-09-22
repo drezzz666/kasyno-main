@@ -20,10 +20,11 @@ type Config struct {
 	AuthentikTokenURL    string
 	AuthentikUserinfoURL string
 	AuthentikEndSessionURL string
-	DevAuthEnabled       bool
-	DefaultBalance       int64
-	DailyMissionTarget   int
-	DailyMissionReward   int64
+	DevAuthEnabled        bool
+	DefaultBalance        int64
+	DailyMissionTarget    int
+	DailyMissionReward    int64
+	DiscordErrorWebhookURL string
 }
 
 func Load() *Config {
@@ -42,6 +43,11 @@ func Load() *Config {
 
 	devAuth := getEnvBool("DEV_AUTH_ENABLED", false)
 
+	discordWebhook := getEnv("DISCORD_ERROR_WEBHOOK_URL", "")
+	if discordWebhook == "" {
+		discordWebhook = getEnv("DISCORD_WEBHOOK_URL", "")
+	}
+
 	return &Config{
 		Port:                  port,
 		AppURL:                appURL,
@@ -58,6 +64,7 @@ func Load() *Config {
 		DefaultBalance:        getEnvInt64("DEFAULT_BALANCE", 1000),
 		DailyMissionTarget:    getEnvInt("DAILY_MISSION_TARGET", 5),
 		DailyMissionReward:    getEnvInt64("DAILY_MISSION_REWARD", 250),
+		DiscordErrorWebhookURL: discordWebhook,
 	}
 }
 

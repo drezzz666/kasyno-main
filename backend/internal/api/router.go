@@ -1,12 +1,15 @@
 package api
 
 import (
+	"log"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/reporter"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,25 +19,50 @@ import (
 func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *auth.OIDCClient, wsHub *ws.Hub) *chi.Mux {
 	r := chi.NewRouter()
 
+	// Initialize Discord Error & Crash Reporter
+	rep := reporter.NewReporter(cfg.DiscordErrorWebhookURL)
+
 	// Standard middlewares
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+
+	// Custom Panic Recoverer with Discord Webhook reporting
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			defer func() {
+				if rvr := recover(); rvr != nil {
+					if rvr == http.ErrAbortHandler {
+						panic(rvr)
+					}
+					stack := string(debug.Stack())
+					log.Printf("[PANIC RECOVER] %v\n%s", rvr, stack)
+					sess := auth.GetSessionFromContext(req.Context())
+					if rep != nil {
+						rep.ReportPanic(req, sess, rvr, stack)
+					}
+					http.Error(w, `{"error":"Wystąpił nieoczekiwany błąd serwera."}`, http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, req)
+		})
+	})
+
 	r.Use(middleware.Timeout(30 * time.Second))
 
 	// CORS configuration for frontend
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*", cfg.AppURL},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Cookie"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Cookie", "X-Browser-Proof"},
 		ExposedHeaders:   []string{"Link", "Set-Cookie"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
-	casinoHandler := NewCasinoHandler(ledgerService, wsHub)
+	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
+	errorHandler := NewErrorHandler(rep)
 
 	// Healthcheck
 	healthHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +71,9 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/health", healthHandler)
 	r.Head("/health", healthHandler)
 
+	// Client Error Reporting endpoint (receives errors from frontend with optional auth session)
+	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
+
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Get("/login", authHandler.Login)
@@ -50,6 +81,8 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		r.Get("/logout", authHandler.Logout)
 		r.Post("/logout", authHandler.Logout)
 		r.Get("/me", authHandler.Me)
+		r.Get("/verify", authHandler.Verify)
+		r.Head("/verify", authHandler.Verify)
 		r.Post("/backchannel-logout", authHandler.BackchannelLogout)
 		if cfg.DevAuthEnabled {
 			r.Get("/dev-login", authHandler.DevLogin)
@@ -74,6 +107,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		r.Use(auth.RequireAuth(ledgerService, cfg.SessionSecret))
 
 		r.Route("/api/casino", func(r chi.Router) {
+			r.Get("/challenge", casinoHandler.GetChallenge)
 			r.Get("/", casinoHandler.GetState)
 			r.Post("/", casinoHandler.PostAction)
 			r.Get("/history", casinoHandler.GetHistory)
@@ -84,4 +118,3 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	return r
 }
-

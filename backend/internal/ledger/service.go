@@ -1602,5 +1602,15 @@ func (s *Service) GetPlayerStats(ctx context.Context, userID string) (*PlayerSta
 	}, nil
 }
 
+func (s *Service) LogFraud(ctx context.Context, userID, nick string, prevBalance int64, reason, details string) error {
+	id := uuid.New().String()
+	now := NowMs()
+	_, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO fraud_logs (id, user_id, nick, previous_balance, reason, details, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, id, userID, nick, prevBalance, reason, details, now)
+	return err
+}
+
 
 

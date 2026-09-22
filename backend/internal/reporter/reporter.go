@@ -1,0 +1,450 @@
+package reporter
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/drezzz666/kasyno/backend/internal/auth"
+)
+
+// Discord Webhook Colors
+const (
+	ColorCritical = 0xE11D48 // Red (Panics, 500s)
+	ColorWarning  = 0xF59E0B // Amber/Orange (API, Fraud, Business errors)
+	ColorFrontend = 0x38BDF8 // Sky Blue (Frontend JS Unhandled)
+	ColorReact    = 0xA855F7 // Purple (React Component Render Error)
+)
+
+type DiscordField struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Inline bool   `json:"inline,omitempty"`
+}
+
+type DiscordFooter struct {
+	Text    string `json:"text"`
+	IconURL string `json:"icon_url,omitempty"`
+}
+
+type DiscordEmbed struct {
+	Title       string         `json:"title,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Color       int            `json:"color,omitempty"`
+	Fields      []DiscordField `json:"fields,omitempty"`
+	Footer      *DiscordFooter `json:"footer,omitempty"`
+	Timestamp   string         `json:"timestamp,omitempty"`
+}
+
+type DiscordAllowedMentions struct {
+	Parse []string `json:"parse"` // Empty array strictly blocks all @everyone, @here, role and user pings
+}
+
+type DiscordWebhookPayload struct {
+	Username        string                  `json:"username,omitempty"`
+	AvatarURL       string                  `json:"avatar_url,omitempty"`
+	Content         string                  `json:"content,omitempty"`
+	AllowedMentions *DiscordAllowedMentions `json:"allowed_mentions,omitempty"`
+	Embeds          []DiscordEmbed          `json:"embeds,omitempty"`
+}
+
+type FrontendErrorReport struct {
+	ErrorType      string      `json:"error_type"`      // UNHANDLED_EXCEPTION, PROMISE_REJECTION, REACT_RENDER_ERROR, API_ERROR, GAME_ACTION_ERROR
+	Message        string      `json:"message"`         // Error message
+	Stack          string      `json:"stack"`           // Stack trace string
+	ComponentStack string      `json:"component_stack"` // React component stack if any
+	SourceFile     string      `json:"source_file"`     // File & line number (e.g. GameTableDialog.jsx:333)
+	Context        string      `json:"context"`         // Description of user action (e.g. "Crash: start round")
+	Game           string      `json:"game"`            // Active game name (crash, limbo, slots, etc.)
+	ActionPayload  interface{} `json:"action_payload"`  // Bet amount, target multiplier, etc.
+	URL            string      `json:"url"`             // Full page URL
+	UserAgent      string      `json:"user_agent"`      // Client Browser / OS
+	Screen         string      `json:"screen"`          // Screen resolution (e.g. 1920x1080)
+	Timestamp      string      `json:"timestamp"`       // Client ISO timestamp
+}
+
+type Reporter struct {
+	webhookURL   string
+	httpClient   *http.Client
+	mu           sync.Mutex
+	dedupCache   map[string]time.Time
+	globalWindow []time.Time
+}
+
+func NewReporter(webhookURL string) *Reporter {
+	return &Reporter{
+		webhookURL: strings.TrimSpace(webhookURL),
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+		dedupCache:   make(map[string]time.Time),
+		globalWindow: make([]time.Time, 0, 30),
+	}
+}
+
+func (r *Reporter) HasWebhook() bool {
+	return r != nil && r.webhookURL != ""
+}
+
+// shouldThrottle checks if an identical error was sent recently (dedup) OR if global outbound limit (20/min) is reached.
+func (r *Reporter) shouldThrottle(fingerprint string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+
+	// 1. Global rate limiter: Max 20 outbound webhook messages per 60 seconds
+	cutoff := now.Add(-60 * time.Second)
+	valid := r.globalWindow[:0]
+	for _, t := range r.globalWindow {
+		if t.After(cutoff) {
+			valid = append(valid, t)
+		}
+	}
+	r.globalWindow = valid
+
+	if len(r.globalWindow) >= 20 {
+		return true // Exceeded safe Discord global budget
+	}
+
+	// 2. Deduplication Cache: Clean up old entries (> 60s)
+	for k, t := range r.dedupCache {
+		if now.Sub(t) > 60*time.Second {
+			delete(r.dedupCache, k)
+		}
+	}
+
+	// 3. Throttle identical errors within 15 seconds
+	if last, exists := r.dedupCache[fingerprint]; exists {
+		if now.Sub(last) < 15*time.Second {
+			return true
+		}
+	}
+
+	r.dedupCache[fingerprint] = now
+	r.globalWindow = append(r.globalWindow, now)
+	return false
+}
+
+func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
+	if !r.HasWebhook() {
+		return
+	}
+
+	// Explicitly disable any Discord ping parsing
+	payload.AllowedMentions = &DiscordAllowedMentions{
+		Parse: []string{},
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		data, err := json.Marshal(payload)
+		if err != nil {
+			log.Printf("[Reporter] Error marshaling Discord payload: %v", err)
+			return
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.webhookURL, bytes.NewReader(data))
+		if err != nil {
+			log.Printf("[Reporter] Error creating webhook request: %v", err)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := r.httpClient.Do(req)
+		if err != nil {
+			log.Printf("[Reporter] Failed to send Discord webhook: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			log.Printf("[Reporter] Discord webhook returned status %d", resp.StatusCode)
+		}
+	}()
+}
+
+// ReportFrontendError sends a comprehensive report of a frontend crash or client-side error to Discord.
+func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.SessionUser, ip string) {
+	if report == nil {
+		return
+	}
+
+	fingerprint := hashFingerprint(fmt.Sprintf("%s:%s:%s:%s", report.ErrorType, report.SourceFile, report.Message, report.Context))
+	if r.shouldThrottle(fingerprint) {
+		return
+	}
+
+	// Choose color and icon based on error type
+	color := ColorFrontend
+	titlePrefix := "🚨 [FRONTEND JS ERROR]"
+	switch report.ErrorType {
+	case "REACT_RENDER_ERROR":
+		color = ColorReact
+		titlePrefix = "⚛️ [REACT UI CRASH]"
+	case "API_ERROR", "GAME_ACTION_ERROR":
+		color = ColorWarning
+		titlePrefix = "⚠️ [API / GAME ACTION ERROR]"
+	case "PROMISE_REJECTION":
+		titlePrefix = "💥 [UNHANDLED PROMISE REJECTION]"
+	}
+
+	title := truncate(fmt.Sprintf("%s %s", titlePrefix, report.Message), 250)
+
+	// User description
+	userInfo := "Anonim / Niezalogowany"
+	if sess != nil {
+		userInfo = fmt.Sprintf("**%s**\nID: `%s`\nEmail: `%s`", sess.Nick, sess.UserID, sess.Email)
+	}
+	if ip != "" {
+		userInfo += fmt.Sprintf("\nIP: `%s`", ip)
+	}
+
+	fields := []DiscordField{
+		{
+			Name:   "👤 Gracz / Użytkownik",
+			Value:  userInfo,
+			Inline: true,
+		},
+	}
+
+	// Game / Action Context
+	gameContext := ""
+	if report.Game != "" {
+		gameContext += fmt.Sprintf("**Gra:** `%s`\n", report.Game)
+	}
+	if report.Context != "" {
+		gameContext += fmt.Sprintf("**Akcja:** %s\n", report.Context)
+	}
+	if gameContext != "" {
+		fields = append(fields, DiscordField{
+			Name:   "🎮 Kontekst Gry / Akcji",
+			Value:  strings.TrimSpace(gameContext),
+			Inline: true,
+		})
+	}
+
+	// Code location & URL
+	locInfo := ""
+	if report.SourceFile != "" {
+		locInfo += fmt.Sprintf("**Plik / Linia:** `%s`\n", report.SourceFile)
+	}
+	if report.URL != "" {
+		locInfo += fmt.Sprintf("**URL:** %s\n", report.URL)
+	}
+	if locInfo != "" {
+		fields = append(fields, DiscordField{
+			Name:   "📍 Lokalizacja w kodzie",
+			Value:  strings.TrimSpace(locInfo),
+			Inline: false,
+		})
+	}
+
+	// Action Payload
+	if report.ActionPayload != nil {
+		if payloadBytes, err := json.MarshalIndent(report.ActionPayload, "", "  "); err == nil && len(payloadBytes) > 2 {
+			fields = append(fields, DiscordField{
+				Name:   "📦 Wysłany Payload (dla AI/Dev)",
+				Value:  fmt.Sprintf("```json\n%s\n```", truncate(string(payloadBytes), 950)),
+				Inline: false,
+			})
+		}
+	}
+
+	// Error Message
+	if report.Message != "" {
+		fields = append(fields, DiscordField{
+			Name:   "🛑 Komunikat Błędu",
+			Value:  fmt.Sprintf("```\n%s\n```", truncate(report.Message, 950)),
+			Inline: false,
+		})
+	}
+
+	// Stack Trace
+	if report.Stack != "" {
+		fields = append(fields, DiscordField{
+			Name:   "📜 Stack Trace (JS)",
+			Value:  fmt.Sprintf("```javascript\n%s\n```", truncate(report.Stack, 950)),
+			Inline: false,
+		})
+	}
+
+	// React Component Stack
+	if report.ComponentStack != "" {
+		fields = append(fields, DiscordField{
+			Name:   "⚛️ React Component Stack",
+			Value:  fmt.Sprintf("```\n%s\n```", truncate(report.ComponentStack, 950)),
+			Inline: false,
+		})
+	}
+
+	// Client Environment
+	envInfo := ""
+	if report.UserAgent != "" {
+		envInfo += fmt.Sprintf("**Przeglądarka / OS:** `%s`\n", truncate(report.UserAgent, 200))
+	}
+	if report.Screen != "" {
+		envInfo += fmt.Sprintf("**Ekran:** `%s`\n", report.Screen)
+	}
+	if envInfo != "" {
+		fields = append(fields, DiscordField{
+			Name:   "💻 Środowisko Klienta",
+			Value:  strings.TrimSpace(envInfo),
+			Inline: false,
+		})
+	}
+
+	embed := DiscordEmbed{
+		Title:       title,
+		Description: "Szczegółowy raport błędu z aplikacji frontendowej wygenerowany dla AI / Developerów.",
+		Color:       color,
+		Fields:      fields,
+		Footer: &DiscordFooter{
+			Text: "2FGT Casino • Frontend Error Reporter",
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	r.sendAsync(DiscordWebhookPayload{
+		Username:  "Kasyno Error Watcher",
+		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/alert-circle.png",
+		Embeds:    []DiscordEmbed{embed},
+	})
+}
+
+// ReportPanic reports an unhandled panic in Go HTTP handlers to Discord.
+func (r *Reporter) ReportPanic(req *http.Request, sess *auth.SessionUser, panicVal interface{}, stack string) {
+	errMsg := fmt.Sprintf("%v", panicVal)
+	fingerprint := hashFingerprint("PANIC:" + errMsg)
+	if r.shouldThrottle(fingerprint) {
+		return
+	}
+
+	userInfo := "Anonim / Niezalogowany"
+	if sess != nil {
+		userInfo = fmt.Sprintf("**%s**\nID: `%s`\nEmail: `%s`", sess.Nick, sess.UserID, sess.Email)
+	}
+
+	ip := ""
+	if req != nil {
+		ip = req.RemoteAddr
+	}
+
+	fields := []DiscordField{
+		{
+			Name:   "👤 Użytkownik",
+			Value:  userInfo,
+			Inline: true,
+		},
+		{
+			Name:   "🌐 Żądanie HTTP",
+			Value:  fmt.Sprintf("**%s** `%s`\nIP: `%s`", req.Method, req.URL.Path, ip),
+			Inline: true,
+		},
+		{
+			Name:   "🛑 Wartość Paniki (Panic Error)",
+			Value:  fmt.Sprintf("```\n%s\n```", truncate(errMsg, 950)),
+			Inline: false,
+		},
+		{
+			Name:   "📜 Go Runtime Stack Trace (dla AI/Dev)",
+			Value:  fmt.Sprintf("```go\n%s\n```", truncate(stack, 950)),
+			Inline: false,
+		},
+	}
+
+	embed := DiscordEmbed{
+		Title:       truncate(fmt.Sprintf("🔥 [CRITICAL SERVER PANIC] %s %s: %s", req.Method, req.URL.Path, errMsg), 250),
+		Description: "Serwer Go napotkał nieobsłużony błąd krytyczny (panic) w trakcie obsługi żądania HTTP.",
+		Color:       ColorCritical,
+		Fields:      fields,
+		Footer: &DiscordFooter{
+			Text: "2FGT Casino • Server Panic Watcher",
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	r.sendAsync(DiscordWebhookPayload{
+		Username:  "Kasyno Error Watcher",
+		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/flame.png",
+		Embeds:    []DiscordEmbed{embed},
+	})
+}
+
+// ReportBackendError reports a server-side business logic / database / transaction error.
+func (r *Reporter) ReportBackendError(category, message, stack string, details map[string]interface{}) {
+	fingerprint := hashFingerprint(fmt.Sprintf("%s:%s", category, message))
+	if r.shouldThrottle(fingerprint) {
+		return
+	}
+
+	fields := []DiscordField{
+		{
+			Name:   "📁 Kategoria",
+			Value:  fmt.Sprintf("`%s`", category),
+			Inline: true,
+		},
+		{
+			Name:   "🛑 Komunikat Błędu",
+			Value:  fmt.Sprintf("```\n%s\n```", truncate(message, 950)),
+			Inline: false,
+		},
+	}
+
+	if details != nil && len(details) > 0 {
+		if data, err := json.MarshalIndent(details, "", "  "); err == nil {
+			fields = append(fields, DiscordField{
+				Name:   "📋 Szczegóły Kontekstu",
+				Value:  fmt.Sprintf("```json\n%s\n```", truncate(string(data), 950)),
+				Inline: false,
+			})
+		}
+	}
+
+	if stack != "" {
+		fields = append(fields, DiscordField{
+			Name:   "📜 Stack Trace",
+			Value:  fmt.Sprintf("```go\n%s\n```", truncate(stack, 950)),
+			Inline: false,
+		})
+	}
+
+	embed := DiscordEmbed{
+		Title:       truncate(fmt.Sprintf("⚠️ [SERVER ERROR] %s: %s", category, message), 250),
+		Description: "Błąd operacji serwerowej w kasynie (baza danych / transakcja / ledger).",
+		Color:       ColorCritical,
+		Fields:      fields,
+		Footer: &DiscordFooter{
+			Text: "2FGT Casino • Backend Error Watcher",
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	r.sendAsync(DiscordWebhookPayload{
+		Username:  "Kasyno Error Watcher",
+		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/alert-octagon.png",
+		Embeds:    []DiscordEmbed{embed},
+	})
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+func hashFingerprint(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:8])
+}

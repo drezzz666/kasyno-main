@@ -27,14 +27,22 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - PORT=8080
-      - APP_URL=${APP_URL:-https://drezzz.tech}
-      - DATABASE_URL=${DATABASE_URL:-postgres://kasyno:kasyno_pass@postgres:5432/kasyno}
+      - PORT=${PORT:-8080}
+      - APP_URL=${APP_URL:-https://beta.2fgt.pl}
+      - DATABASE_URL=${DATABASE_URL:-postgres://kasyno:kasyno_pass@postgres:5432/kasyno?sslmode=disable}
       - SESSION_SECRET=${SESSION_SECRET:-kasyno-2fgt-secret-key-replace-in-env-production-32-chars}
-      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://auth.drezzz.tech/application/o/kasyno/}
+      - AUTHENTIK_ISSUER=${AUTHENTIK_ISSUER:-https://login.2fgt.pl/application/o/kasyno-dev/}
       - AUTHENTIK_CLIENT_ID=${AUTHENTIK_CLIENT_ID}
       - AUTHENTIK_CLIENT_SECRET=${AUTHENTIK_CLIENT_SECRET}
-      - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-true}
+      - AUTHENTIK_AUTH_URL=${AUTHENTIK_AUTH_URL:-}
+      - AUTHENTIK_TOKEN_URL=${AUTHENTIK_TOKEN_URL:-}
+      - AUTHENTIK_USERINFO_URL=${AUTHENTIK_USERINFO_URL:-}
+      - AUTHENTIK_END_SESSION_URL=${AUTHENTIK_END_SESSION_URL:-}
+      - DEV_AUTH_ENABLED=${DEV_AUTH_ENABLED:-false}
+      - DEFAULT_BALANCE=${DEFAULT_BALANCE:-1000}
+      - DAILY_MISSION_TARGET=${DAILY_MISSION_TARGET:-5}
+      - DAILY_MISSION_REWARD=${DAILY_MISSION_REWARD:-250}
+      - DISCORD_ERROR_WEBHOOK_URL=${DISCORD_ERROR_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 15s

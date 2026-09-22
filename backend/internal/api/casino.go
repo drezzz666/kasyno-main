@@ -3,8 +3,11 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/anticheat"
 	"github.com/drezzz666/kasyno/backend/internal/auth"
@@ -18,22 +21,33 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
 	"github.com/drezzz666/kasyno/backend/internal/games/slots"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/reporter"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
 
 type CasinoHandler struct {
-	ledger      *ledger.Service
-	hub         *ws.Hub
-	userLocks   *anticheat.UserLockManager
-	rateLimiter *anticheat.RateLimiter
+	ledger        *ledger.Service
+	hub           *ws.Hub
+	userLocks     *anticheat.UserLockManager
+	rateLimiter   *anticheat.RateLimiter
+	sessionSecret string
+	reporter      *reporter.Reporter
 }
 
-func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub) *CasinoHandler {
+func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporter.Reporter, sessionSecret string) *CasinoHandler {
 	return &CasinoHandler{
-		ledger:      ledgerService,
-		hub:         wsHub,
-		userLocks:   anticheat.NewUserLockManager(),
-		rateLimiter: anticheat.NewRateLimiter(),
+		ledger:        ledgerService,
+		hub:           wsHub,
+		userLocks:     anticheat.NewUserLockManager(),
+		rateLimiter:   anticheat.NewRateLimiter(),
+		sessionSecret: sessionSecret,
+		reporter:      rep,
+	}
+}
+
+func (h *CasinoHandler) reportBackendError(category string, err error, details map[string]interface{}) {
+	if h.reporter != nil && err != nil {
+		h.reporter.ReportBackendError(category, err.Error(), "", details)
 	}
 }
 
@@ -157,11 +171,29 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"leaders":          leaders,
 		"today":            today,
 		"recentWins":       recentWins,
+		"challenge":        anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	}
 
 	JSON(w, http.StatusOK, resp)
 }
 
+// GetChallenge handles GET /api/casino/challenge
+func (h *CasinoHandler) GetChallenge(w http.ResponseWriter, r *http.Request) {
+	p := auth.GetPlayerFromContext(r.Context())
+	if p == nil {
+		JSONError(w, http.StatusUnauthorized, "Wymagane logowanie")
+		return
+	}
+
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+	if !h.rateLimiter.AllowStateRead(p.UserID) {
+		JSONError(w, http.StatusTooManyRequests, "Zbyt częste pobieranie wyzwań.")
+		return
+	}
+
+	challenge := anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret)
+	JSON(w, http.StatusOK, challenge)
+}
 
 // GetHistory handles GET /api/casino/history
 func (h *CasinoHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
@@ -194,10 +226,22 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge
+	proofHeader := r.Header.Get("X-Browser-Proof")
+	if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
+		h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
+		JSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
+			"code":      "REQ_FAILED",
+			"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		})
+		return
+	}
+
 	// 1. Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
 	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
 
-	// Parse action early so we can log it precisely in rate limiter
+	// Parse action and game early so we can log it precisely in rate limiter
 	var bodyPeek map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&bodyPeek); err != nil {
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowy format JSON")
@@ -207,9 +251,10 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	if actionPeek == "" {
 		actionPeek = "play"
 	}
+	gamePeek, _ := bodyPeek["game"].(string)
 
-	if !h.rateLimiter.AllowGameAction(p.UserID, actionPeek) {
-		JSONError(w, http.StatusTooManyRequests, "Zbyt szybkie żądania. Zwolnij tempo.")
+	if !h.rateLimiter.AllowGameAction(p.UserID, actionPeek, gamePeek) {
+		JSONError(w, http.StatusTooManyRequests, "Wystąpił błąd podczas przetwarzania żądania.")
 		return
 	}
 
@@ -266,10 +311,11 @@ func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *l
 	})
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":      true,
-		"amount":  amount,
-		"balance": newBal,
-		"streak":  streak,
+		"ok":             true,
+		"amount":         amount,
+		"balance":        newBal,
+		"streak":         streak,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -314,18 +360,55 @@ func (h *CasinoHandler) handleMission(w http.ResponseWriter, r *http.Request, p 
 		"missions":         missions,
 		"missionNextReset": missionNextReset,
 		"missionClaimed":   true,
+		"next_challenge":   anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
+}
+
+type fraudThrottle struct {
+	mu       sync.Mutex
+	lastLogs map[string]time.Time
+}
+
+var globalFraudThrottle = &fraudThrottle{
+	lastLogs: make(map[string]time.Time),
+}
+
+func (h *CasinoHandler) recordFraud(r *http.Request, p *ledger.Player, reason, details string) {
+	anticheat.LogSuspiciousActivity("SECURITY_ALERT", r.RemoteAddr, p.UserID, p.Nick, reason, details)
+
+	// Debounce database inserts for fraud logs to prevent DB exhaustion on high-frequency error bursts
+	key := p.UserID + ":" + reason
+	globalFraudThrottle.mu.Lock()
+	last, exists := globalFraudThrottle.lastLogs[key]
+	if exists && time.Since(last) < 5*time.Second {
+		globalFraudThrottle.mu.Unlock()
+		return
+	}
+	globalFraudThrottle.lastLogs[key] = time.Now()
+	if len(globalFraudThrottle.lastLogs) > 1000 {
+		cutoff := time.Now().Add(-1 * time.Minute)
+		for k, t := range globalFraudThrottle.lastLogs {
+			if t.Before(cutoff) {
+				delete(globalFraudThrottle.lastLogs, k)
+			}
+		}
+	}
+	globalFraudThrottle.mu.Unlock()
+
+	_ = h.ledger.LogFraud(r.Context(), p.UserID, p.Nick, p.Balance, reason, details)
 }
 
 func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	game, _ := body["game"].(string)
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
+		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -335,25 +418,74 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	var payloadBytes []byte
 
 	if game == "roulette" {
-		choice, _ := body["choice"].(string)
-		if choice == "" {
-			choice = "red"
+		if betsRaw, hasBets := body["bets"].(map[string]interface{}); hasBets && len(betsRaw) > 0 {
+			var calculatedTotal int64
+			betsMap := make(map[string]int64)
+			for spot, amtRaw := range betsRaw {
+				var amt int64
+				switch v := amtRaw.(type) {
+				case float64:
+					amt = int64(v)
+				case int64:
+					amt = v
+				case int:
+					amt = int64(v)
+				}
+				if amt <= 0 {
+					continue
+				}
+				if err := anticheat.ValidateRouletteChoice(spot); err != nil {
+					h.recordFraud(r, p, "INVALID_ROULETTE_SPOT", err.Error())
+					JSONError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				betsMap[spot] = amt
+				calculatedTotal += amt
+			}
+			if len(betsMap) == 0 {
+				h.recordFraud(r, p, "EMPTY_ROULETTE_BETS", "No valid spots selected")
+				JSONError(w, http.StatusBadRequest, "Brak prawidłowych stawek na stole ruletki.")
+				return
+			}
+			bet = calculatedTotal
+			if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+				h.recordFraud(r, p, "INVALID_ROULETTE_TOTAL_BET", err.Error())
+				JSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			res, err := roulette.PlayRouletteMulti(betsMap)
+			if err != nil {
+				h.recordFraud(r, p, "ROULETTE_ERROR", err.Error())
+				JSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			payout = res.Payout
+			resultText = res.ResultText
+			payloadBytes, _ = json.Marshal(res.Payload)
+		} else {
+			choice, _ := body["choice"].(string)
+			if choice == "" {
+				choice = "red"
+			}
+			if err := anticheat.ValidateRouletteChoice(choice); err != nil {
+				h.recordFraud(r, p, "INVALID_ROULETTE_CHOICE", err.Error())
+				JSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			res, err := roulette.PlayRoulette(bet, choice)
+			if err != nil {
+				h.recordFraud(r, p, "ROULETTE_ERROR", err.Error())
+				JSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			payout = res.Payout
+			resultText = res.ResultText
+			payloadBytes, _ = json.Marshal(res.Payload)
 		}
-		if err := anticheat.ValidateRouletteChoice(choice); err != nil {
-			JSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		res, err := roulette.PlayRoulette(bet, choice)
-		if err != nil {
-			JSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		payout = res.Payout
-		resultText = res.ResultText
-		payloadBytes, _ = json.Marshal(res.Payload)
 	} else if game == "slots" {
 		res, err := slots.PlaySlots(bet)
 		if err != nil {
+			h.recordFraud(r, p, "SLOTS_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -366,11 +498,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			choice = "heads"
 		}
 		if err := anticheat.ValidateCoinflipChoice(choice); err != nil {
+			h.recordFraud(r, p, "INVALID_COINFLIP_CHOICE", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		res, err := coinflip.PlayCoinflip(bet, choice)
 		if err != nil {
+			h.recordFraud(r, p, "COINFLIP_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -383,11 +517,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			choice = "rock"
 		}
 		if err := anticheat.ValidateRPSChoice(choice); err != nil {
+			h.recordFraud(r, p, "INVALID_RPS_CHOICE", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		res, err := rps.PlayRPS(bet, choice)
 		if err != nil {
+			h.recordFraud(r, p, "RPS_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -399,11 +535,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		rows := int(rowsFloat)
 		risk, _ := body["risk"].(string)
 		if err := anticheat.ValidatePlinkoParams(rows, risk); err != nil {
+			h.recordFraud(r, p, "INVALID_PLINKO_PARAMS", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		res, err := plinko.PlayPlinko(bet, rows, risk)
 		if err != nil {
+			h.recordFraud(r, p, "PLINKO_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -413,11 +551,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	} else if game == "limbo" {
 		targetMult, _ := body["target_multiplier"].(float64)
 		if err := anticheat.ValidateLimboTarget(targetMult); err != nil {
+			h.recordFraud(r, p, "INVALID_LIMBO_TARGET", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		res, err := limbo.PlayLimbo(bet, targetMult)
 		if err != nil {
+			h.recordFraud(r, p, "LIMBO_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -427,11 +567,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	} else if game == "crash" {
 		targetMult, _ := body["target_multiplier"].(float64)
 		if err := anticheat.ValidateCrashTarget(targetMult); err != nil {
+			h.recordFraud(r, p, "INVALID_CRASH_TARGET", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		res, err := crash.PlayCrash(bet, targetMult)
 		if err != nil {
+			h.recordFraud(r, p, "CRASH_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -439,6 +581,7 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		resultText = res.ResultText
 		payloadBytes, _ = json.Marshal(res.Payload)
 	} else {
+		h.recordFraud(r, p, "UNKNOWN_GAME", fmt.Sprintf("game: %q", game))
 		JSONError(w, http.StatusBadRequest, "Nieznana gra.")
 		return
 	}
@@ -449,6 +592,13 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err != nil {
+		h.reportBackendError("SETTLE_INSTANT_ROUND_ERROR", err, map[string]interface{}{
+			"user_id": p.UserID,
+			"nick":    p.Nick,
+			"game":    game,
+			"bet":     bet,
+			"payout":  payout,
+		})
 		JSONError(w, http.StatusInternalServerError, "Błąd rozliczania rundy")
 		return
 	}
@@ -459,14 +609,15 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":           true,
-		"round":        ToPublicRound(outcome.Round),
-		"balance":      outcome.Balance,
-		"xp":           outcome.XP,
-		"level":        outcome.Level,
-		"roundsToday":  outcome.RoundsToday,
-		"leveledUp":    outcome.LeveledUp,
-		"levelUpBonus": outcome.LevelUpBonus,
+		"ok":             true,
+		"round":          ToPublicRound(outcome.Round),
+		"balance":        outcome.Balance,
+		"xp":             outcome.XP,
+		"level":          outcome.Level,
+		"roundsToday":    outcome.RoundsToday,
+		"leveledUp":      outcome.LeveledUp,
+		"levelUpBonus":   outcome.LevelUpBonus,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -492,11 +643,13 @@ func (h *CasinoHandler) broadcastWin(roundID, nick, game string, avatar *string,
 func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
+		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet in deal_blackjack")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -506,10 +659,12 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 
 	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "blackjack", bet, string(payloadBytes))
 	if errors.Is(err, ledger.ErrActiveRoundExists) {
+		h.recordFraud(r, p, "DUPLICATE_ACTIVE_ROUND", "Tried to start blackjack while another round is active")
 		JSONError(w, http.StatusConflict, "Najpierw dokończ aktywną rundę.")
 		return
 	}
 	if errors.Is(err, ledger.ErrInsufficientFunds) {
+		h.recordFraud(r, p, "INSUFFICIENT_FUNDS", "Tried to start blackjack with insufficient balance")
 		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
 		return
 	}
@@ -529,23 +684,25 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 				h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, bet, settleRes.ResultText)
 			}
 			JSON(w, http.StatusOK, map[string]interface{}{
-				"ok":           true,
-				"round":        ToPublicRound(outcome.Round),
-				"balance":      outcome.Balance,
-				"xp":           outcome.XP,
-				"level":        outcome.Level,
-				"roundsToday":  outcome.RoundsToday,
-				"leveledUp":    outcome.LeveledUp,
-				"levelUpBonus": outcome.LevelUpBonus,
+				"ok":             true,
+				"round":          ToPublicRound(outcome.Round),
+				"balance":        outcome.Balance,
+				"xp":             outcome.XP,
+				"level":          outcome.Level,
+				"roundsToday":    outcome.RoundsToday,
+				"leveledUp":      outcome.LeveledUp,
+				"levelUpBonus":   outcome.LevelUpBonus,
+				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":      true,
-		"round":   ToPublicRound(round),
-		"balance": balAfterBet,
+		"ok":             true,
+		"round":          ToPublicRound(round),
+		"balance":        balAfterBet,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -555,6 +712,7 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.ID != roundID {
+		h.recordFraud(r, p, "INVALID_ROUND_ACTION", fmt.Sprintf("Blackjack action on invalid or mismatch roundId: %s", roundID))
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -566,12 +724,14 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := anticheat.ValidateBlackjackMove(move, len(payload.Cards)); err != nil {
+		h.recordFraud(r, p, "ILLEGAL_BLACKJACK_MOVE", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if move == "double" {
 		if p.Balance < activeRound.Bet {
+			h.recordFraud(r, p, "INSUFFICIENT_FUNDS_DOUBLE", "Attempted double down with insufficient balance")
 			JSONError(w, http.StatusBadRequest, "Za mało żetonów na podwojenie.")
 			return
 		}
@@ -602,14 +762,15 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
-			"ok":           true,
-			"round":        ToPublicRound(outcome.Round),
-			"balance":      outcome.Balance,
-			"xp":           outcome.XP,
-			"level":        outcome.Level,
-			"roundsToday":  outcome.RoundsToday,
-			"leveledUp":    outcome.LeveledUp,
-			"levelUpBonus": outcome.LevelUpBonus,
+			"ok":             true,
+			"round":          ToPublicRound(outcome.Round),
+			"balance":        outcome.Balance,
+			"xp":             outcome.XP,
+			"level":          outcome.Level,
+			"roundsToday":    outcome.RoundsToday,
+			"leveledUp":      outcome.LeveledUp,
+			"levelUpBonus":   outcome.LevelUpBonus,
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -632,8 +793,9 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 			activeRound.Payload = string(newPayloadBytes)
 			activeRound.Revision++
 			JSON(w, http.StatusOK, map[string]interface{}{
-				"ok":    true,
-				"round": ToPublicRound(activeRound),
+				"ok":             true,
+				"round":          ToPublicRound(activeRound),
+				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -654,23 +816,28 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":          true,
-		"round":       ToPublicRound(outcome.Round),
-		"balance":     outcome.Balance,
-		"xp":          outcome.XP,
-		"level":       outcome.Level,
-		"roundsToday": outcome.RoundsToday,
+		"ok":             true,
+		"round":          ToPublicRound(outcome.Round),
+		"balance":        outcome.Balance,
+		"xp":             outcome.XP,
+		"level":          outcome.Level,
+		"roundsToday":    outcome.RoundsToday,
+		"leveledUp":      outcome.LeveledUp,
+		"levelUpBonus":   outcome.LevelUpBonus,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
 func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	betFloat, ok := body["bet"].(float64)
 	if !ok {
+		h.recordFraud(r, p, "INVALID_BET_FORMAT", "Missing or non-numeric bet in start_mines")
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
 		return
 	}
 	bet := int64(betFloat)
 	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+		h.recordFraud(r, p, "INVALID_BET", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -680,6 +847,7 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 		mineCount = int(mc)
 	}
 	if err := anticheat.ValidateMinesStart(mineCount); err != nil {
+		h.recordFraud(r, p, "INVALID_MINES_COUNT", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -689,10 +857,12 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 
 	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "mines", bet, string(payloadBytes))
 	if errors.Is(err, ledger.ErrActiveRoundExists) {
+		h.recordFraud(r, p, "DUPLICATE_ACTIVE_ROUND", "Tried to start mines while another round is active")
 		JSONError(w, http.StatusConflict, "Najpierw dokończ aktywną rundę.")
 		return
 	}
 	if errors.Is(err, ledger.ErrInsufficientFunds) {
+		h.recordFraud(r, p, "INSUFFICIENT_FUNDS", "Tried to start mines with insufficient balance")
 		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
 		return
 	}
@@ -702,9 +872,10 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 	}
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":      true,
-		"round":   ToPublicRound(round),
-		"balance": balAfterBet,
+		"ok":             true,
+		"round":          ToPublicRound(round),
+		"balance":        balAfterBet,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -714,6 +885,7 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.ID != roundID {
+		h.recordFraud(r, p, "INVALID_ROUND_ACTION", fmt.Sprintf("Mines action on invalid or mismatch roundId: %s", roundID))
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -726,11 +898,13 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 	if move == "cashout" {
 		if err := anticheat.ValidateMinesCashout(len(payload.Revealed)); err != nil {
+			h.recordFraud(r, p, "ILLEGAL_MINES_CASHOUT", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		settleRes, err := mines.Cashout(activeRound.Bet, *payload)
 		if err != nil {
+			h.recordFraud(r, p, "MINES_CASHOUT_ERROR", err.Error())
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -746,12 +920,15 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
-			"ok":          true,
-			"round":       ToPublicRound(outcome.Round),
-			"balance":     outcome.Balance,
-			"xp":          outcome.XP,
-			"level":       outcome.Level,
-			"roundsToday": outcome.RoundsToday,
+			"ok":             true,
+			"round":          ToPublicRound(outcome.Round),
+			"balance":        outcome.Balance,
+			"xp":             outcome.XP,
+			"level":          outcome.Level,
+			"roundsToday":    outcome.RoundsToday,
+			"leveledUp":      outcome.LeveledUp,
+			"levelUpBonus":   outcome.LevelUpBonus,
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -759,12 +936,14 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	// move == "reveal"
 	tileFloat, ok := body["tile"].(float64)
 	if !ok {
+		h.recordFraud(r, p, "INVALID_TILE_FORMAT", "Missing or non-numeric tile index")
 		JSONError(w, http.StatusBadRequest, "Wymagany parametr 'tile'.")
 		return
 	}
 	tile := int(tileFloat)
 
 	if err := anticheat.ValidateMinesReveal(tile, payload.Revealed); err != nil {
+		h.recordFraud(r, p, "ILLEGAL_MINES_REVEAL", err.Error())
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -788,14 +967,15 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
-			"ok":           true,
-			"round":        ToPublicRound(outcome.Round),
-			"balance":      outcome.Balance,
-			"xp":           outcome.XP,
-			"level":        outcome.Level,
-			"roundsToday":  outcome.RoundsToday,
-			"leveledUp":    outcome.LeveledUp,
-			"levelUpBonus": outcome.LevelUpBonus,
+			"ok":             true,
+			"round":          ToPublicRound(outcome.Round),
+			"balance":        outcome.Balance,
+			"xp":             outcome.XP,
+			"level":          outcome.Level,
+			"roundsToday":    outcome.RoundsToday,
+			"leveledUp":      outcome.LeveledUp,
+			"levelUpBonus":   outcome.LevelUpBonus,
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -813,8 +993,9 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	activeRound.Revision++
 
 	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":    true,
-		"round": ToPublicRound(activeRound),
+		"ok":             true,
+		"round":          ToPublicRound(activeRound),
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 

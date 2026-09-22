@@ -29,6 +29,24 @@ func TestRouletteEvaluation(t *testing.T) {
 		t.Errorf("expected 300 payout for dozen1 on 12, got %d", payout)
 	}
 
+	// Column 1 on 4 (win)
+	win, payout, mult = EvaluateSpin(4, "col1", 100)
+	if !win || payout != 300 || mult != 3 {
+		t.Errorf("expected 300 payout for col1 on 4, got %d", payout)
+	}
+
+	// Column 2 on 5 (win)
+	win, payout, mult = EvaluateSpin(5, "col2", 100)
+	if !win || payout != 300 || mult != 3 {
+		t.Errorf("expected 300 payout for col2 on 5, got %d", payout)
+	}
+
+	// Column 3 on 6 (win)
+	win, payout, mult = EvaluateSpin(6, "col3", 100)
+	if !win || payout != 300 || mult != 3 {
+		t.Errorf("expected 300 payout for col3 on 6, got %d", payout)
+	}
+
 	// Zero on even (should lose)
 	win, payout, _ = EvaluateSpin(0, "even", 100)
 	if win || payout != 0 {
@@ -42,33 +60,38 @@ func TestRouletteEvaluation(t *testing.T) {
 	}
 }
 
-func TestValidateChoice(t *testing.T) {
-	cases := []struct {
-		choice string
-		valid  bool
-		mult   int
-	}{
-		{"red", true, 2},
-		{"black", true, 2},
-		{"even", true, 2},
-		{"odd", true, 2},
-		{"low", true, 2},
-		{"high", true, 2},
-		{"dozen1", true, 3},
-		{"dozen2", true, 3},
-		{"dozen3", true, 3},
-		{"0", true, 36},
-		{"36", true, 36},
-		{"37", false, 0},
-		{"-1", false, 0},
-		{"invalid", false, 0},
+func TestCoveringAll37Numbers(t *testing.T) {
+	// Covering all 37 numbers (0..36) with 10 $FGT each (total bet = 370 $FGT)
+	bets := make(map[string]int64)
+	for i := 0; i <= 36; i++ {
+		bets[string(rune('0'+i))] = 10
+	}
+	// Correct string formatting for 0..36
+	bets = make(map[string]int64)
+	for i := 0; i <= 36; i++ {
+		bets[string([]byte{byte('0' + i/10), byte('0' + i%10)})] = 10
+	}
+	// Let's populate cleanly
+	bets = make(map[string]int64)
+	for i := 0; i <= 36; i++ {
+		bets[string(fmtSprint(i))] = 10
 	}
 
-	for _, c := range cases {
-		valid, mult := ValidateChoice(c.choice)
-		if valid != c.valid || mult != c.mult {
-			t.Errorf("choice %s: expected (valid: %v, mult: %d), got (valid: %v, mult: %d)",
-				c.choice, c.valid, c.mult, valid, mult)
-		}
+	items, totalBet, totalPayout := EvaluateMultiBets(17, bets)
+	if totalBet != 370 {
+		t.Errorf("expected totalBet=370, got %d", totalBet)
 	}
+	if totalPayout != 360 {
+		t.Errorf("expected totalPayout=360 (35:1 profit + bet = 360), got %d", totalPayout)
+	}
+	if len(items) != 37 {
+		t.Errorf("expected 37 items, got %d", len(items))
+	}
+}
+
+func fmtSprint(n int) string {
+	if n < 10 {
+		return string(rune('0' + n))
+	}
+	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }

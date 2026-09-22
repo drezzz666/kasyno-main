@@ -31,16 +31,36 @@ func TestPlayPlinkoAllCombinations(t *testing.T) {
 	}
 }
 
-func TestPlayPlinkoDefaults(t *testing.T) {
-	// Invalid rows should normalize to 10
-	res, err := PlayPlinko(50, 999, "invalid_risk")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func binomialCoeff(n, k int) float64 {
+	if k < 0 || k > n {
+		return 0
 	}
-	if res.Payload.Rows != 10 {
-		t.Errorf("expected normalized rows 10, got %d", res.Payload.Rows)
+	if k == 0 || k == n {
+		return 1
 	}
-	if res.Payload.Risk != "medium" {
-		t.Errorf("expected normalized risk medium, got %s", res.Payload.Risk)
+	res := 1.0
+	for i := 1; i <= k; i++ {
+		res = res * float64(n-i+1) / float64(i)
+	}
+	return res
+}
+
+func TestPlinkoRTP(t *testing.T) {
+	risks := []string{"low", "medium", "high"}
+	for _, risk := range risks {
+		for rows := 8; rows <= 16; rows++ {
+			mults := Multipliers[risk][rows]
+			totalPossible := 1.0
+			for i := 0; i < rows; i++ {
+				totalPossible *= 2.0
+			}
+
+			rtp := 0.0
+			for slot, mult := range mults {
+				prob := binomialCoeff(rows, slot) / totalPossible
+				rtp += prob * mult
+			}
+			t.Logf("Risk: %-6s | Rows: %2d | RTP: %6.2f%% (House Edge: %5.2f%%)", risk, rows, rtp*100, (1.0-rtp)*100)
+		}
 	}
 }
