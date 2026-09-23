@@ -88,7 +88,7 @@ function cubicBezier(t, p0, p1, p2, p3) {
 }
 
 export const PlinkoTable = forwardRef(function PlinkoTable(
-  { rows = 10, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
+  { rows = 14, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
   ref
 ) {
   const canvasRef = useRef(null);
@@ -99,7 +99,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const onBallFinishRef = useRef(onBallFinish);
   onBallFinishRef.current = onBallFinish;
 
-  const currentMults = PLINKO_MULTIPLIERS[risk]?.[rows] || PLINKO_MULTIPLIERS.medium[10];
+  const currentMults = PLINKO_MULTIPLIERS[risk]?.[rows] || PLINKO_MULTIPLIERS.medium[14];
   const currentMultsRef = useRef(currentMults);
   currentMultsRef.current = currentMults;
 
@@ -576,9 +576,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       {/* Row & Risk Selection Controls */}
       <div className="plinko-config-panel">
         <div className="plinko-config-group">
-          <span className="config-label">Liczba rzędów (8–16):</span>
+          <span className="config-label">Liczba rzędów:</span>
           <div className="config-pill-row">
-            {[8, 9, 10, 11, 12, 13, 14, 15, 16].map((r) => (
+            {[14, 16].map((r) => (
               <button
                 key={r}
                 type="button"

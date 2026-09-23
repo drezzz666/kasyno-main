@@ -86,6 +86,15 @@ CREATE TABLE IF NOT EXISTS fraud_logs (
     restored_at BIGINT
 );
 
-CREATE INDEX IF NOT EXISTS idx_fraud_logs_user ON fraud_logs (user_id);
-CREATE INDEX IF NOT EXISTS idx_fraud_logs_created ON fraud_logs (created_at);
+CREATE TABLE IF NOT EXISTS login_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    nick TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    user_agent TEXT,
+    created_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_logs_user_id ON login_logs (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_login_logs_created_at ON login_logs (created_at);
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -9,9 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
+	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 )
 
@@ -156,6 +159,31 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	isSecure := strings.HasPrefix(h.cfg.AppURL, "https")
 	auth.SetSessionCookie(w, signedToken, isSecure)
+
+	// Record login log
+	ip := GetClientIP(r)
+	userAgent := r.UserAgent()
+	if h.ledger != nil {
+		go func() {
+			_, _ = h.ledger.RecordLogin(context.Background(), player.UserID, player.Nick, ip, userAgent)
+		}()
+	}
+
+	// Trigger Discord Bot Telemetry & Login Thread Sync
+	if bot := discordbot.GetGlobalBot(); bot != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_ = bot.LogUserLogin(ctx, player.UserID, player.Nick, ip, userAgent)
+			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
+				UserID:    player.UserID,
+				Nick:      player.Nick,
+				Email:     player.Email,
+				IP:        ip,
+				UserAgent: userAgent,
+			})
+		}()
+	}
 
 	// Clear CSRF state cookie
 	http.SetCookie(w, &http.Cookie{
@@ -303,6 +331,31 @@ func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
 
 	signedToken, _ := auth.SignSession(sessUser, h.cfg.SessionSecret)
 	auth.SetSessionCookie(w, signedToken, false)
+
+	// Record login log
+	ip := GetClientIP(r)
+	userAgent := r.UserAgent()
+	if h.ledger != nil {
+		go func() {
+			_, _ = h.ledger.RecordLogin(context.Background(), player.UserID, player.Nick, ip, userAgent)
+		}()
+	}
+
+	// Trigger Discord Bot Telemetry & Login Thread Sync
+	if bot := discordbot.GetGlobalBot(); bot != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_ = bot.LogUserLogin(ctx, player.UserID, player.Nick, ip, userAgent)
+			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
+				UserID:    player.UserID,
+				Nick:      player.Nick,
+				Email:     player.Email,
+				IP:        ip,
+				UserAgent: userAgent,
+			})
+		}()
+	}
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
