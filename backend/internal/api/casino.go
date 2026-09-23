@@ -307,36 +307,40 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge
-	proofHeader := r.Header.Get("X-Browser-Proof")
-	if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
-		if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
-			h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
-		}
-		JSON(w, http.StatusForbidden, map[string]interface{}{
-			"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
-			"code":      "REQ_FAILED",
-			"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
-		})
-		return
-	}
-
-	// 1. Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
-	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
-
-	// Parse action and game early so we can log it precisely in rate limiter
-	var bodyPeek map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&bodyPeek); err != nil {
+	// 1. Decode request body early
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowy format JSON")
 		return
 	}
-	actionPeek, _ := bodyPeek["action"].(string)
-	if actionPeek == "" {
-		actionPeek = "play"
+	action, _ := body["action"].(string)
+	if action == "" {
+		action = "play"
 	}
-	gamePeek, _ := bodyPeek["game"].(string)
+	game, _ := body["game"].(string)
 
-	if !h.rateLimiter.AllowGameAction(p.UserID, actionPeek, gamePeek) {
+	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge for game actions
+	// Captcha actions (solve_captcha, claim_captcha, get_captcha) are self-verifying human challenges with HMAC signatures
+	isCaptchaAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha"
+	if !isCaptchaAction {
+		proofHeader := r.Header.Get("X-Browser-Proof")
+		if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
+			if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
+				h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
+			}
+			JSON(w, http.StatusForbidden, map[string]interface{}{
+				"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
+				"code":      "REQ_FAILED",
+				"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+			})
+			return
+		}
+	}
+
+	// Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+
+	if !h.rateLimiter.AllowGameAction(p.UserID, action, game) {
 		JSONError(w, http.StatusTooManyRequests, "Wystąpił błąd podczas przetwarzania żądania.")
 		return
 	}
@@ -350,10 +354,6 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	if err == nil && freshPlayer != nil {
 		p = freshPlayer
 	}
-
-	// bodyPeek is already decoded above; reuse it as body
-	body := bodyPeek
-	action := actionPeek
 
 	switch action {
 	case "bonus":

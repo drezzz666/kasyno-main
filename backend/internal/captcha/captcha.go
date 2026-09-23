@@ -41,14 +41,22 @@ func init() {
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
 		for range ticker.C {
-			store.mu.Lock()
 			now := time.Now().Unix()
+			store.mu.Lock()
 			for id, exp := range store.items {
 				if exp < now {
 					delete(store.items, id)
 				}
 			}
 			store.mu.Unlock()
+
+			cooldowns.mu.Lock()
+			for uid, last := range cooldowns.lastClaim {
+				if now-last > 300 {
+					delete(cooldowns.lastClaim, uid)
+				}
+			}
+			cooldowns.mu.Unlock()
 		}
 	}()
 }
@@ -362,13 +370,13 @@ func Generate(userID, secret string) *Challenge {
 func Verify(userID, secret, id, userProvidedAnswer, expectedSig string, issuedAt int64) error {
 	now := time.Now().Unix()
 
-	// 1. Expiration check (3 minutes)
-	if now-issuedAt > 180 || issuedAt > now+30 {
+	// 1. Expiration check (5 minutes)
+	if now-issuedAt > 300 || issuedAt > now+60 {
 		return ErrCaptchaExpired
 	}
 
 	// 2. Anti-Replay check
-	if !store.MarkConsumed(id, issuedAt+240) {
+	if !store.MarkConsumed(id, issuedAt+360) {
 		return ErrCaptchaReplayed
 	}
 
