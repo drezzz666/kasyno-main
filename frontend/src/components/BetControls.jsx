@@ -23,13 +23,14 @@ const CHIP_PRESETS = [
   { val: 1000, label: "+1K", color: "from-rose-600 to-red-500", border: "border-rose-400/40" },
 ];
 
-export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo }) {
-  const safeMax = Math.max(1, maxBalance);
+export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
+  const userBalance = typeof maxBalance === "number" && !isNaN(maxBalance) ? Math.max(0, maxBalance) : 0;
+  const safeMax = userBalance > 0 ? userBalance : 1000000;
 
   const handleBetChange = (raw) => {
     const val = Number(raw);
     if (!isNaN(val)) {
-      setBet(Math.max(1, Math.min(safeMax, val)));
+      setBet(Math.max(1, userBalance > 0 ? Math.min(userBalance, val) : val));
     }
   };
 
@@ -52,8 +53,8 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
               <span>Turbo</span>
             </button>
           )}
-          <span>Max:</span>
-          <strong className="text-amber-400">{money(safeMax)}</strong>
+          <span>Saldo:</span>
+          <strong className="text-amber-400">{money(userBalance)}</strong>
         </div>
       </div>
 
@@ -74,7 +75,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
             type="button"
             tabIndex={-1}
             className="casino-bet-mod-btn"
-            onClick={() => setBet(Math.min(safeMax, bet * 2))}
+            onClick={() => setBet(userBalance > 0 ? Math.min(userBalance, bet * 2) : bet * 2)}
             title="Podwój stawkę"
             aria-label="Podwój stawkę"
           >
@@ -86,7 +87,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
           <input
             type="number"
             min="1"
-            max={safeMax}
+            max={userBalance > 0 ? userBalance : undefined}
             value={bet}
             onChange={(e) => handleBetChange(e.target.value)}
             className="casino-bet-input"
@@ -110,9 +111,9 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
             type="button"
             tabIndex={-1}
             className="casino-bet-mod-btn max-btn"
-            onClick={() => setBet(safeMax)}
+            onClick={() => setBet(userBalance > 0 ? userBalance : 10)}
             title="Maksymalna stawka"
-            aria-label={`Ustaw maksymalną stawkę ${money(safeMax)} $FGT`}
+            aria-label={`Ustaw maksymalną stawkę ${money(userBalance)} $FGT`}
           >
             MAX
           </button>
@@ -127,7 +128,7 @@ export function BetControl({ bet, setBet, maxBalance = 1000000, turbo, setTurbo 
             type="button"
             tabIndex={-1}
             className={`casino-chip-item bg-gradient-to-b ${chip.color} ${chip.border}`}
-            onClick={() => setBet(Math.min(safeMax, bet + chip.val))}
+            onClick={() => setBet(userBalance > 0 ? Math.min(userBalance, bet + chip.val) : bet + chip.val)}
             aria-label={`Dodaj ${chip.val} $FGT do stawki`}
           >
             <span className="casino-chip-inner">
