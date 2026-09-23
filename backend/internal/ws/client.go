@@ -99,25 +99,11 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			_ = c.Conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub closed the channel
 				_ = c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			_, _ = w.Write(message)
-
-			// Add queued messages to the current websocket frame
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				_, _ = w.Write([]byte{'\n'})
-				_, _ = w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
+			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
 

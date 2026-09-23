@@ -166,6 +166,7 @@ func (r *Reporter) shouldThrottle(fingerprint string) bool {
 
 func (r *Reporter) sendAsyncToURL(webhookURL string, payload DiscordWebhookPayload) {
 	if r == nil || webhookURL == "" {
+		log.Printf("[Reporter] Webhook not sent: DISCORD webhook URL is empty or unconfigured")
 		return
 	}
 
@@ -200,12 +201,15 @@ func (r *Reporter) sendAsyncToURL(webhookURL string, payload DiscordWebhookPaylo
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			log.Printf("[Reporter] Discord webhook returned status %d", resp.StatusCode)
+		} else {
+			log.Printf("[Reporter] Discord webhook successfully delivered (status %d)", resp.StatusCode)
 		}
 	}()
 }
 
 func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
 	if !r.HasErrorWebhook() {
+		log.Printf("[Reporter] Webhook not sent: No DISCORD_ERROR_WEBHOOK_URL set")
 		return
 	}
 	r.sendAsyncToURL(r.errorWebhookURL, payload)
@@ -220,15 +224,7 @@ func isInsufficientFundsText(text string) bool {
 		strings.Contains(lower, "niewystarczające środki") ||
 		strings.Contains(lower, "brak środków") ||
 		strings.Contains(lower, "brak aktywnej gry") ||
-		strings.Contains(lower, "masz już aktywną grę") ||
-		strings.Contains(lower, "nieprawidłowy kod captcha") ||
-		strings.Contains(lower, "captcha wygasła") ||
-		strings.Contains(lower, "kod captcha został już wykorzystany") ||
-		strings.Contains(lower, "zbyt szybkie rozwiązywanie captcha") ||
-		strings.Contains(lower, "niepoprawna odpowiedź") ||
-		strings.Contains(lower, "brak wymaganych parametrów captcha") ||
-		strings.Contains(lower, "solve_captcha") ||
-		strings.Contains(lower, "captcha")
+		strings.Contains(lower, "masz już aktywną grę")
 }
 
 func isRateLimitText(errType, message, context string) bool {

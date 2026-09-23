@@ -1701,6 +1701,11 @@ func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
 		}
 		h.PostAction(rec, httpReq)
 
+	case "get_challenge":
+		challenge := anticheat.GenerateBrowserChallenge(player.UserID, h.sessionSecret)
+		client.SendResponse(req.ID, http.StatusOK, challenge)
+		return
+
 	default:
 		client.SendResponse(req.ID, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Nieznany typ akcji: %s", req.Type)})
 		return

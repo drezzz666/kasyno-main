@@ -1,3 +1,5 @@
+import { wsClient } from "./wsClient.js";
+
 /**
  * Hidden Anti-Bot & Anti-Replay Browser Challenge Solver
  * Computes single-use cryptographic Proof-of-Work tokens for every request.
@@ -141,9 +143,21 @@ export async function ensureChallengeBuffer() {
   if (isRefilling || proofQueue.length >= 3) return;
   isRefilling = true;
   try {
-    const res = await fetch("/api/casino/challenge", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
+    let data;
+    if (wsClient && wsClient.isReady()) {
+      try {
+        data = await wsClient.sendRequest("get_challenge", {}, "", 4000);
+      } catch {
+        data = null;
+      }
+    }
+    if (!data) {
+      const res = await fetch("/api/casino/challenge", { cache: "no-store" });
+      if (res.ok) {
+        data = await res.json();
+      }
+    }
+    if (data) {
       queueChallenge(data);
     }
   } catch {
@@ -177,11 +191,23 @@ export async function getBrowserProof() {
   }
 
   // Queue is empty or had stale proofs: fetch a fresh challenge directly
-  const res = await fetch("/api/casino/challenge", { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error("Nie udało się pobrać unikalnego wyzwania antybotowego");
+  let challengeData;
+  if (wsClient && wsClient.isReady()) {
+    try {
+      challengeData = await wsClient.sendRequest("get_challenge", {}, "", 5000);
+    } catch {
+      challengeData = null;
+    }
   }
-  const challengeData = await res.json();
+
+  if (!challengeData) {
+    const res = await fetch("/api/casino/challenge", { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error("Nie udało się pobrać unikalnego wyzwania antybotowego");
+    }
+    challengeData = await res.json();
+  }
+
   const solved = solveChallenge(challengeData);
   setTimeout(() => void ensureChallengeBuffer(), 50);
   return solved;

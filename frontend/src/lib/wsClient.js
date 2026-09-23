@@ -28,32 +28,19 @@ class WSClient {
       };
 
       this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          
-          // 1. Handle RPC responses with matching request ID
-          if (data.type === "response" && data.id) {
-            const pending = this.pendingRequests.get(data.id);
-            if (pending) {
-              this.pendingRequests.delete(data.id);
-              clearTimeout(pending.timer);
-              if (data.status >= 200 && data.status < 300) {
-                pending.resolve(data.data);
-              } else {
-                const errorMsg = data.data?.error || `Błąd serwera (HTTP ${data.status})`;
-                const err = new Error(errorMsg);
-                err.status = data.status;
-                err.data = data.data;
-                pending.reject(err);
-              }
-              return;
-            }
-          }
+        if (!event.data) return;
+        const raw = typeof event.data === "string" ? event.data : "";
+        const lines = raw.includes("\n") ? raw.split("\n") : [raw];
 
-          // 2. Handle Server-to-Client broadcast and event pushes
-          this.notifyListeners(data);
-        } catch {
-          // Ignore non-JSON or malformed messages
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const data = JSON.parse(trimmed);
+            this.handleIncomingMessage(data);
+          } catch {
+            // Ignore non-JSON or malformed lines
+          }
         }
       };
 
@@ -84,6 +71,32 @@ class WSClient {
         }, 4000);
       }
     }
+  }
+
+  handleIncomingMessage(data) {
+    if (!data) return;
+
+    // 1. Handle RPC responses with matching request ID
+    if (data.type === "response" && data.id) {
+      const pending = this.pendingRequests.get(data.id);
+      if (pending) {
+        this.pendingRequests.delete(data.id);
+        clearTimeout(pending.timer);
+        if (data.status >= 200 && data.status < 300) {
+          pending.resolve(data.data);
+        } else {
+          const errorMsg = data.data?.error || `Błąd serwera (HTTP ${data.status})`;
+          const err = new Error(errorMsg);
+          err.status = data.status;
+          err.data = data.data;
+          pending.reject(err);
+        }
+        return;
+      }
+    }
+
+    // 2. Handle Server-to-Client broadcast and event pushes
+    this.notifyListeners(data);
   }
 
   isReady() {
