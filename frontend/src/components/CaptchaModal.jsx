@@ -18,9 +18,11 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
   const currentObjectUrlRef = useRef(null);
 
   // Fetch server-generated pure binary PNG captcha image (0% base64 payload overhead)
-  const fetchCaptcha = async () => {
+  const fetchCaptcha = async (preserveError = false) => {
     setLoading(true);
-    setErrorMsg("");
+    if (!preserveError) {
+      setErrorMsg("");
+    }
     try {
       const res = await fetch("/api/casino/captcha", { cache: "no-store" });
       if (!res.ok) {
@@ -62,7 +64,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
 
   useEffect(() => {
     if (isOpen) {
-      fetchCaptcha();
+      fetchCaptcha(false);
       setTimeout(() => inputRef.current?.focus(), 150);
     } else {
       setSuccessAnim(false);
@@ -117,17 +119,29 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
         toast.success(`+${res.amount || 25} $FGT za rozwiązanie Captcha!`);
 
         setTimeout(() => setSuccessAnim(false), 1200);
-        fetchCaptcha();
+        await fetchCaptcha(false);
       } else {
         sounds.playLoss();
-        setErrorMsg(res?.error || "Niepoprawna odpowiedź. Spróbuj ponownie.");
-        fetchCaptcha();
+        const msg = res?.error || "Niepoprawny kod. Pobrano nowy obrazek.";
+        setErrorMsg(msg);
+        await fetchCaptcha(true);
       }
     } catch (err) {
-      setErrorMsg(err.message || "Błąd weryfikacji captcha");
+      sounds.playLoss();
+      let msg = err.message || "Błąd weryfikacji captcha";
+      const lower = msg.toLowerCase();
+      if (lower.includes("nieprawidłowy kod") || lower.includes("niepoprawn")) {
+        msg = "Niepoprawny kod captcha. Pobrano nowy obrazek.";
+      } else if (lower.includes("został już wykorzystany")) {
+        msg = "Kod został już wykorzystany. Pobrano nowy obrazek.";
+      } else if (lower.includes("wygasła")) {
+        msg = "Kod wygasł. Pobrano nowy obrazek.";
+      }
+      setErrorMsg(msg);
+      await fetchCaptcha(true);
     } finally {
       setLoading(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 150);
     }
   };
 
@@ -181,7 +195,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
 
           <button
             type="button"
-            onClick={fetchCaptcha}
+            onClick={() => fetchCaptcha(false)}
             disabled={loading}
             className="captcha-refresh-btn"
             title="Wylosuj nowy obraz captcha"
@@ -203,7 +217,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
 
         {/* Form & Input */}
         <form onSubmit={handleSubmit} className="captcha-form">
-          <div className="captcha-input-group">
+          <div className="captcha-input-wrap">
             <input
               ref={inputRef}
               type="text"
@@ -211,41 +225,48 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
               autoComplete="off"
               autoCorrect="off"
               spellCheck="false"
-              placeholder={captchaData?.type === "math" ? "Wpisz wynik" : "Wpisz kod"}
+              placeholder={captchaData?.type === "math" ? "Wpisz wynik" : "Wpisz kod z obrazka"}
               value={inputVal}
               disabled={loading}
-              onChange={(e) => setInputVal(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setInputVal(e.target.value.toUpperCase());
+                if (errorMsg) setErrorMsg("");
+              }}
               className={`captcha-text-input ${errorMsg ? "input-error" : ""}`}
             />
-            <button
-              type="submit"
-              disabled={loading || !inputVal.trim()}
-              className="captcha-submit-btn"
-            >
-              {loading ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <>
-                  <Sparkles size={15} />
-                  <span>Odbierz 25 $FGT</span>
-                </>
-              )}
-            </button>
           </div>
 
           {errorMsg && (
             <div className="captcha-status-msg error">
-              <AlertCircle size={14} className="shrink-0" />
+              <AlertCircle size={15} className="shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successAnim && (
             <div className="captcha-status-msg success">
-              <CheckCircle size={14} className="shrink-0" />
+              <CheckCircle size={15} className="shrink-0" />
               <span>Poprawnie! Przyznano +25 $FGT do salda.</span>
             </div>
           )}
+
+          <button
+            type="submit"
+            disabled={loading || !inputVal.trim()}
+            className="captcha-submit-btn"
+          >
+            {loading ? (
+              <>
+                <RefreshCw size={16} className="animate-spin" />
+                <span>Weryfikacja...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={16} />
+                <span>Odbierz 25 $FGT</span>
+              </>
+            )}
+          </button>
         </form>
 
         {/* Session Stats */}
