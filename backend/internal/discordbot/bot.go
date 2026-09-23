@@ -62,12 +62,6 @@ func (b *Bot) handleGuildCreate(s *discordgo.Session, g *discordgo.GuildCreate) 
 	if b.cfg.DiscordGuildID == "" && s.State != nil && s.State.User != nil {
 		_, _ = s.ApplicationCommandBulkOverwrite(s.State.User.ID, g.ID, []*discordgo.ApplicationCommand{})
 	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		_, _ = b.EnsureTelemetryCategory(g.ID)
-		_, _ = b.SyncAllUsers(ctx)
-	}()
 }
 
 func (b *Bot) Start() error {

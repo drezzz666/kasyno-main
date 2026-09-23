@@ -39,8 +39,11 @@ type UserTelemetryReport struct {
 }
 
 var (
-	globalBot   *Bot
-	globalBotMu sync.RWMutex
+	globalBot          *Bot
+	globalBotMu        sync.RWMutex
+	telemetryChannelMu sync.Mutex
+	userSyncDebounce   = make(map[string]time.Time)
+	userSyncDebounceMu sync.Mutex
 )
 
 // SetGlobalBot sets the global bot singleton instance.
@@ -93,13 +96,19 @@ func (b *Bot) EnsureTelemetryCategory(guildID string) (string, error) {
 		return "", fmt.Errorf("błąd pobierania kanałów serwera: %w", err)
 	}
 
+	var foundCategories []string
 	for _, ch := range channels {
 		if ch.Type == discordgo.ChannelTypeGuildCategory {
 			cleanName := strings.ToLower(strings.TrimSpace(ch.Name))
-			if cleanName == "telemetria" || strings.Contains(cleanName, "telemetria") {
-				return ch.ID, nil
+			if strings.Contains(cleanName, "telemetria") {
+				foundCategories = append(foundCategories, ch.ID)
 			}
 		}
+	}
+
+	if len(foundCategories) > 0 {
+		// Return first category found
+		return foundCategories[0], nil
 	}
 
 	// Create category if it doesn't exist
@@ -148,7 +157,7 @@ func sanitizeChannelName(nick, userID string) string {
 	return clean
 }
 
-// getOrCreateUserTelemetryChannel finds or creates a user channel inside the Telemetria category.
+// getOrCreateUserTelemetryChannel finds, deduplicates, or creates a user channel inside the Telemetria category.
 func (b *Bot) getOrCreateUserTelemetryChannel(guildID, categoryID, nick, userID string) (string, error) {
 	targetName := sanitizeChannelName(nick, userID)
 
@@ -157,27 +166,71 @@ func (b *Bot) getOrCreateUserTelemetryChannel(guildID, categoryID, nick, userID 
 		return "", err
 	}
 
-	// Search existing channels in category
+	var matchingChannels []*discordgo.Channel
+
+	// 1. Search for existing channels in the guild matching this user
 	for _, ch := range channels {
-		if ch.ParentID == categoryID && ch.Type == discordgo.ChannelTypeGuildText {
-			if strings.EqualFold(ch.Name, targetName) {
-				return ch.ID, nil
-			}
-			if userID != "" && strings.Contains(ch.Topic, userID) {
-				// Channel exists for this casino player - if nick changed, keep channel name in sync
-				if !strings.EqualFold(ch.Name, targetName) {
-					_, _ = b.session.ChannelEdit(ch.ID, &discordgo.ChannelEdit{
-						Name:  targetName,
-						Topic: fmt.Sprintf("Telemetria i dane gracza: %s | ID: %s", nick, userID),
-					})
-				}
-				return ch.ID, nil
-			}
+		if ch.Type != discordgo.ChannelTypeGuildText {
+			continue
+		}
+
+		matched := false
+		// Match by User ID in topic (most reliable)
+		if userID != "" && strings.Contains(ch.Topic, userID) {
+			matched = true
+		}
+		// Match by exact channel name inside telemetry category
+		if !matched && ch.ParentID == categoryID && strings.EqualFold(ch.Name, targetName) {
+			matched = true
+		}
+		// Match by exact channel name across guild if topic references telemetry
+		if !matched && strings.EqualFold(ch.Name, targetName) && strings.Contains(strings.ToLower(ch.Topic), "telemetria") {
+			matched = true
+		}
+
+		if matched {
+			matchingChannels = append(matchingChannels, ch)
 		}
 	}
 
-	// Create text channel in category
 	topic := fmt.Sprintf("Telemetria i dane gracza: %s | ID: %s", nick, userID)
+
+	// 2. If matching channel(s) exist:
+	if len(matchingChannels) > 0 {
+		primary := matchingChannels[0]
+
+		// Automatically prune and DELETE any extra duplicate channels for this user
+		for _, dup := range matchingChannels[1:] {
+			log.Printf("🧹 [Discord Bot] Usuwanie zduplikowanego kanału telemetrii #%s (ID: %s) dla gracza %s", dup.Name, dup.ID, nick)
+			_, delErr := b.session.ChannelDelete(dup.ID)
+			if delErr != nil {
+				log.Printf("⚠️ [Discord Bot] Nie udało się usunąć zduplikowanego kanału %s: %v", dup.ID, delErr)
+			}
+		}
+
+		// Ensure primary channel is in the right category, and has updated name & topic
+		needsEdit := false
+		var edit discordgo.ChannelEdit
+		if primary.ParentID != categoryID {
+			edit.ParentID = categoryID
+			needsEdit = true
+		}
+		if !strings.EqualFold(primary.Name, targetName) {
+			edit.Name = targetName
+			needsEdit = true
+		}
+		if primary.Topic != topic {
+			edit.Topic = topic
+			needsEdit = true
+		}
+		if needsEdit {
+			_, _ = b.session.ChannelEdit(primary.ID, &edit)
+		}
+
+		return primary.ID, nil
+	}
+
+	// 3. Create single text channel in category
 	ch, err := b.session.GuildChannelCreateComplex(guildID, discordgo.GuildChannelCreateData{
 		Name:     targetName,
 		Type:     discordgo.ChannelTypeGuildText,
@@ -209,6 +262,16 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		return nil
 	}
 
+	// Debounce rapid repeated syncs per user (minimum 4 seconds apart)
+	userSyncDebounceMu.Lock()
+	lastSync, exists := userSyncDebounce[identifier]
+	if exists && time.Since(lastSync) < 4*time.Second {
+		userSyncDebounceMu.Unlock()
+		return nil
+	}
+	userSyncDebounce[identifier] = time.Now()
+	userSyncDebounceMu.Unlock()
+
 	var player *ledger.Player
 	var stats *ledger.PlayerStats
 	if b.ledger != nil {
@@ -236,6 +299,10 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 	if len(guildIDs) == 0 {
 		return fmt.Errorf("brak dostępnych serwerów discord dla bota")
 	}
+
+	// Acquire channel management mutex to serialize Discord channel lookups and creations
+	telemetryChannelMu.Lock()
+	defer telemetryChannelMu.Unlock()
 
 	for _, guildID := range guildIDs {
 		catID, err := b.EnsureTelemetryCategory(guildID)
