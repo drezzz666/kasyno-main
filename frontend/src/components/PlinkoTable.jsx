@@ -92,6 +92,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   ref
 ) {
   const canvasRef = useRef(null);
+  const viewportRef = useRef(null);
   const activeBallsRef = useRef([]);
   const pinHitsRef = useRef(new Map());
   const animFrameIdRef = useRef(null);
@@ -106,6 +107,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const [bouncedBin, setBouncedBin] = useState(null);
   const [activeBallCount, setActiveBallCount] = useState(0);
   const [recentHits, setRecentHits] = useState([]);
+  // Tracks the rendered canvas rect so bins overlay aligns precisely
+  const [canvasRect, setCanvasRect] = useState(null);
 
   const binColors = getBinColors(currentMults.length);
 
@@ -509,11 +512,45 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     };
   }, [rows]);
 
+  // ResizeObserver: track actual rendered canvas size to align bins
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport) return;
+
+    const update = () => {
+      const vRect = viewport.getBoundingClientRect();
+      const cRect = canvas.getBoundingClientRect();
+      // Position of canvas bottom relative to viewport bottom
+      const bottomOffset = vRect.bottom - cRect.bottom;
+      const scale = cRect.width / WIDTH; // CSS scale factor
+      setCanvasRect({ scale, bottomOffset, canvasWidth: cRect.width });
+    };
+
+    const ro = new ResizeObserver(update);
+    ro.observe(canvas);
+    ro.observe(viewport);
+    update();
+    return () => ro.disconnect();
+  }, [rows]);
+
   // Width ratio of bins to perfectly align with bottom pegs
   const lastRowPinCount = 3 + rows - 1;
   const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
   const totalBinsWidth = (rows + 1) * pinDistanceX;
   const binsWidthPercent = (totalBinsWidth / WIDTH) * 100;
+
+  // Compute absolute bins position in pixels from canvas rect
+  const binsStyle = canvasRect
+    ? {
+        // bins in canvas coords: bottom of canvas is HEIGHT, bin top = HEIGHT - PADDING_BOTTOM
+        bottom: canvasRect.bottomOffset,
+        height: Math.max(18, PADDING_BOTTOM * canvasRect.scale),
+        width: `${binsWidthPercent}%`,
+        left: "50%",
+        transform: "translateX(-50%)",
+      }
+    : { width: `${binsWidthPercent}%` };
 
   return (
     <div className="plinko-stake-wrapper">
@@ -538,7 +575,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       )}
 
       {/* Plinko Physics Canvas */}
-      <div className="plinko-viewport">
+      <div className="plinko-viewport" ref={viewportRef}>
         <canvas
           ref={canvasRef}
           width={WIDTH}
@@ -549,7 +586,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         {/* Multiplier Bins Row */}
         <div
           className="plinko-bins-container"
-          style={{ width: `${binsWidthPercent}%` }}
+          style={binsStyle}
         >
           {currentMults.map((mult, idx) => {
             const isBounced = bouncedBin === idx;
