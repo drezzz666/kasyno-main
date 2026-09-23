@@ -390,9 +390,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           // If reached final multiplier bin
           if (seg.isFinal || b.curSegIndex >= b.segments.length) {
-            const mults = currentMultsRef.current;
-            const landedSlot = Math.min(Math.max(0, b.slot), mults.length - 1);
-            const finalMultiplier = mults[landedSlot] ?? b.data.multiplier;
+            const landedSlot = b.data?.slot ?? b.slot;
+            const finalMultiplier = b.data?.multiplier ?? (currentMultsRef.current[landedSlot] || 1.0);
 
             setBouncedBin(landedSlot);
             setTimeout(() => setBouncedBin(null), 300);
@@ -622,9 +621,11 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
                 <button
                   key={r}
                   type="button"
+                  disabled={activeBallCount > 0}
                   aria-pressed={isSelected}
                   className={`config-pill-btn ${isSelected ? "active" : ""}`}
                   onClick={() => setRows && setRows(r)}
+                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
                 >
                   {r} Rows
                 </button>
@@ -646,9 +647,11 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
                 <button
                   key={rk.id}
                   type="button"
+                  disabled={activeBallCount > 0}
                   aria-pressed={isSelected}
                   className={`config-pill-btn ${isSelected ? "active" : ""}`}
                   onClick={() => setRisk && setRisk(rk.id)}
+                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
                 >
                   {rk.label}
                 </button>

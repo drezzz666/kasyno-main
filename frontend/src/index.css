@@ -2755,24 +2755,26 @@ body {
 /* --- 3. MINES TABLE (AUTHENTIC CRAFT) --- */
 .mines-craft-container {
   width: 100%;
-  max-width: 360px;
+  max-width: 420px;
   height: 100%;
   max-height: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.35rem;
+  align-items: center;
+  gap: clamp(0.4rem, 1.8vh, 0.75rem);
 }
 
 .mines-hud {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-around;
   background: #11141c;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  padding: 0.45rem 0.75rem;
 }
 
 .hud-metric {
@@ -2783,7 +2785,7 @@ body {
 }
 
 .hud-metric-label {
-  font-size: 0.58rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -2791,17 +2793,16 @@ body {
 }
 
 .hud-metric-value {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   font-weight: 800;
 }
 
 .mines-grid-surface {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: clamp(3px, 1vw, 5px);
-  width: auto;
-  max-width: 100%;
-  max-height: clamp(140px, 30vh, 250px);
+  gap: clamp(5px, 1.8vw, 9px);
+  width: 100%;
+  max-width: clamp(280px, 86vw, 380px);
   aspect-ratio: 1;
   margin: 0 auto;
 }
@@ -2809,9 +2810,9 @@ body {
 .mines-cell {
   aspect-ratio: 1;
   background: #1d222e;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
-  box-shadow: 0 3px 0 #12151e, inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: clamp(8px, 2.2vw, 12px);
+  box-shadow: 0 3px 0 #12151e, inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2823,7 +2824,7 @@ body {
 
 .mines-cell:hover:not(:disabled) {
   background: #272e3e;
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
   box-shadow: 0 4px 0 #12151e;
 }
@@ -2892,16 +2893,17 @@ body {
 }
 
 .tile-idle-bevel {
-  width: 10px;
-  height: 10px;
+  width: clamp(10px, 3vw, 16px);
+  height: clamp(10px, 3vw, 16px);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .tile-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid #10b981;
+  width: clamp(16px, 4vw, 24px);
+  height: clamp(16px, 4vw, 24px);
+  border: 2.5px solid #10b981;
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;

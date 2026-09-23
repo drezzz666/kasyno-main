@@ -36,6 +36,7 @@ type CasinoHandler struct {
 	hub           *ws.Hub
 	userLocks     *anticheat.UserLockManager
 	rateLimiter   *anticheat.RateLimiter
+	plinkoTracker *anticheat.PlinkoTracker
 	sessionSecret string
 	reporter      *reporter.Reporter
 	telemetry     *telemetry.Collector
@@ -51,6 +52,7 @@ func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporte
 		hub:           wsHub,
 		userLocks:     anticheat.NewUserLockManager(),
 		rateLimiter:   anticheat.NewRateLimiter(),
+		plinkoTracker: anticheat.NewPlinkoTracker(),
 		sessionSecret: sessionSecret,
 		reporter:      rep,
 		telemetry:     collector,
@@ -719,6 +721,10 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		risk, _ := body["risk"].(string)
 		if err := anticheat.ValidatePlinkoParams(rows, risk); err != nil {
 			JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if err := h.plinkoTracker.ValidateAndRecordDrop(p.UserID, rows, risk); err != nil {
+			JSONError(w, http.StatusConflict, err.Error())
 			return
 		}
 		var res *plinko.Result

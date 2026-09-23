@@ -442,6 +442,67 @@ func ValidateRPSChoice(choice string) error {
 	return nil
 }
 
+// ============================================================================
+// Plinko Active Drop & Configuration Lock Tracker
+// ============================================================================
+
+const PlinkoDropDuration = 2500 * time.Millisecond
+
+type PlinkoDropState struct {
+	LastDropTime time.Time
+	Rows         int
+	Risk         string
+}
+
+type PlinkoTracker struct {
+	mu     sync.Mutex
+	states map[string]*PlinkoDropState
+}
+
+func NewPlinkoTracker() *PlinkoTracker {
+	t := &PlinkoTracker{
+		states: make(map[string]*PlinkoDropState),
+	}
+	go t.cleanupLoop()
+	return t
+}
+
+// ValidateAndRecordDrop checks if a player is attempting to change rows or risk while previous balls are still in flight.
+// Returns an error if an in-flight configuration change is attempted.
+func (pt *PlinkoTracker) ValidateAndRecordDrop(userID string, rows int, risk string) error {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	now := time.Now()
+	state, exists := pt.states[userID]
+	if exists && now.Sub(state.LastDropTime) < PlinkoDropDuration {
+		if state.Rows != rows || state.Risk != risk {
+			return fmt.Errorf("%w: nie możesz zmienić liczby rzędów ani poziomu ryzyka podczas trwania zrzutu kulek (poczekaj na zakończenie lotu kulek)", ErrInvalidMove)
+		}
+	}
+
+	pt.states[userID] = &PlinkoDropState{
+		LastDropTime: now,
+		Rows:         rows,
+		Risk:         risk,
+	}
+	return nil
+}
+
+func (pt *PlinkoTracker) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		pt.mu.Lock()
+		cutoff := time.Now().Add(-10 * time.Minute)
+		for uid, s := range pt.states {
+			if s.LastDropTime.Before(cutoff) {
+				delete(pt.states, uid)
+			}
+		}
+		pt.mu.Unlock()
+	}
+}
+
 func ValidatePlinkoParams(rows int, risk string) error {
 	if rows != 14 && rows != 16 {
 		return fmt.Errorf("%w: plinko rows musi wynosić 14 lub 16", ErrInvalidGameParam)

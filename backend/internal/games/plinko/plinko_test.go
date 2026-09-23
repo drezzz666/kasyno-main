@@ -30,10 +30,10 @@ func TestPlayPlinkoAllCombinations(t *testing.T) {
 		}
 	}
 
-	// Test fallback to 14 for invalid rows
-	res, err := PlayPlinko(100, 8, "medium")
-	if err != nil || res.Payload.Rows != 14 {
-		t.Errorf("expected fallback to 14 rows, got %d (err: %v)", res.Payload.Rows, err)
+	// Test rejection for invalid rows
+	_, err := PlayPlinko(100, 8, "medium")
+	if err == nil {
+		t.Errorf("expected error for invalid rows (8), got nil")
 	}
 }
 

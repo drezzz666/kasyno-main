@@ -266,19 +266,19 @@ export function MinesTable({
             >
               {isRevealedGem ? (
                 <div className="tile-content flip-in">
-                  <GemIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <GemIcon className="w-full h-full p-1.5 sm:p-2" />
                 </div>
               ) : isExplodedMine ? (
                 <div className="tile-content explode-in">
-                  <MineIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <MineIcon className="w-full h-full p-1.5 sm:p-2" />
                 </div>
               ) : isUnrevealedSettledMine ? (
                 <div className="tile-content ghost-mine">
-                  <MineIcon className="w-5 h-5 sm:w-6 sm:h-6 opacity-60" />
+                  <MineIcon className="w-full h-full p-2 opacity-60" />
                 </div>
               ) : isUnrevealedSettledGem ? (
                 <div className="tile-content ghost-gem">
-                  <GemIcon className="w-5 h-5 sm:w-6 sm:h-6 opacity-35" />
+                  <GemIcon className="w-full h-full p-2 opacity-35" />
                 </div>
               ) : isPending ? (
                 <div className="tile-spinner" />
