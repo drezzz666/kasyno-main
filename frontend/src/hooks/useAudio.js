@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { sounds } from "../lib/sounds";
 
 export function useAudio() {
@@ -10,54 +10,82 @@ export function useAudio() {
     }
   });
   const [volume, setVolume] = useState(0.2);
-  const audioRef = useRef(null);
 
   useEffect(() => {
-    const audio = new Audio("/audio/bgm.m4a");
-    audio.loop = true;
-    audio.volume = muted ? 0 : volume;
-    audioRef.current = audio;
+    sounds.setMuted(muted);
+    sounds.cleanupMediaSession();
+
+    // Preload BGM buffer early
+    sounds.loadBgm().catch(() => {});
 
     const startAudio = () => {
-      if (!muted && volume > 0 && audio.paused) {
-        audio.play().catch(() => {});
+      sounds.getContext();
+      sounds.cleanupMediaSession();
+      if (!muted && volume > 0) {
+        sounds.playBgm(volume);
       }
     };
 
-    window.addEventListener("click", startAudio, { once: true });
-    window.addEventListener("keydown", startAudio, { once: true });
+    // User gesture unlock for browser autoplay policy
+    const events = ["click", "keydown", "touchstart", "pointerdown"];
+    events.forEach((evt) => {
+      window.addEventListener(evt, startAudio, { once: true });
+    });
 
     if (!muted && volume > 0) {
-      audio.play().catch(() => {});
+      sounds.playBgm(volume);
     }
 
+    // Handle tab visibility (pause when tab hidden / mobile app switched, resume when back)
+    const handleVisibility = () => {
+      if (document.hidden) {
+        sounds.pauseBgm();
+      } else {
+        if (!muted && volume > 0) {
+          sounds.resumeBgm();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
-      window.removeEventListener("click", startAudio);
-      window.removeEventListener("keydown", startAudio);
-      audio.pause();
-      audio.src = "";
+      events.forEach((evt) => {
+        window.removeEventListener(evt, startAudio);
+      });
+      document.removeEventListener("visibilitychange", handleVisibility);
+      sounds.stopBgm();
     };
   }, []);
 
   useEffect(() => {
     sounds.setMuted(muted);
-    if (!audioRef.current) return;
-    audioRef.current.volume = muted ? 0 : volume;
+    sounds.setBgmVolume(volume);
     if (muted || volume === 0) {
-      audioRef.current.pause();
+      sounds.pauseBgm();
     } else {
-      audioRef.current.play().catch(() => {});
+      sounds.resumeBgm();
     }
   }, [muted, volume]);
 
   const toggleMute = () => {
-    setMuted((prev) => !prev);
+    setMuted((prev) => {
+      const next = !prev;
+      sounds.setMuted(next);
+      return next;
+    });
   };
 
   const handleVolumeChange = (newVol) => {
     setVolume(newVol);
-    if (newVol > 0 && muted) setMuted(false);
-    if (newVol === 0 && !muted) setMuted(true);
+    sounds.setBgmVolume(newVol);
+    if (newVol > 0 && muted) {
+      setMuted(false);
+      sounds.setMuted(false);
+    }
+    if (newVol === 0 && !muted) {
+      setMuted(true);
+      sounds.setMuted(true);
+    }
   };
 
   return {
