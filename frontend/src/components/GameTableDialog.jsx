@@ -698,7 +698,6 @@ export function GameTableDialog({
                   <RouletteBets
                     selectedBets={rouletteSelected}
                     onToggleBet={handleRouletteToggle}
-                    onSelectAllNumbers={handleRouletteSelectAll}
                     onClearBets={handleRouletteClear}
                     winningNumber={hasSettledSpin ? rawWinningNumber : null}
                     disabled={spinning || rouletteWaiting}
@@ -848,13 +847,11 @@ export function GameTableDialog({
                 {game === "roulette" && (
                   <div className="roulette-bet-summary-box">
                     <div className="flex items-center justify-between text-xs text-slate-300">
-                      <span>Wybrane pola:</span>
+                      <span>Wybrane zakłady:</span>
                       <strong className="text-amber-400 font-mono font-bold">
                         {rouletteSelected.size === 0
                           ? "Brak (wybierz na stole)"
-                          : rouletteSelected.size === 37
-                          ? "Całe koło (37 pól)"
-                          : `${rouletteSelected.size} ${rouletteSelected.size === 1 ? "pole" : "pól"}`}
+                          : `${rouletteSelected.size} ${rouletteSelected.size === 1 ? "zakład" : "zakłady"}`}
                       </strong>
                     </div>
                     {rouletteSelected.size > 1 && (
