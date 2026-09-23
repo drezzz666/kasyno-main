@@ -1,7 +1,6 @@
 # -------------------------------------------------------------
 # 1. Builder Stage
 # -------------------------------------------------------------
-    celowo coś spierdole do testu kleuju
 FROM node:22-alpine AS builder
 
 WORKDIR /app
