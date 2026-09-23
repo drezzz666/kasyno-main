@@ -775,16 +775,12 @@ export function GameTableDialog({
               {game === "crash" && (
                 <CrashTable
                   bet={bet}
-                  autoCashout={crashAutoCashout}
-                  setAutoCashout={setCrashAutoCashout}
                   isPlaying={crashPlaying}
                   currentMult={crashMult}
                   isCrashed={crashCrashed}
                   isCashedOut={crashCashedOut}
-                  onCashout={handleManualCrashCashout}
                   graphPoints={crashGraphPoints}
                   last={last}
-                  loading={loading}
                 />
               )}
             </div>
@@ -792,7 +788,7 @@ export function GameTableDialog({
 
           {/* Right Side: Betting Controls & Play Action */}
           <div className="game-controls-column">
-            {!round && !blackjackPreview && (
+            {(!round || round.game === "crash") && !blackjackPreview && (
               <div className="table-controls-panel">
                 <BetControl
                   bet={bet}
@@ -801,6 +797,51 @@ export function GameTableDialog({
                   turbo={turbo}
                   setTurbo={setTurbo}
                 />
+
+                {game === "crash" && (
+                  <div className="crash-auto-cashout-box">
+                    <div className="crash-auto-header flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Target size={14} className="text-amber-400" />
+                        <span>Docelowy Cashout</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">Min: 0.80× | Max: 1,000×</span>
+                    </div>
+
+                    <div className="crash-auto-input-wrap">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0.8"
+                        max="1000"
+                        disabled={crashPlaying || loading}
+                        value={crashAutoCashout}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0.8 && v <= 1000) {
+                            setCrashAutoCashout(v);
+                          }
+                        }}
+                        className="crash-auto-input"
+                      />
+                      <span className="crash-auto-suffix">×</span>
+                    </div>
+
+                    <div className="crash-presets-row mt-2">
+                      {[1.1, 1.2, 1.5, 2.0, 3.0, 5.0].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          disabled={crashPlaying || loading}
+                          className={`crash-preset-btn ${crashAutoCashout === val ? "active" : ""}`}
+                          onClick={() => setCrashAutoCashout(val)}
+                        >
+                          {val}×
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {game === "roulette" && (
                   <div className="roulette-bet-summary-box">
