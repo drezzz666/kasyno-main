@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -214,3 +215,63 @@ func TestAnticheatBotSimulation(t *testing.T) {
 		t.Fatalf("expected user to be flagged as bot after repeated violations")
 	}
 }
+
+func TestCaptchaEndpointSecurityAndNoLeakage(t *testing.T) {
+	secret := "test-secret-key-12345"
+	user := auth.SessionUser{
+		UserID: "user_captcha_sec_1",
+		Email:  "captcha_sec@example.com",
+		Nick:   "CaptchaSecUser",
+	}
+
+	// 1. Unauthenticated request to /api/casino/captcha should fail
+	reqUnauth := httptest.NewRequest("GET", "/api/casino/captcha", nil)
+	recUnauth := httptest.NewRecorder()
+	handler := &CasinoHandler{
+		sessionSecret: secret,
+		rateLimiter:   anticheat.NewRateLimiter(),
+	}
+	handler.GetCaptcha(recUnauth, reqUnauth)
+	if recUnauth.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unauthenticated captcha get, got %d", recUnauth.Code)
+	}
+
+	// 2. Authenticated request
+	ctx := context.WithValue(context.Background(), auth.PlayerContextKey, &ledger.Player{
+		UserID: user.UserID,
+		Nick:   user.Nick,
+	})
+	reqAuth := httptest.NewRequest("GET", "/api/casino/captcha", nil).WithContext(ctx)
+	recAuth := httptest.NewRecorder()
+	handler.GetCaptcha(recAuth, reqAuth)
+	if recAuth.Code != http.StatusOK {
+		t.Fatalf("expected 200 for authenticated captcha get, got %d", recAuth.Code)
+	}
+
+	// 3. Verify Content-Type is image/png
+	if recAuth.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("expected image/png content type, got %s", recAuth.Header().Get("Content-Type"))
+	}
+
+	// 4. Verify X-Captcha-* security headers are present
+	captchaID := recAuth.Header().Get("X-Captcha-ID")
+	sig := recAuth.Header().Get("X-Captcha-Signature")
+	issuedAt := recAuth.Header().Get("X-Captcha-Issued-At")
+	if captchaID == "" || sig == "" || issuedAt == "" {
+		t.Fatalf("missing required X-Captcha headers: id=%q sig=%q issued_at=%q", captchaID, sig, issuedAt)
+	}
+
+	// 5. Verify that headers do NOT leak answers
+	for k, v := range recAuth.Header() {
+		if strings.Contains(strings.ToLower(k), "answer") || strings.Contains(strings.ToLower(k), "display") {
+			t.Fatalf("SECURITY VIOLATION: answer/display leaked in headers: %s=%v", k, v)
+		}
+	}
+
+	// 6. Verify binary PNG signature (\x89PNG\r\n\x1a\n) in response body
+	bodyBytes := recAuth.Body.Bytes()
+	if len(bodyBytes) < 8 || !strings.HasPrefix(string(bodyBytes[:8]), "\x89PNG\r\n\x1a\n") {
+		t.Fatalf("expected pure binary PNG stream in response body, length=%d", len(bodyBytes))
+	}
+}
+

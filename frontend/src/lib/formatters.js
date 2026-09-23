@@ -43,6 +43,12 @@ export function getHistoryDetails(item) {
       subtitle: item.result || "Doładowanie administratora",
     };
   }
+  if (item.type === "captcha_reward") {
+    return {
+      title: "Mini-gra Captcha",
+      subtitle: "Nagroda za rozwiązanie (+25 $FGT)",
+    };
+  }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");
   if (item.type === "round") {
     return {

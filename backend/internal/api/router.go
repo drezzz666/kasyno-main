@@ -72,7 +72,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		AllowedOrigins:   []string{"*", cfg.AppURL},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Cookie", "X-Browser-Proof"},
-		ExposedHeaders:   []string{"Link", "Set-Cookie"},
+		ExposedHeaders:   []string{"Link", "Set-Cookie", "X-Captcha-ID", "X-Captcha-Signature", "X-Captcha-Issued-At", "X-Captcha-Type"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -130,6 +130,8 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 		r.Route("/api/casino", func(r chi.Router) {
 			r.Get("/challenge", casinoHandler.GetChallenge)
+			r.Get("/captcha", casinoHandler.GetCaptcha)
+			r.Post("/captcha", casinoHandler.SolveCaptcha)
 			r.Get("/", casinoHandler.GetState)
 			r.Post("/", casinoHandler.PostAction)
 			r.Get("/history", casinoHandler.GetHistory)

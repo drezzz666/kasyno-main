@@ -458,6 +458,40 @@ func (s *Service) ClaimDailyBonus(ctx context.Context, userID string) (int64, in
 	return amount, newBal, streak, nil
 }
 
+// CreditCaptchaReward awards the mini-game reward (25 $FGT) to the player's balance
+func (s *Service) CreditCaptchaReward(ctx context.Context, userID string, amount int64) (int64, error) {
+	if amount <= 0 {
+		return 0, fmt.Errorf("nieprawidłowa kwota nagrody")
+	}
+	t := NowMs()
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	var curBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
+	newBal := curBal + amount
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+		VALUES ($1, $2, 'captcha_reward', $3, $4, $5)
+	`, uuid.NewString(), userID, amount, newBal, t)
+	if err != nil {
+		return 0, fmt.Errorf("failed to record captcha reward: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
+	return newBal, nil
+}
+
 type MissionDef struct {
 	ID          string
 	Title       string

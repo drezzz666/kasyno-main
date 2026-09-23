@@ -13,6 +13,7 @@ import (
 
 	"github.com/drezzz666/kasyno/backend/internal/anticheat"
 	"github.com/drezzz666/kasyno/backend/internal/auth"
+	"github.com/drezzz666/kasyno/backend/internal/captcha"
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
 	"github.com/drezzz666/kasyno/backend/internal/games/coinflip"
 	"github.com/drezzz666/kasyno/backend/internal/games/crash"
@@ -222,6 +223,59 @@ func (h *CasinoHandler) GetChallenge(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, challenge)
 }
 
+// GetCaptcha handles GET /api/casino/captcha
+func (h *CasinoHandler) GetCaptcha(w http.ResponseWriter, r *http.Request) {
+	p := auth.GetPlayerFromContext(r.Context())
+	if p == nil {
+		JSONError(w, http.StatusUnauthorized, "Wymagane logowanie")
+		return
+	}
+
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+	if !h.rateLimiter.AllowStateRead(p.UserID) {
+		JSONError(w, http.StatusTooManyRequests, "Zbyt częste pobieranie captcha.")
+		return
+	}
+
+	c := captcha.Generate(p.UserID, h.sessionSecret)
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Length", strconv.Itoa(len(c.Image)))
+	w.Header().Set("X-Captcha-ID", c.ID)
+	w.Header().Set("X-Captcha-Signature", c.Signature)
+	w.Header().Set("X-Captcha-Issued-At", strconv.FormatInt(c.IssuedAt, 10))
+	w.Header().Set("X-Captcha-Type", c.Type)
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(c.Image)
+}
+
+// SolveCaptcha handles POST /api/casino/captcha
+func (h *CasinoHandler) SolveCaptcha(w http.ResponseWriter, r *http.Request) {
+	p := auth.GetPlayerFromContext(r.Context())
+	if p == nil {
+		JSONError(w, http.StatusUnauthorized, "Wymagane logowanie")
+		return
+	}
+
+	unlock := h.userLocks.LockUser(p.UserID)
+	defer unlock()
+
+	freshPlayer, err := h.ledger.GetPlayer(r.Context(), p.UserID)
+	if err == nil && freshPlayer != nil {
+		p = freshPlayer
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		JSONError(w, http.StatusBadRequest, "Nieprawidłowe dane żądania")
+		return
+	}
+
+	h.handleSolveCaptcha(w, r, p, body)
+}
+
 // GetHistory handles GET /api/casino/history
 func (h *CasinoHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	p := auth.GetPlayerFromContext(r.Context())
@@ -306,6 +360,10 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleBonus(w, r, p)
 	case "claim_mission", "mission":
 		h.handleMission(w, r, p, body)
+	case "get_captcha":
+		h.handleGetCaptcha(w, r, p)
+	case "solve_captcha", "claim_captcha":
+		h.handleSolveCaptcha(w, r, p, body)
 	case "deal_blackjack":
 		h.handleDealBlackjack(w, r, p, body)
 	case "blackjack":
@@ -323,6 +381,62 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	default:
 		h.handleInstantGame(w, r, p, body)
 	}
+}
+
+func (h *CasinoHandler) handleGetCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
+	JSONError(w, http.StatusBadRequest, "Użyj GET /api/casino/captcha aby pobrać binarny obraz captcha.")
+}
+
+func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	id, _ := body["id"].(string)
+	answer, _ := body["answer"].(string)
+	sig, _ := body["signature"].(string)
+	var issuedAt int64
+	switch v := body["issued_at"].(type) {
+	case float64:
+		issuedAt = int64(v)
+	case int64:
+		issuedAt = v
+	case string:
+		issuedAt, _ = strconv.ParseInt(v, 10, 64)
+	}
+
+	if id == "" || answer == "" || sig == "" || issuedAt == 0 {
+		JSONError(w, http.StatusBadRequest, "Brak wymaganych parametrów captcha")
+		return
+	}
+
+	if err := captcha.Verify(p.UserID, h.sessionSecret, id, answer, sig, issuedAt); err != nil {
+		JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"ok":             false,
+			"error":          err.Error(),
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		})
+		return
+	}
+
+	const rewardAmount int64 = 25
+	newBal, err := h.ledger.CreditCaptchaReward(r.Context(), p.UserID, rewardAmount)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd przyznawania nagrody")
+		return
+	}
+
+	h.hub.SendToUser(p.UserID, ws.Event{
+		Type: ws.EventBalanceUpdate,
+		Payload: ws.BalanceUpdatePayload{
+			Balance: newBal,
+			XP:      p.XP,
+			Level:   p.Level,
+		},
+	})
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"amount":         rewardAmount,
+		"balance":        newBal,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
 }
 
 func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *ledger.Player) {

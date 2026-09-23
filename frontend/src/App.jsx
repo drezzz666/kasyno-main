@@ -29,6 +29,7 @@ import {
   FileText,
   Award,
   Star,
+  Gamepad2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
@@ -41,6 +42,7 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { WinCelebrationModal } from "./components/WinCelebrationModal";
+import { CaptchaModal } from "./components/CaptchaModal";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { sendClientTelemetry } from "./lib/telemetry";
@@ -80,6 +82,8 @@ export default function App() {
       return true;
     }
   });
+
+  const [captchaOpen, setCaptchaOpen] = useState(false);
 
   const handleAcceptTos = useCallback(() => {
     try {
@@ -600,6 +604,16 @@ export default function App() {
               <div className="player-summary-right">
                 <button
                   type="button"
+                  onClick={() => setCaptchaOpen(true)}
+                  className="captcha-faucet-btn"
+                  title="Rozwiąż Captcha i zdobądź +25 $FGT"
+                >
+                  <ShieldCheck size={14} className="text-emerald-400" />
+                  <span>Captcha (+25 $FGT)</span>
+                </button>
+
+                <button
+                  type="button"
                   disabled={!bonusAvailable || loading}
                   className={`streak-bonus-btn ${bonusAvailable ? "ready" : "done"}`}
                   onClick={async () => {
@@ -1061,11 +1075,12 @@ export default function App() {
         </button>
 
         <button
-          className={`mobile-tab-item ${activeTab === "tos" ? "active" : ""}`}
-          onClick={() => { setActiveTab("tos"); setActiveGame(null); }}
+          className="mobile-tab-item"
+          onClick={() => setCaptchaOpen(true)}
+          title="Minigry i darmowe żetony"
         >
-          <Scale size={19} />
-          <span>Zasady</span>
+          <Gamepad2 size={19} />
+          <span>Minigry</span>
         </button>
       </nav>
 
@@ -1136,6 +1151,14 @@ export default function App() {
           setTosModalOpen(false);
           setActiveTab("tos");
         }}
+      />
+
+      {/* Captcha Mini-Game Modal */}
+      <CaptchaModal
+        isOpen={captchaOpen}
+        onClose={() => setCaptchaOpen(false)}
+        syncBalance={syncBalance}
+        currentBalance={data?.player?.balance}
       />
 
       {/* Full-Screen Centered Reconnecting Blur Overlay */}
