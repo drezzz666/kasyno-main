@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Target } from "lucide-react";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
 import { BetControl } from "./BetControls";
