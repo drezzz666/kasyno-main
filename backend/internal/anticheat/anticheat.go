@@ -460,8 +460,8 @@ func ValidateLimboTarget(target float64) error {
 }
 
 func ValidateCrashTarget(target float64) error {
-	if target < 1.00 || target > 1000.0 {
-		return fmt.Errorf("%w: cel w Crash musi wynosić od 1.00x do 1,000x", ErrInvalidGameParam)
+	if target < 0.80 || target > 1000.0 {
+		return fmt.Errorf("%w: cel w Crash musi wynosić od 0.80x do 1,000x", ErrInvalidGameParam)
 	}
 	return nil
 }
