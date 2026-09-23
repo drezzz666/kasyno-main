@@ -253,28 +253,12 @@ export default function App() {
 
   useEffect(() => {
     void load();
-  }, [load]);
-
-  // Refresh on-demand when switching to dynamic tabs (missions, ranking, history)
-  useEffect(() => {
-    if (activeTab === "missions" || activeTab === "ranking" || activeTab === "history") {
-      void load(true);
-    }
-  }, [activeTab, load]);
-
-  // Refresh when returning to the tab
-  useEffect(() => {
-    const handleFocus = () => {
+    const interval = setInterval(() => {
       if (!document.hidden && !isAnimatingRef.current) {
         void load(true);
       }
-    };
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
+    }, 5000);
+    return () => clearInterval(interval);
   }, [load]);
 
   const loadMoreHistory = async () => {
@@ -1144,10 +1128,7 @@ export default function App() {
       {activeGame && (
         <GameTableDialog
           game={activeGame}
-          onClose={() => {
-            setActiveGame(null);
-            void load();
-          }}
+          onClose={() => setActiveGame(null)}
           data={data}
           bet={activeBet}
           setBet={setActiveBet}
