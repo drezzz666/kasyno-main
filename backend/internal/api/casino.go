@@ -1669,7 +1669,7 @@ func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
 		return
 	}
 	ctx = auth.WithPlayer(ctx, player)
-	ctx = auth.WithSession(ctx, &auth.Session{UserID: client.UserID, Nick: player.Nick})
+	ctx = auth.WithSession(ctx, &auth.SessionUser{UserID: client.UserID, Nick: player.Nick})
 
 	rec := httptest.NewRecorder()
 

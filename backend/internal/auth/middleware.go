@@ -81,6 +81,10 @@ func GetPlayerFromContext(ctx context.Context) *ledger.Player {
 	return nil
 }
 
+func WithPlayer(ctx context.Context, p *ledger.Player) context.Context {
+	return context.WithValue(ctx, PlayerContextKey, p)
+}
+
 func GetSessionFromContext(ctx context.Context) *SessionUser {
 	if val := ctx.Value(SessionContextKey); val != nil {
 		if s, ok := val.(*SessionUser); ok {
@@ -88,6 +92,10 @@ func GetSessionFromContext(ctx context.Context) *SessionUser {
 		}
 	}
 	return nil
+}
+
+func WithSession(ctx context.Context, s *SessionUser) context.Context {
+	return context.WithValue(ctx, SessionContextKey, s)
 }
 
 // RequireSafeOrigin validates Sec-Fetch-Site and Origin headers on state-changing requests (CSRF protection)
