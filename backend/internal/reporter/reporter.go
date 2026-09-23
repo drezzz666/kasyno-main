@@ -64,23 +64,36 @@ type Breadcrumb struct {
 }
 
 type FrontendErrorReport struct {
-	ErrorType        string        `json:"error_type"`        // UNHANDLED_EXCEPTION, PROMISE_REJECTION, REACT_RENDER_ERROR, API_ERROR, GAME_ACTION_ERROR
-	Message          string        `json:"message"`           // Error message
-	Stack            string        `json:"stack"`             // Stack trace string
-	ComponentStack   string        `json:"component_stack"`   // React component stack if any
-	SourceFile       string        `json:"source_file"`       // File & line number (e.g. GameTableDialog.jsx:333)
-	Context          string        `json:"context"`           // Description of user action (e.g. "Crash: start round")
-	Game             string        `json:"game"`              // Active game name (crash, limbo, slots, etc.)
-	ActionPayload    interface{}   `json:"action_payload"`    // Bet amount, target multiplier, etc.
-	Breadcrumbs      []Breadcrumb  `json:"breadcrumbs"`       // Ring buffer of last player actions before crash
-	NetworkInfo      string        `json:"network_info"`      // Effective connection (e.g. 4g / 25Mbps / 40ms RTT)
-	MemoryMB         string        `json:"memory_mb"`         // Client JS Heap memory
-	NavigationTiming string        `json:"navigation_timing"` // Page load / TTFB diagnostics
-	LatencyMs        float64       `json:"latency_ms"`        // Recent API action latency
-	URL              string        `json:"url"`               // Full page URL
-	UserAgent        string        `json:"user_agent"`        // Client Browser / OS
-	Screen           string        `json:"screen"`            // Screen resolution (e.g. 1920x1080)
-	Timestamp        string        `json:"timestamp"`         // Client ISO timestamp
+	ErrorType          string        `json:"error_type"`           // UNHANDLED_EXCEPTION, PROMISE_REJECTION, REACT_RENDER_ERROR, API_ERROR, GAME_ACTION_ERROR
+	Message            string        `json:"message"`              // Error message
+	Stack              string        `json:"stack"`                // Stack trace string
+	ComponentStack     string        `json:"component_stack"`      // React component stack if any
+	SourceFile         string        `json:"source_file"`          // File & line number (e.g. GameTableDialog.jsx:333)
+	Context            string        `json:"context"`              // Description of user action (e.g. "Crash: start round")
+	Game               string        `json:"game"`                 // Active game name (crash, limbo, slots, etc.)
+	ActionPayload      interface{}   `json:"action_payload"`       // Bet amount, target multiplier, etc.
+	Breadcrumbs        []Breadcrumb  `json:"breadcrumbs"`          // Ring buffer of last player actions before crash
+	NetworkInfo        string        `json:"network_info"`         // Effective connection (e.g. 4g / 25Mbps / 40ms RTT)
+	MemoryMB           string        `json:"memory_mb"`            // Client JS Heap memory
+	NavigationTiming   string        `json:"navigation_timing"`    // Page load / TTFB diagnostics
+	LatencyMs          float64       `json:"latency_ms"`           // Recent API action latency
+	GPUInfo            string        `json:"gpu_info,omitempty"`   // WebGL GPU Renderer / Vendor
+	CPUCores           string        `json:"cpu_cores,omitempty"`  // CPU logical cores
+	DeviceRAM          string        `json:"device_ram,omitempty"` // Device RAM
+	Timezone           string        `json:"timezone,omitempty"`   // User timezone & UTC offset
+	Language           string        `json:"language,omitempty"`   // Browser languages
+	Platform           string        `json:"platform,omitempty"`   // OS Platform
+	ScreenDetails      string        `json:"screen_details,omitempty"`
+	Orientation        string        `json:"orientation,omitempty"`
+	TouchPoints        int           `json:"touch_points,omitempty"`
+	ColorScheme        string        `json:"color_scheme,omitempty"`
+	PageVisibility     string        `json:"page_visibility,omitempty"`
+	Referrer           string        `json:"referrer,omitempty"`
+	SessionDurationSec int           `json:"session_duration_sec,omitempty"`
+	URL                string        `json:"url"`        // Full page URL
+	UserAgent          string        `json:"user_agent"` // Client Browser / OS
+	Screen             string        `json:"screen"`     // Screen resolution
+	Timestamp          string        `json:"timestamp"`  // Client ISO timestamp
 }
 
 type Reporter struct {
@@ -398,6 +411,32 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	if report.Screen != "" {
 		envInfo += fmt.Sprintf("**Ekran:** `%s`\n", report.Screen)
 	}
+	if report.GPUInfo != "" {
+		envInfo += fmt.Sprintf("**Karta graficzna (GPU):** `%s`\n", truncate(report.GPUInfo, 150))
+	}
+	hwParts := []string{}
+	if report.CPUCores != "" {
+		hwParts = append(hwParts, fmt.Sprintf("CPU: %s", report.CPUCores))
+	}
+	if report.DeviceRAM != "" {
+		hwParts = append(hwParts, fmt.Sprintf("RAM: %s", report.DeviceRAM))
+	}
+	if report.TouchPoints > 0 {
+		hwParts = append(hwParts, fmt.Sprintf("Touch: %d pkt", report.TouchPoints))
+	}
+	if len(hwParts) > 0 {
+		envInfo += fmt.Sprintf("**Sprzęt:** `%s`\n", strings.Join(hwParts, " • "))
+	}
+	if report.Timezone != "" || report.Language != "" {
+		tzLang := []string{}
+		if report.Timezone != "" {
+			tzLang = append(tzLang, fmt.Sprintf("Strefa: %s", report.Timezone))
+		}
+		if report.Language != "" {
+			tzLang = append(tzLang, fmt.Sprintf("Język: %s", report.Language))
+		}
+		envInfo += fmt.Sprintf("**Lokalizacja:** `%s`\n", strings.Join(tzLang, " • "))
+	}
 	if report.NetworkInfo != "" {
 		envInfo += fmt.Sprintf("**Sieć:** `%s`\n", report.NetworkInfo)
 	}
@@ -410,9 +449,25 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	if report.LatencyMs > 0 {
 		envInfo += fmt.Sprintf("**Ostatnie RTT / Opóźnienie API:** `%.1f ms`\n", report.LatencyMs)
 	}
+	if report.SessionDurationSec > 0 || report.ColorScheme != "" || report.Referrer != "" {
+		sessParts := []string{}
+		if report.SessionDurationSec > 0 {
+			sessParts = append(sessParts, fmt.Sprintf("Czas sesji: %ds", report.SessionDurationSec))
+		}
+		if report.ColorScheme != "" {
+			sessParts = append(sessParts, report.ColorScheme)
+		}
+		if report.PageVisibility != "" {
+			sessParts = append(sessParts, fmt.Sprintf("Karta: %s", report.PageVisibility))
+		}
+		if report.Referrer != "" {
+			sessParts = append(sessParts, fmt.Sprintf("Ref: %s", truncate(report.Referrer, 40)))
+		}
+		envInfo += fmt.Sprintf("**Stan sesji:** `%s`\n", strings.Join(sessParts, " • "))
+	}
 	if envInfo != "" {
 		fields = append(fields, DiscordField{
-			Name:   "💻 Telemetria i Środowisko Klienta",
+			Name:   "💻 Telemetria, Sprzęt i Środowisko Klienta",
 			Value:  strings.TrimSpace(envInfo),
 			Inline: false,
 		})

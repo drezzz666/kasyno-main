@@ -92,8 +92,9 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/metrics", telemetry.PrometheusHandler(tel))
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
 
-	// Client Error Reporting endpoint (receives errors from frontend with optional auth session)
+	// Client Error & Telemetry Reporting endpoints
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
+	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/telemetry/client", errorHandler.ReportClientTelemetry)
 
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {

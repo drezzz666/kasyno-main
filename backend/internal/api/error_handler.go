@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"regexp"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
+	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
 	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 )
@@ -125,8 +128,8 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// 4. Strict Payload Size Limit: Max 16KB
-	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 16*1024))
+	// 4. Strict Payload Size Limit: Max 32KB
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
 	if err != nil || len(bodyBytes) == 0 {
 		JSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
@@ -153,6 +156,91 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 	// 7. Asynchronous dispatch to Discord webhook (with deduplication & global throttling)
 	if h.reporter != nil {
 		h.reporter.ReportFrontendError(&report, sess, ip)
+	}
+
+	// 8. Synchronize player's telemetry channel on Discord in the "📊 telemetria" category
+	if bot := discordbot.GetGlobalBot(); bot != nil && sess != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			lastAction := report.Context
+			if report.Game != "" {
+				lastAction = fmt.Sprintf("%s (%s)", report.Game, report.Context)
+			}
+			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
+				UserID:             sess.UserID,
+				Nick:               sess.Nick,
+				Email:              sess.Email,
+				IP:                 ip,
+				UserAgent:          report.UserAgent,
+				GPUInfo:            report.GPUInfo,
+				CPUCores:           report.CPUCores,
+				DeviceRAM:          report.DeviceRAM,
+				ScreenDetails:      report.ScreenDetails,
+				Orientation:        report.Orientation,
+				TouchPoints:        report.TouchPoints,
+				ColorScheme:        report.ColorScheme,
+				Timezone:           report.Timezone,
+				Language:           report.Language,
+				Platform:           report.Platform,
+				NetworkInfo:        report.NetworkInfo,
+				MemoryMB:           report.MemoryMB,
+				NavigationTiming:   report.NavigationTiming,
+				LatencyMs:          report.LatencyMs,
+				PageVisibility:     report.PageVisibility,
+				Referrer:           report.Referrer,
+				SessionDurationSec: report.SessionDurationSec,
+				LastAction:         lastAction,
+			})
+		}()
+	}
+
+	JSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// ReportClientTelemetry receives periodic or on-load hardware & client specs and updates Discord channel.
+func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	ip := GetClientIP(r)
+	sess := auth.GetSessionFromContext(r.Context())
+
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
+	if err != nil || len(bodyBytes) == 0 {
+		JSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
+	var data discordbot.UserTelemetryReport
+	if err := json.Unmarshal(bodyBytes, &data); err != nil {
+		JSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
+	if sess != nil {
+		if data.UserID == "" {
+			data.UserID = sess.UserID
+		}
+		if data.Nick == "" {
+			data.Nick = sess.Nick
+		}
+		if data.Email == "" {
+			data.Email = sess.Email
+		}
+	}
+	if data.IP == "" {
+		data.IP = ip
+	}
+
+	if bot := discordbot.GetGlobalBot(); bot != nil && (data.UserID != "" || data.Nick != "") {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = bot.SyncUserTelemetry(ctx, &data)
+		}()
 	}
 
 	JSON(w, http.StatusOK, map[string]bool{"ok": true})

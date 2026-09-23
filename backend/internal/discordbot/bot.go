@@ -1,10 +1,12 @@
 package discordbot
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/drezzz666/kasyno/backend/internal/config"
@@ -49,6 +51,8 @@ func New(cfg *config.Config, ledgerSvc *ledger.Service) (*Bot, error) {
 	session.AddHandler(b.handleMessageCreate)
 	session.AddHandler(b.handleInteractionCreate)
 
+	SetGlobalBot(b)
+
 	return b, nil
 }
 
@@ -58,6 +62,12 @@ func (b *Bot) handleGuildCreate(s *discordgo.Session, g *discordgo.GuildCreate) 
 	if b.cfg.DiscordGuildID == "" && s.State != nil && s.State.User != nil {
 		_, _ = s.ApplicationCommandBulkOverwrite(s.State.User.ID, g.ID, []*discordgo.ApplicationCommand{})
 	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, _ = b.EnsureTelemetryCategory(g.ID)
+		_, _ = b.SyncAllUsers(ctx)
+	}()
 }
 
 func (b *Bot) Start() error {
@@ -99,6 +109,14 @@ func (b *Bot) Stop() {
 
 func (b *Bot) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 	log.Printf("🤖 [Discord Bot] Bot jest gotowy. Serwery: %d", len(r.Guilds))
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+		for _, g := range r.Guilds {
+			_, _ = b.EnsureTelemetryCategory(g.ID)
+		}
+		_, _ = b.SyncAllUsers(ctx)
+	}()
 }
 
 // formatFGT formats amount with commas

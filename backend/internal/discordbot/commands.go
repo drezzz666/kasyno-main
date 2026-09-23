@@ -3,6 +3,7 @@ package discordbot
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -211,6 +212,25 @@ var slashCommands = []*discordgo.ApplicationCommand{
 		Description:              "👑 [ADMIN] Instrukcja i lista komend konsoli administratora",
 		DefaultMemberPermissions: &adminPerms,
 	},
+	{
+		Name:                     "casino-telemetry-sync",
+		Description:              "📊 [ADMIN] Synchronizuj kategorię telemetrii i kanały wszystkich graczy na Discordzie",
+		DefaultMemberPermissions: &adminPerms,
+	},
+	{
+		Name:                     "casino-telemetry",
+		Description:              "📊 [ADMIN] Utwórz lub zsynchronizuj kanał telemetrii dla wskazanego gracza",
+		DefaultMemberPermissions: &adminPerms,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "gracz",
+				Description:  "Nick lub ID gracza",
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	},
 }
 
 func (b *Bot) registerSlashCommands() {
@@ -414,6 +434,48 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 			b.respondInteractionWithComponents(s, i, embed, comps)
 		} else {
 			b.respondInteraction(s, i, embed)
+		}
+
+	case "casino-telemetry-sync":
+		go func() {
+			count, err := b.SyncAllUsers(context.Background())
+			if err != nil {
+				log.Printf("⚠️ [Discord Bot] Błąd synchronizacji telemetrii: %v", err)
+			} else {
+				log.Printf("📊 [Discord Bot] Zsynchronizowano telemetrię dla %d graczy", count)
+			}
+		}()
+		b.respondInteraction(s, i, &discordgo.MessageEmbed{
+			Color:       ColorSky,
+			Title:       "📊 Rozpoczęto synchronizację kanałów telemetrii",
+			Description: "Bot sprawdza kategorię **📊 telemetria** na serwerze i tworzy/aktualizuje kanały dla wszystkich graczy.",
+			Footer:      &discordgo.MessageEmbedFooter{Text: "Operacja masowa wykonywana w tle"},
+			Timestamp:   time.Now().Format(time.RFC3339),
+		})
+
+	case "casino-telemetry":
+		target := ""
+		for _, opt := range data.Options {
+			if opt.Name == "gracz" {
+				target = opt.StringValue()
+			}
+		}
+		err := b.SyncUserTelemetry(ctx, &UserTelemetryReport{
+			Nick:   target,
+			UserID: target,
+		})
+		if err != nil {
+			b.respondInteraction(s, i, &discordgo.MessageEmbed{
+				Color:       ColorRose,
+				Title:       "❌ Błąd synchronizacji telemetrii",
+				Description: fmt.Sprintf("Nie udało się zaktualizować kanału telemetrii dla `%s`: %v", target, err),
+			})
+		} else {
+			b.respondInteraction(s, i, &discordgo.MessageEmbed{
+				Color:       ColorEmerald,
+				Title:       "✅ Zsynchronizowano telemetrię gracza",
+				Description: fmt.Sprintf("Kanał telemetrii gracza **%s** w kategorii **📊 telemetria** został zaktualizowany.", target),
+			})
 		}
 	}
 }

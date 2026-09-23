@@ -43,6 +43,7 @@ import { TosAcceptModal } from "./components/TosAcceptModal";
 import { WinCelebrationModal } from "./components/WinCelebrationModal";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { sendClientTelemetry } from "./lib/telemetry";
 import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
 
@@ -237,6 +238,9 @@ export default function App() {
         setHasMoreHistory(j.hasMoreHistory);
       }
       if (j.active) setActiveGame(j.active.game);
+      if (j.player) {
+        sendClientTelemetry(j.player);
+      }
     } catch (e) {
       if (!isPolling) {
         toast.error(e.message || "Błąd pobierania danych kasyna");

@@ -59,7 +59,7 @@ export function getAverageLatency() {
 }
 
 /**
- * Extracts client performance, network, and memory diagnostics.
+ * Extracts comprehensive client hardware, performance, network, localization, and memory diagnostics.
  */
 export function getClientDiagnostics() {
   const diag = {
@@ -67,10 +67,94 @@ export function getClientDiagnostics() {
     memory_mb: "",
     navigation_timing: "",
     latency_ms: getAverageLatency(),
+    gpu_info: "",
+    cpu_cores: "",
+    device_ram: "",
+    timezone: "",
+    language: "",
+    platform: "",
+    screen_details: "",
+    orientation: "",
+    touch_points: 0,
+    color_scheme: "",
+    page_visibility: "",
+    referrer: "",
+    session_duration_sec: 0,
   };
 
   try {
-    // 1. Network Information API
+    // 1. Session & Timing
+    if (typeof performance !== "undefined") {
+      diag.session_duration_sec = Math.round(performance.now() / 1000);
+    }
+    if (typeof document !== "undefined") {
+      diag.page_visibility = document.visibilityState || "";
+      diag.referrer = document.referrer || "";
+    }
+
+    // 2. Hardware: CPU & RAM
+    if (typeof navigator !== "undefined") {
+      if (navigator.hardwareConcurrency) {
+        diag.cpu_cores = `${navigator.hardwareConcurrency} cores`;
+      }
+      if (navigator.deviceMemory) {
+        diag.device_ram = `~${navigator.deviceMemory} GB`;
+      }
+      diag.platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+      diag.language = Array.isArray(navigator.languages) ? navigator.languages.join(", ") : (navigator.language || "");
+      diag.touch_points = typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
+    }
+
+    // 3. Hardware: GPU / WebGL
+    try {
+      if (typeof document !== "undefined") {
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        if (gl) {
+          const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+          if (debugInfo) {
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            if (renderer) {
+              diag.gpu_info = vendor ? `${vendor} (${renderer})` : renderer;
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Ignore WebGL detection issues
+    }
+
+    // 4. Localization & Timezone
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const offsetMinutes = -new Date().getTimezoneOffset();
+      const offsetSign = offsetMinutes >= 0 ? "+" : "-";
+      const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+      const offsetMins = Math.abs(offsetMinutes) % 60;
+      const offsetStr = `UTC${offsetSign}${offsetHours}:${offsetMins < 10 ? "0" : ""}${offsetMins}`;
+      diag.timezone = tz ? `${tz} (${offsetStr})` : offsetStr;
+    } catch (_) {
+      // Ignore
+    }
+
+    // 5. Screen & Theme
+    if (typeof window !== "undefined") {
+      const dpr = window.devicePixelRatio || 1;
+      const s = window.screen;
+      const colDepth = s ? `${s.colorDepth}-bit` : "";
+      diag.screen_details = `${s ? s.width : window.innerWidth}x${s ? s.height : window.innerHeight} (viewport: ${window.innerWidth}x${window.innerHeight}, DPR: ${dpr}${colDepth ? `, ${colDepth}` : ""})`;
+
+      if (s && s.orientation && s.orientation.type) {
+        diag.orientation = s.orientation.type;
+      }
+
+      if (window.matchMedia) {
+        diag.color_scheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark mode" : "Light mode";
+      }
+    }
+
+    // 6. Network Information API
     if (typeof navigator !== "undefined" && navigator.connection) {
       const conn = navigator.connection;
       const parts = [];
@@ -81,7 +165,7 @@ export function getClientDiagnostics() {
       diag.network_info = parts.join(" • ");
     }
 
-    // 2. JavaScript Heap Memory (Chromium/Edge)
+    // 7. JavaScript Heap Memory (Chromium/Edge)
     if (typeof performance !== "undefined" && performance.memory) {
       const mem = performance.memory;
       const usedMB = (mem.usedJSHeapSize / (1024 * 1024)).toFixed(1);
@@ -90,7 +174,7 @@ export function getClientDiagnostics() {
       diag.memory_mb = `${usedMB}MB used / ${totalMB}MB total (limit: ${limitMB}MB)`;
     }
 
-    // 3. Navigation Timing & Web Vitals
+    // 8. Navigation Timing & Web Vitals
     if (typeof performance !== "undefined" && performance.getEntriesByType) {
       const navEntries = performance.getEntriesByType("navigation");
       if (navEntries.length > 0) {
@@ -122,5 +206,61 @@ function sanitizeData(data) {
     return copy;
   } catch (err) {
     return "[Complex Object]";
+  }
+}
+
+let lastTelemetrySent = 0;
+
+/**
+ * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client (debounced to max once per 30s)
+ */
+export async function sendClientTelemetry(player = null) {
+  try {
+    const now = Date.now();
+    if (now - lastTelemetrySent < 30000) {
+      return;
+    }
+    lastTelemetrySent = now;
+
+    const diag = getClientDiagnostics();
+    const payload = {
+      user_id: player?.user_id || "",
+      nick: player?.nick || "",
+      email: player?.email || "",
+      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+      gpu_info: diag.gpu_info,
+      cpu_cores: diag.cpu_cores,
+      device_ram: diag.device_ram,
+      screen_details: diag.screen_details,
+      orientation: diag.orientation,
+      touch_points: diag.touch_points,
+      color_scheme: diag.color_scheme,
+      timezone: diag.timezone,
+      language: diag.language,
+      platform: diag.platform,
+      network_info: diag.network_info,
+      memory_mb: diag.memory_mb,
+      navigation_timing: diag.navigation_timing,
+      latency_ms: diag.latency_ms,
+      page_visibility: diag.page_visibility,
+      referrer: diag.referrer,
+      session_duration_sec: diag.session_duration_sec,
+      last_action: "Odwiedzenie kasyna / Aktywność",
+    };
+
+    const payloadStr = JSON.stringify(payload);
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([payloadStr], { type: "application/json" });
+      navigator.sendBeacon("/api/telemetry/client", blob);
+    } else {
+      fetch("/api/telemetry/client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payloadStr,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  } catch (err) {
+    // Ignore ping errors
   }
 }
