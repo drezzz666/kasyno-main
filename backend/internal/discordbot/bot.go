@@ -104,7 +104,7 @@ func (b *Bot) Stop() {
 func (b *Bot) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 	log.Printf("🤖 [Discord Bot] Bot jest gotowy. Serwery: %d", len(r.Guilds))
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 		defer cancel()
 		for _, g := range r.Guilds {
 			_, _ = b.EnsureTelemetryCategory(g.ID)

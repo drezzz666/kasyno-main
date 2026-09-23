@@ -209,6 +209,21 @@ func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Requ
 	ip := GetClientIP(r)
 	sess := auth.GetSessionFromContext(r.Context())
 
+	// Only logged-in users can report telemetry for their casino account
+	if sess == nil {
+		JSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
+	// Strict rate limiting per user and per IP
+	if h.isRateLimited("ip:" + ip) || h.isRateLimited("user:"+sess.UserID) {
+		if h.telemetry != nil {
+			h.telemetry.RecordRateLimitHit()
+		}
+		JSON(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+
 	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
 	if err != nil || len(bodyBytes) == 0 {
 		JSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -221,22 +236,23 @@ func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if sess != nil {
-		if data.UserID == "" {
-			data.UserID = sess.UserID
-		}
-		if data.Nick == "" {
-			data.Nick = sess.Nick
-		}
-		if data.Email == "" {
-			data.Email = sess.Email
-		}
-	}
-	if data.IP == "" {
-		data.IP = ip
-	}
+	// Strictly bind identity from the authenticated session (prevents ID spoofing)
+	data.UserID = sess.UserID
+	data.Nick = sess.Nick
+	data.Email = sess.Email
+	data.IP = ip
 
-	if bot := discordbot.GetGlobalBot(); bot != nil && (data.UserID != "" || data.Nick != "") {
+	// Sanitize text fields against Discord mention injection
+	data.GPUInfo = sanitizeMentions(data.GPUInfo)
+	data.UserAgent = sanitizeMentions(data.UserAgent)
+	data.Platform = sanitizeMentions(data.Platform)
+	data.Timezone = sanitizeMentions(data.Timezone)
+	data.Language = sanitizeMentions(data.Language)
+	data.NetworkInfo = sanitizeMentions(data.NetworkInfo)
+	data.ScreenDetails = sanitizeMentions(data.ScreenDetails)
+	data.LastAction = sanitizeMentions(data.LastAction)
+
+	if bot := discordbot.GetGlobalBot(); bot != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()

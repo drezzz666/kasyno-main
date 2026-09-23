@@ -19,10 +19,7 @@ func (b *Bot) buildBalanceEmbed(ctx context.Context, target string) *discordgo.M
 		}
 	}
 
-	avatarURL := ""
-	if player.Avatar != nil && *player.Avatar != "" {
-		avatarURL = *player.Avatar
-	}
+	avatarURL := b.getValidAvatarURL(player.Avatar)
 
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -143,10 +140,7 @@ func (b *Bot) buildPlayerProfileEmbed(ctx context.Context, identifier string) *d
 		}
 	}
 
-	avatarURL := ""
-	if player.Avatar != nil && *player.Avatar != "" {
-		avatarURL = *player.Avatar
-	}
+	avatarURL := b.getValidAvatarURL(player.Avatar)
 
 	createdTime := time.UnixMilli(player.CreatedAt).Format("02.01.2006 15:04")
 	lastActive := time.UnixMilli(player.UpdatedAt).Format("02.01.2006 15:04")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -346,6 +347,7 @@ func (b *Bot) getOrCreateUserTelemetryChannel(guildID, categoryID, nick, userID 
 	}
 
 	log.Printf("📊 [Discord Bot] Utworzono kanał telemetrii #%s dla gracza %s (ID: %s)", targetName, nick, userID)
+	time.Sleep(350 * time.Millisecond) // Give Discord cluster time to propagate
 	return ch.ID, nil
 }
 
@@ -452,6 +454,7 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		// Clean up any extra duplicate embeds in the channel so there is always exactly ONE clean embed
 		for _, oldM := range oldBotMsgs {
 			_ = b.session.ChannelMessageDelete(chID, oldM.ID)
+			time.Sleep(150 * time.Millisecond)
 		}
 
 		if botMsg != nil {
@@ -461,13 +464,13 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 				Embeds:  &[]*discordgo.MessageEmbed{embed},
 			})
 			if err != nil {
-				log.Printf("⚠️ [Discord Bot] Błąd edycji embeda w #%s (%v), wysyłam nowy...", chID, err)
-				_, _ = b.session.ChannelMessageSendEmbed(chID, embed)
+				log.Printf("⚠️ [Discord Bot] Błąd edycji embeda w #%s (%v), wysyłam nowy z ponawianiem...", chID, err)
+				_, _ = b.sendEmbedWithRetry(chID, embed)
 			} else {
 				log.Printf("✅ [Discord Bot] Zaktualizowano embed telemetrii gracza %s w #%s", data.Nick, chID)
 			}
 		} else {
-			_, err = b.session.ChannelMessageSendEmbed(chID, embed)
+			_, err = b.sendEmbedWithRetry(chID, embed)
 			if err != nil {
 				log.Printf("⚠️ [Discord Bot] Błąd wysyłania embeda telemetrii do #%s: %v", chID, err)
 			} else {
@@ -484,6 +487,57 @@ func limitStr(s string, max int) string {
 		return s[:max-3] + "..."
 	}
 	return s
+}
+
+func isValidHttpURL(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	u, err := url.ParseRequestURI(raw)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	if u.Host == "" {
+		return false
+	}
+	return true
+}
+
+func (b *Bot) getValidAvatarURL(avatar *string) string {
+	if avatar == nil || *avatar == "" {
+		return ""
+	}
+	raw := strings.TrimSpace(*avatar)
+	if isValidHttpURL(raw) {
+		return raw
+	}
+	if strings.HasPrefix(raw, "/") && b != nil && b.appURL != "" {
+		candidate := strings.TrimRight(b.appURL, "/") + raw
+		if isValidHttpURL(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func (b *Bot) sendEmbedWithRetry(chID string, embed *discordgo.MessageEmbed) (*discordgo.Message, error) {
+	if b == nil || b.session == nil || chID == "" || embed == nil {
+		return nil, fmt.Errorf("sesja lub parametry są nieprawidłowe")
+	}
+	var msg *discordgo.Message
+	var err error
+	for attempt := 1; attempt <= 4; attempt++ {
+		msg, err = b.session.ChannelMessageSendEmbed(chID, embed)
+		if err == nil {
+			return msg, nil
+		}
+		log.Printf("⚠️ [Discord Bot] Próba wysłania embeda (%d/4) do kanału %s nie powiodła się: %v. Ponawianie...", attempt, chID, err)
+		time.Sleep(time.Duration(attempt*500) * time.Millisecond)
+	}
+	return nil, err
 }
 
 // buildUserTelemetryEmbed constructs a rich embed with player account, gambling stats, hardware, and network telemetry.
@@ -665,8 +719,8 @@ func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.
 	}
 
 	avatarURL := ""
-	if player != nil && player.Avatar != nil && *player.Avatar != "" {
-		avatarURL = *player.Avatar
+	if player != nil {
+		avatarURL = b.getValidAvatarURL(player.Avatar)
 	}
 
 	embed := &discordgo.MessageEmbed{
@@ -708,7 +762,7 @@ func (b *Bot) SyncAllUsers(ctx context.Context) (int, error) {
 		if err == nil {
 			count++
 		}
-		time.Sleep(200 * time.Millisecond) // Respect Discord rate limits
+		time.Sleep(500 * time.Millisecond) // Respect Discord rate limits
 	}
 
 	return count, nil
@@ -778,14 +832,14 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 					totalDeleted++
 					log.Printf("🧹 [Discord Bot Rebuild] Usunięto stary kanał telemetrii #%s (%s)", ch.Name, ch.ID)
 				}
-				time.Sleep(150 * time.Millisecond) // rate limit guard
+				time.Sleep(350 * time.Millisecond) // rate limit guard
 			}
 		}
 
 		// Delete old telemetry categories
 		for _, catID := range telemetryCategories {
 			_, _ = b.session.ChannelDelete(catID)
-			time.Sleep(150 * time.Millisecond)
+			time.Sleep(350 * time.Millisecond)
 		}
 
 		// Create fresh clean category "📊-telemetria"
@@ -799,24 +853,37 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 		}
 
 		log.Printf("📊 [Discord Bot Rebuild] Utworzono nową czystą kategorię %s na serwerze %s", cat.Name, gid)
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(600 * time.Millisecond)
 
 		// 2. Re-create one channel for each registered player
 		for _, p := range players {
 			targetName := sanitizeChannelName(p.Nick, p.UserID)
 			topic := fmt.Sprintf("Telemetria i dane gracza: %s | ID: %s", p.Nick, p.UserID)
 
-			newCh, err := b.session.GuildChannelCreateComplex(gid, discordgo.GuildChannelCreateData{
-				Name:     targetName,
-				Type:     discordgo.ChannelTypeGuildText,
-				ParentID: cat.ID,
-				Topic:    topic,
-			})
-			if err != nil {
-				log.Printf("⚠️ [Discord Bot Rebuild] Błąd tworzenia kanału dla %s: %v", p.Nick, err)
+			var newCh *discordgo.Channel
+			var createErr error
+			for attempt := 1; attempt <= 3; attempt++ {
+				newCh, createErr = b.session.GuildChannelCreateComplex(gid, discordgo.GuildChannelCreateData{
+					Name:     targetName,
+					Type:     discordgo.ChannelTypeGuildText,
+					ParentID: cat.ID,
+					Topic:    topic,
+				})
+				if createErr == nil {
+					break
+				}
+				log.Printf("⚠️ [Discord Bot Rebuild] Błąd tworzenia kanału dla %s (próba %d/3): %v. Ponawianie...", p.Nick, attempt, createErr)
+				time.Sleep(time.Duration(attempt*1000) * time.Millisecond)
+			}
+
+			if createErr != nil || newCh == nil {
+				log.Printf("❌ [Discord Bot Rebuild] Ostatecznie nie udało się utworzyć kanału dla %s: %v", p.Nick, createErr)
 				continue
 			}
 			totalCreated++
+
+			// Pause after channel creation for Discord cluster propagation
+			time.Sleep(500 * time.Millisecond)
 
 			// Get cached telemetry if exists
 			report := &UserTelemetryReport{
@@ -829,12 +896,12 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 			stats, _ := b.ledger.GetPlayerStats(ctx, p.UserID)
 			embed := b.buildUserTelemetryEmbed(report, &p, stats)
 
-			_, sendErr := b.session.ChannelMessageSendEmbed(newCh.ID, embed)
+			_, sendErr := b.sendEmbedWithRetry(newCh.ID, embed)
 			if sendErr != nil {
 				log.Printf("⚠️ [Discord Bot Rebuild] Błąd wysyłania embeda do #%s: %v", newCh.Name, sendErr)
 			}
 
-			time.Sleep(200 * time.Millisecond) // rate limit guard
+			time.Sleep(300 * time.Millisecond) // rate limit guard
 		}
 	}
 
