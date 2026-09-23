@@ -3,8 +3,10 @@ package discordbot
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/drezzz666/kasyno/backend/internal/config"
@@ -99,6 +101,25 @@ func (b *Bot) Stop() {
 	}
 }
 
+var (
+	globalBot   *Bot
+	globalBotMu sync.RWMutex
+)
+
+// SetGlobalBot sets the global bot singleton instance.
+func SetGlobalBot(b *Bot) {
+	globalBotMu.Lock()
+	defer globalBotMu.Unlock()
+	globalBot = b
+}
+
+// GetGlobalBot returns the global bot singleton instance.
+func GetGlobalBot() *Bot {
+	globalBotMu.RLock()
+	defer globalBotMu.RUnlock()
+	return globalBot
+}
+
 func (b *Bot) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 	log.Printf("🤖 [Discord Bot] Bot jest gotowy. Serwery: %d", len(r.Guilds))
 }
@@ -184,3 +205,45 @@ func (b *Bot) isAdmin(m *discordgo.Member, userID string) bool {
 
 	return false
 }
+
+func limitStr(s string, max int) string {
+	if len(s) > max {
+		return s[:max-3] + "..."
+	}
+	return s
+}
+
+func isValidHttpURL(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	u, err := url.ParseRequestURI(raw)
+	if err != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	if u.Host == "" {
+		return false
+	}
+	return true
+}
+
+func (b *Bot) getValidAvatarURL(avatar *string) string {
+	if avatar == nil || *avatar == "" {
+		return ""
+	}
+	raw := strings.TrimSpace(*avatar)
+	if isValidHttpURL(raw) {
+		return raw
+	}
+	if strings.HasPrefix(raw, "/") && b != nil && b.appURL != "" {
+		candidate := strings.TrimRight(b.appURL, "/") + raw
+		if isValidHttpURL(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+

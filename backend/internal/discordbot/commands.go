@@ -3,7 +3,6 @@ package discordbot
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -212,30 +211,6 @@ var slashCommands = []*discordgo.ApplicationCommand{
 		Description:              "👑 [ADMIN] Instrukcja i lista komend konsoli administratora",
 		DefaultMemberPermissions: &adminPerms,
 	},
-	{
-		Name:                     "casino-telemetry-sync",
-		Description:              "📊 [ADMIN] Synchronizuj kategorię telemetrii i kanały wszystkich graczy na Discordzie",
-		DefaultMemberPermissions: &adminPerms,
-	},
-	{
-		Name:                     "casino-telemetry-rebuild",
-		Description:              "🔥 [ADMIN] Pełny reset i czysta przebudowa kategorii oraz kanałów telemetrii",
-		DefaultMemberPermissions: &adminPerms,
-	},
-	{
-		Name:                     "casino-telemetry",
-		Description:              "📊 [ADMIN] Utwórz lub zsynchronizuj kanał telemetrii dla wskazanego gracza",
-		DefaultMemberPermissions: &adminPerms,
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "gracz",
-				Description:  "Nick lub ID gracza",
-				Required:     true,
-				Autocomplete: true,
-			},
-		},
-	},
 }
 
 func (b *Bot) registerSlashCommands() {
@@ -440,81 +415,6 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		} else {
 			b.respondInteraction(s, i, embed)
 		}
-
-	case "casino-telemetry-sync":
-		go func() {
-			count, err := b.SyncAllUsers(context.Background())
-			if err != nil {
-				log.Printf("⚠️ [Discord Bot] Błąd synchronizacji telemetrii: %v", err)
-			} else {
-				log.Printf("📊 [Discord Bot] Zsynchronizowano telemetrię dla %d graczy", count)
-			}
-		}()
-		b.respondInteraction(s, i, &discordgo.MessageEmbed{
-			Color:       ColorSky,
-			Title:       "📊 Rozpoczęto synchronizację kanałów telemetrii",
-			Description: "Bot sprawdza kategorię **📊 telemetria** na serwerze i tworzy/aktualizuje kanały dla wszystkich graczy.",
-			Footer:      &discordgo.MessageEmbedFooter{Text: "Operacja masowa wykonywana w tle"},
-			Timestamp:   time.Now().Format(time.RFC3339),
-		})
-
-	case "casino-telemetry-rebuild":
-		b.respondInteraction(s, i, &discordgo.MessageEmbed{
-			Color:       ColorGold,
-			Title:       "🔥 Rozpoczęto pełną przebudowę telemetrii",
-			Description: "Usuwanie starych/uszkodzonych kanałów i ponowne czyste tworzenie kategorii **📊 telemetria** wraz z embedami dla wszystkich graczy...",
-			Footer:      &discordgo.MessageEmbedFooter{Text: "Operacja administracyjna w toku"},
-			Timestamp:   time.Now().Format(time.RFC3339),
-		})
-		go func() {
-			del, create, err := b.RebuildTelemetry(context.Background(), i.GuildID)
-			if err != nil {
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Embeds: []*discordgo.MessageEmbed{
-						{
-							Color:       ColorRose,
-							Title:       "❌ Błąd przebudowy telemetrii",
-							Description: fmt.Sprintf("Wystąpił błąd podczas przebudowy: %v", err),
-						},
-					},
-				})
-			} else {
-				_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Embeds: []*discordgo.MessageEmbed{
-						{
-							Color:       ColorEmerald,
-							Title:       "✅ Przebudowa telemetrii zakończona sukcesem",
-							Description: fmt.Sprintf("Usunięto **%d** starych kanałów i utworzono na nowo **%d** czystych kanałów graczy w kategorii **📊 telemetria**.", del, create),
-						},
-					},
-				})
-			}
-		}()
-
-	case "casino-telemetry":
-		target := ""
-		for _, opt := range data.Options {
-			if opt.Name == "gracz" {
-				target = opt.StringValue()
-			}
-		}
-		err := b.SyncUserTelemetry(ctx, &UserTelemetryReport{
-			Nick:   target,
-			UserID: target,
-		})
-		if err != nil {
-			b.respondInteraction(s, i, &discordgo.MessageEmbed{
-				Color:       ColorRose,
-				Title:       "❌ Błąd synchronizacji telemetrii",
-				Description: fmt.Sprintf("Nie udało się zaktualizować kanału telemetrii dla `%s`: %v", target, err),
-			})
-		} else {
-			b.respondInteraction(s, i, &discordgo.MessageEmbed{
-				Color:       ColorEmerald,
-				Title:       "✅ Zsynchronizowano telemetrię gracza",
-				Description: fmt.Sprintf("Kanał telemetrii gracza **%s** w kategorii **📊 telemetria** został zaktualizowany.", target),
-			})
-		}
 	}
 }
 
@@ -670,61 +570,6 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 
 	case "!pomoc", "!casino-help", "!admin":
 		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.buildHelpEmbed(true))
-
-	case "!telemetry-rebuild", "!rebuild-telemetry", "!casino-telemetry-rebuild":
-		statusMsg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-			Color:       ColorGold,
-			Title:       "🔥 Rozpoczęto pełną przebudowę telemetrii...",
-			Description: "Usuwanie starych kanałów i tworzenie nowej, czystej struktury w kategorii **📊 telemetria**.",
-		})
-		go func() {
-			del, create, err := b.RebuildTelemetry(context.Background(), m.GuildID)
-			if err != nil {
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-					Color:       ColorRose,
-					Title:       "❌ Błąd przebudowy telemetrii",
-					Description: fmt.Sprintf("Wystąpił błąd podczas przebudowy: %v", err),
-				})
-			} else {
-				embed := &discordgo.MessageEmbed{
-					Color:       ColorEmerald,
-					Title:       "✅ Przebudowa telemetrii zakończona sukcesem",
-					Description: fmt.Sprintf("Usunięto **%d** starych kanałów i utworzono na nowo **%d** czystych kanałów graczy w kategorii **📊 telemetria**.", del, create),
-				}
-				if statusMsg != nil {
-					_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-						Channel: m.ChannelID,
-						ID:      statusMsg.ID,
-						Embeds:  &[]*discordgo.MessageEmbed{embed},
-					})
-				} else {
-					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, embed)
-				}
-			}
-		}()
-
-	case "!telemetry-sync", "!sync-telemetry":
-		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-			Color:       ColorSky,
-			Title:       "📊 Rozpoczęto synchronizację kanałów telemetrii",
-			Description: "Bot sprawdza kategorię **📊 telemetria** na serwerze i aktualizuje embedy graczy.",
-		})
-		go func() {
-			count, err := b.SyncAllUsers(context.Background())
-			if err != nil {
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-					Color:       ColorRose,
-					Title:       "❌ Błąd synchronizacji",
-					Description: fmt.Sprintf("Wystąpił błąd: %v", err),
-				})
-			} else {
-				_, _ = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-					Color:       ColorEmerald,
-					Title:       "✅ Synchronizacja zakończona",
-					Description: fmt.Sprintf("Zaktualizowano dane dla **%d** graczy.", count),
-				})
-			}
-		}()
 
 	case "!casino":
 		if len(args) == 0 || args[0] == "help" {

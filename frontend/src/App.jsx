@@ -44,7 +44,6 @@ import { WinCelebrationModal } from "./components/WinCelebrationModal";
 import { MinigamesModal } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
-import { sendClientTelemetry } from "./lib/telemetry";
 import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
 
@@ -87,7 +86,7 @@ export default function App() {
   const handleAcceptTos = useCallback(() => {
     try {
       localStorage.setItem("kasyno_tos_accepted_v2", "true");
-    } catch {}
+    } catch { }
     setTosAccepted(true);
     setTosModalOpen(false);
     toast.success("Regulamin zaakceptowany. Witamy w grze!");
@@ -114,7 +113,7 @@ export default function App() {
         const next = { ...prev, [activeGame]: nextVal };
         try {
           localStorage.setItem("fgt_game_bets", JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
     },
@@ -150,7 +149,7 @@ export default function App() {
       const next = typeof val === "function" ? val(prev) : val;
       try {
         localStorage.setItem("fgt_turbo_mode", String(next));
-      } catch {}
+      } catch { }
       return next;
     });
   }, []);
@@ -173,9 +172,9 @@ export default function App() {
     setData((prev) =>
       prev
         ? {
-            ...prev,
-            player: { ...prev.player, balance: newBal },
-          }
+          ...prev,
+          player: { ...prev.player, balance: newBal },
+        }
         : prev
     );
   }, []);
@@ -241,9 +240,6 @@ export default function App() {
         setHasMoreHistory(j.hasMoreHistory);
       }
       if (j.active) setActiveGame(j.active.game);
-      if (!isPolling && j.player) {
-        sendClientTelemetry(j.player);
-      }
     } catch (e) {
       if (!isPolling) {
         toast.error(e.message || "Błąd pobierania danych kasyna");
@@ -311,23 +307,23 @@ export default function App() {
         setData((prev) =>
           prev
             ? {
-                ...prev,
-                player: {
-                  ...prev.player,
-                  balance: opts?.deferBalance
-                    ? typeof opts.deductBet === "number"
-                      ? Math.max(0, prev.player.balance - opts.deductBet)
-                      : prev.player.balance
-                    : typeof j.balance === "number"
-                      ? j.balance
-                      : prev.player.balance,
-                },
-                roundsToday:
-                  typeof j.roundsToday === "number"
-                    ? j.roundsToday
-                    : prev.roundsToday,
-                active: j.round.state === "active" ? j.round : null,
-              }
+              ...prev,
+              player: {
+                ...prev.player,
+                balance: opts?.deferBalance
+                  ? typeof opts.deductBet === "number"
+                    ? Math.max(0, prev.player.balance - opts.deductBet)
+                    : prev.player.balance
+                  : typeof j.balance === "number"
+                    ? j.balance
+                    : prev.player.balance,
+              },
+              roundsToday:
+                typeof j.roundsToday === "number"
+                  ? j.roundsToday
+                  : prev.roundsToday,
+              active: j.round.state === "active" ? j.round : null,
+            }
             : prev
         );
         if (!isSilent) setLoading(false);
@@ -339,7 +335,7 @@ export default function App() {
               origin: { y: 0.6 },
               colors: ["#f59e0b", "#fbbf24", "#10b981", "#ffffff"],
             });
-          } catch {}
+          } catch { }
           toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
             description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
             duration: 6000,
@@ -727,9 +723,8 @@ export default function App() {
                         <div className="mission-progress-section">
                           <div className="mission-progress-bar-bg">
                             <div
-                              className={`mission-progress-bar-fill ${
-                                m.claimed ? "bg-slate-600" : m.ready ? "bg-emerald-500" : "bg-amber-500"
-                              }`}
+                              className={`mission-progress-bar-fill ${m.claimed ? "bg-slate-600" : m.ready ? "bg-emerald-500" : "bg-amber-500"
+                                }`}
                               style={{ width: `${progressPercent}%` }}
                             />
                           </div>

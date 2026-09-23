@@ -1,18 +1,14 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"regexp"
 	"sync"
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
-	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
 	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 )
@@ -179,100 +175,6 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 		h.reporter.ReportFrontendError(&report, sess, ip)
 	}
 
-	// 8. Synchronize player's telemetry channel on Discord in the "📊 telemetria" category
-	if bot := discordbot.GetGlobalBot(); bot != nil && sess != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			lastAction := report.Context
-			if report.Game != "" {
-				lastAction = fmt.Sprintf("%s (%s)", report.Game, report.Context)
-			}
-			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
-				UserID:             sess.UserID,
-				Nick:               sess.Nick,
-				Email:              sess.Email,
-				IP:                 ip,
-				UserAgent:          report.UserAgent,
-				NetworkInfo:        report.NetworkInfo,
-				MemoryMB:           report.MemoryMB,
-				NavigationTiming:   report.NavigationTiming,
-				LatencyMs:          report.LatencyMs,
-				PageVisibility:     report.PageVisibility,
-				Referrer:           report.Referrer,
-				SessionDurationSec: report.SessionDurationSec,
-				LastAction:         lastAction,
-			})
-		}()
-	}
-
 	JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// ReportClientTelemetry receives periodic or on-load hardware & client specs and updates Discord channel.
-func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
-		return
-	}
-
-	ip := GetClientIP(r)
-	sess := auth.GetSessionFromContext(r.Context())
-
-	// Only logged-in users can report telemetry for their casino account
-	if sess == nil {
-		JSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-
-	// Strict rate limiting per user and per IP
-	if h.isRateLimited("ip:" + ip) || h.isRateLimited("user:"+sess.UserID) {
-		if h.telemetry != nil {
-			h.telemetry.RecordRateLimitHit()
-		}
-		JSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-
-	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
-	if err != nil || len(bodyBytes) == 0 {
-		JSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-
-	if h.crypto != nil {
-		decrypted, err := h.crypto.Decrypt(bodyBytes)
-		if err == nil && len(decrypted) > 0 {
-			bodyBytes = decrypted
-		}
-	}
-
-	var data discordbot.UserTelemetryReport
-	if err := json.Unmarshal(bodyBytes, &data); err != nil {
-		JSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
-	}
-
-	// Strictly bind identity from the authenticated session (prevents ID spoofing)
-	data.UserID = sess.UserID
-	data.Nick = sess.Nick
-	data.Email = sess.Email
-	data.IP = ip
-
-	// Sanitize text fields against Discord mention injection
-	data.UserAgent = sanitizeMentions(data.UserAgent)
-	data.NetworkInfo = sanitizeMentions(data.NetworkInfo)
-	data.LastAction = sanitizeMentions(data.LastAction)
-
-	if bot := discordbot.GetGlobalBot(); bot != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := bot.SyncUserTelemetry(ctx, &data); err != nil {
-				log.Printf("⚠️ [Discord Bot] Błąd SyncUserTelemetry dla gracza %s (%s): %v", data.Nick, data.UserID, err)
-			}
-		}()
-	}
-
-	JSON(w, http.StatusOK, map[string]bool{"ok": true})
-}

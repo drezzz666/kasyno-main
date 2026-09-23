@@ -10,11 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
-	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 )
 
@@ -166,22 +164,6 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	if h.ledger != nil {
 		go func() {
 			_, _ = h.ledger.RecordLogin(context.Background(), player.UserID, player.Nick, ip, userAgent)
-		}()
-	}
-
-	// Trigger Discord Bot Telemetry & Login Thread Sync
-	if bot := discordbot.GetGlobalBot(); bot != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-			defer cancel()
-			_ = bot.LogUserLogin(ctx, player.UserID, player.Nick, ip, userAgent)
-			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
-				UserID:    player.UserID,
-				Nick:      player.Nick,
-				Email:     player.Email,
-				IP:        ip,
-				UserAgent: userAgent,
-			})
 		}()
 	}
 

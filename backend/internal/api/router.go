@@ -94,9 +94,8 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
 	r.Get("/api/telemetry/key", errorHandler.GetPublicKey)
 
-	// Client Error & Telemetry Reporting endpoints
+	// Client Error Reporting endpoint
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
-	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/telemetry/client", errorHandler.ReportClientTelemetry)
 
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {

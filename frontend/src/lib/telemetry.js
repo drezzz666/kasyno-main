@@ -137,51 +137,10 @@ function sanitizeData(data) {
   }
 }
 
-let lastTelemetrySent = 0;
-
-import { encryptTelemetry } from "./telemetryCrypto.js";
-
 /**
- * Sends a telemetry ping to /api/telemetry/client (asymmetrically encrypted)
+ * Client telemetry pings removed.
  */
-export async function sendClientTelemetry(player = null) {
-  try {
-    const now = Date.now();
-    if (now - lastTelemetrySent < 5000) {
-      return;
-    }
-    lastTelemetrySent = now;
-
-    const diag = getClientDiagnostics();
-    const payload = {
-      user_id: player?.user_id || "",
-      nick: player?.nick || "",
-      email: player?.email || "",
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-      network_info: diag.network_info,
-      memory_mb: diag.memory_mb,
-      navigation_timing: diag.navigation_timing,
-      latency_ms: diag.latency_ms,
-      page_visibility: diag.page_visibility,
-      referrer: diag.referrer,
-      session_duration_sec: diag.session_duration_sec,
-      last_action: "Odwiedzenie kasyna / Aktywność",
-    };
-
-    const payloadStr = await encryptTelemetry(payload);
-    if (typeof fetch !== "undefined") {
-      fetch("/api/telemetry/client", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payloadStr,
-        credentials: "include",
-        keepalive: true,
-      }).catch(() => {});
-    } else if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-      const blob = new Blob([payloadStr], { type: "application/json" });
-      navigator.sendBeacon("/api/telemetry/client", blob);
-    }
-  } catch (err) {
-    // Ignore ping errors
-  }
+export async function sendClientTelemetry() {
+  // No-op
 }
+

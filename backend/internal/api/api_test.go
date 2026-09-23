@@ -347,60 +347,6 @@ func TestEncryptedClientErrorReporting(t *testing.T) {
 	}
 }
 
-func TestEncryptedClientTelemetryReporting(t *testing.T) {
-	secret := "test-secret-key-12345"
-	telCrypto, err := telemetry.NewCryptoManager(secret)
-	if err != nil {
-		t.Fatalf("failed to init crypto manager: %v", err)
-	}
-
-	serverPubBytes, _ := hex.DecodeString(telCrypto.PublicKeyHex())
-	serverPub, err := ecdh.P256().NewPublicKey(serverPubBytes)
-	if err != nil {
-		t.Fatalf("failed to parse server pubkey: %v", err)
-	}
-
-	// 1. Client encrypts hardware telemetry payload
-	clientPriv, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("failed to generate client key: %v", err)
-	}
-	sharedSecret, err := clientPriv.ECDH(serverPub)
-	if err != nil {
-		t.Fatalf("ECDH failed: %v", err)
-	}
-
-	block, _ := aes.NewCipher(sharedSecret)
-	gcm, _ := cipher.NewGCM(block)
-	iv := make([]byte, 12)
-	_, _ = io.ReadFull(rand.Reader, iv)
-
-	telemetryJSON := `{"user_id":"usr_tel_1","nick":"TelUser","gpu_info":"NVIDIA RTX 4090","cpu_cores":"16 cores","memory_mb":"45MB / 128MB"}`
-	ciphertext := gcm.Seal(nil, iv, []byte(telemetryJSON), nil)
-
-	env := telemetry.EncryptedPayload{
-		Version:   1,
-		EpkBase64: base64.StdEncoding.EncodeToString(clientPriv.PublicKey().Bytes()),
-		IVBase64:  base64.StdEncoding.EncodeToString(iv),
-		Data:      base64.StdEncoding.EncodeToString(ciphertext),
-	}
-	envBytes, _ := json.Marshal(env)
-
-	// 2. Post to /api/telemetry/client with authenticated session context
-	handler := NewErrorHandler(nil, telCrypto)
-	ctx := context.WithValue(context.Background(), auth.SessionContextKey, &auth.SessionUser{
-		UserID: "usr_tel_1",
-		Nick:   "TelUser",
-		Email:  "tel@2fgt.pl",
-	})
-	req := httptest.NewRequest("POST", "/api/telemetry/client", bytes.NewReader(envBytes)).WithContext(ctx)
-	rec := httptest.NewRecorder()
-	handler.ReportClientTelemetry(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK from ReportClientTelemetry with encrypted payload, got %d", rec.Code)
-	}
-}
 
 
 
