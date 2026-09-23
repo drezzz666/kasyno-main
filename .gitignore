@@ -11,6 +11,7 @@ casino-cli
 *.exe
 *.test
 *.out
+backend/server
 
 # Dependencies
 node_modules/
