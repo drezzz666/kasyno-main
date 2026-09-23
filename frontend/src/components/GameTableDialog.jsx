@@ -788,16 +788,6 @@ export function GameTableDialog({
                 />
               )}
             </div>
-
-            {/* Outcome notification if settled */}
-            {last && !shownRound && !blackjackPreview && !spinning && !slotsSpinning && !isFlipping && !isShootingRPS && !limboAnimating && !crashPlaying && (
-              <div className={`result-box ${last.payout && last.payout > last.bet ? "winner" : ""}`}>
-                <b>{last.result}</b>
-                {last.payout > 0 && (
-                  <span>Wypłata: {money(last.payout)}</span>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right Side: Betting Controls & Play Action */}
