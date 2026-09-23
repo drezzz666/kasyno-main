@@ -143,28 +143,17 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   return (
     <div className="captcha-minigame-container">
-      {/* Reward Pill Banner */}
-      <div className="captcha-reward-banner">
-        <div className="flex items-center gap-2">
-          <Coins size={16} className="text-amber-400 animate-bounce" />
-          <span className="text-xs font-bold text-amber-300">Nagroda za poprawne rozwiązanie:</span>
-        </div>
-        <span className="font-mono font-extrabold text-sm text-amber-400 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/40">
-          +40 $FGT
-        </span>
-      </div>
-
       {/* Server-Side Rendered Distorted PNG Image */}
       <div className="captcha-canvas-wrap">
         {captchaData?.image ? (
           <img
             src={captchaData.image}
-            alt="Server Captcha Image"
+            alt="Captcha"
             className={`captcha-img ${successAnim ? "success-glow" : ""}`}
           />
         ) : (
           <div className="h-[75px] w-[280px] flex items-center justify-center text-slate-500 text-xs font-mono">
-            {loading ? "Generowanie bezpiecznego obrazu..." : "Brak obrazu"}
+            {loading ? "Ładowanie..." : "Brak obrazu"}
           </div>
         )}
 
@@ -173,21 +162,11 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           onClick={() => fetchCaptcha(false)}
           disabled={loading}
           className="captcha-refresh-btn"
-          title="Wylosuj nowy obraz captcha"
-          aria-label="Odśwież kod captcha"
+          title="Odśwież kod"
+          aria-label="Odśwież kod"
         >
           <RefreshCw size={16} className={loading ? "animate-spin text-amber-400" : "text-slate-300"} />
         </button>
-      </div>
-
-      {/* Prompt label */}
-      <div className="text-center text-xs text-slate-400 mt-0.5 flex items-center justify-center gap-1.5">
-        <Lock size={12} className="text-emerald-400" />
-        {captchaData?.type === "math" ? (
-          <span>Oblicz i wpisz <b className="text-white font-bold">wynik działania</b> z obrazka:</span>
-        ) : (
-          <span>Przepisz <b className="text-white font-bold">znaki z obrazka</b> (nieczułe na wielkość):</span>
-        )}
       </div>
 
       {/* Form & Input */}
@@ -200,7 +179,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
             autoComplete="off"
             autoCorrect="off"
             spellCheck="false"
-            placeholder={captchaData?.type === "math" ? "Wpisz wynik" : "Wpisz kod z obrazka"}
+            placeholder={captchaData?.type === "math" ? "Wynik działania" : "Wpisz kod"}
             value={inputVal}
             disabled={loading}
             onChange={(e) => {
@@ -221,7 +200,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         {successAnim && (
           <div className="captcha-status-msg success">
             <CheckCircle size={15} className="shrink-0" />
-            <span>Poprawnie! Przyznano +40 $FGT do salda.</span>
+            <span>+40 $FGT dodano do salda</span>
           </div>
         )}
 
@@ -243,18 +222,6 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           )}
         </button>
       </form>
-
-      {/* Session Stats */}
-      <div className="captcha-stats-row">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <span>Rozwiązano w tej sesji:</span>
-          <b className="text-white font-mono">{sessionCount}</b>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <span>Zdobyto:</span>
-          <b className="text-emerald-400 font-mono">+{format(sessionEarned)} $FGT</b>
-        </div>
-      </div>
     </div>
   );
 }

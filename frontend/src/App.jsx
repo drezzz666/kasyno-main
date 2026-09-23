@@ -713,29 +713,7 @@ export default function App() {
 
             {/* View Tab: Minigames Grid */}
             {activeTab === "minigames" && (
-              <section className="tab-section minigames-section">
-                <div className="missions-hub-banner minigames-hub-banner">
-                  <div className="missions-hub-info">
-                    <div className="flex items-center gap-2">
-                      <Gamepad2 size={18} className="text-amber-400" />
-                      <h2 className="missions-hub-title">Strefa Minigier</h2>
-                    </div>
-                    <p className="missions-hub-subtitle">
-                      Graj w szybkie minigry, zdobywaj darmowe żetony $FGT i odbieraj dodatkowe nagrody bez żadnego ryzyka.
-                    </p>
-                  </div>
-                  <div className="missions-hub-stats">
-                    <div className="missions-stat-box">
-                      <span className="missions-stat-label">Minigry</span>
-                      <span className="missions-stat-val text-amber-400">{MINIGAMES.filter(m => m.active).length} aktywna</span>
-                    </div>
-                    <div className="missions-stat-box">
-                      <span className="missions-stat-label">Darmowy Faucet</span>
-                      <span className="missions-stat-val text-emerald-400">+40 $FGT</span>
-                    </div>
-                  </div>
-                </div>
-
+              <section className="games-section minigames-section">
                 <div className="minigames-grid">
                   {MINIGAMES.map((mg) => {
                     const IconComp = mg.icon || Sparkles;

@@ -27,11 +27,8 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
             </div>
             <div>
               <h2 className="text-base font-bold text-white leading-tight">
-                {activeGameMeta?.name || "Minigry Kasyna"}
+                {activeGameMeta?.name || "Minigry"}
               </h2>
-              <span className="text-xs text-slate-400 font-medium">
-                {activeGameMeta?.desc || "Darmowe żetony i nagrody"}
-              </span>
             </div>
           </div>
           <button
