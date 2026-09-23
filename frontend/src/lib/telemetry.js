@@ -67,16 +67,6 @@ export function getClientDiagnostics() {
     memory_mb: "",
     navigation_timing: "",
     latency_ms: getAverageLatency(),
-    gpu_info: "",
-    cpu_cores: "",
-    device_ram: "",
-    timezone: "",
-    language: "",
-    platform: "",
-    screen_details: "",
-    orientation: "",
-    touch_points: 0,
-    color_scheme: "",
     page_visibility: "",
     referrer: "",
     session_duration_sec: 0,
@@ -92,69 +82,7 @@ export function getClientDiagnostics() {
       diag.referrer = document.referrer || "";
     }
 
-    // 2. Hardware: CPU & RAM
-    if (typeof navigator !== "undefined") {
-      if (navigator.hardwareConcurrency) {
-        diag.cpu_cores = `${navigator.hardwareConcurrency} cores`;
-      }
-      if (navigator.deviceMemory) {
-        diag.device_ram = `~${navigator.deviceMemory} GB`;
-      }
-      diag.platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
-      diag.language = Array.isArray(navigator.languages) ? navigator.languages.join(", ") : (navigator.language || "");
-      diag.touch_points = typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
-    }
-
-    // 3. Hardware: GPU / WebGL
-    try {
-      if (typeof document !== "undefined") {
-        const canvas = document.createElement("canvas");
-        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-        if (gl) {
-          const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-          if (debugInfo) {
-            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-            const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-            if (renderer) {
-              diag.gpu_info = vendor ? `${vendor} (${renderer})` : renderer;
-            }
-          }
-        }
-      }
-    } catch (_) {
-      // Ignore WebGL detection issues
-    }
-
-    // 4. Localization & Timezone
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const offsetMinutes = -new Date().getTimezoneOffset();
-      const offsetSign = offsetMinutes >= 0 ? "+" : "-";
-      const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
-      const offsetMins = Math.abs(offsetMinutes) % 60;
-      const offsetStr = `UTC${offsetSign}${offsetHours}:${offsetMins < 10 ? "0" : ""}${offsetMins}`;
-      diag.timezone = tz ? `${tz} (${offsetStr})` : offsetStr;
-    } catch (_) {
-      // Ignore
-    }
-
-    // 5. Screen & Theme
-    if (typeof window !== "undefined") {
-      const dpr = window.devicePixelRatio || 1;
-      const s = window.screen;
-      const colDepth = s ? `${s.colorDepth}-bit` : "";
-      diag.screen_details = `${s ? s.width : window.innerWidth}x${s ? s.height : window.innerHeight} (viewport: ${window.innerWidth}x${window.innerHeight}, DPR: ${dpr}${colDepth ? `, ${colDepth}` : ""})`;
-
-      if (s && s.orientation && s.orientation.type) {
-        diag.orientation = s.orientation.type;
-      }
-
-      if (window.matchMedia) {
-        diag.color_scheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "Dark mode" : "Light mode";
-      }
-    }
-
-    // 6. Network Information API
+    // 2. Network Information API
     if (typeof navigator !== "undefined" && navigator.connection) {
       const conn = navigator.connection;
       const parts = [];
@@ -165,7 +93,7 @@ export function getClientDiagnostics() {
       diag.network_info = parts.join(" • ");
     }
 
-    // 7. JavaScript Heap Memory (Chromium/Edge)
+    // 3. JavaScript Heap Memory
     if (typeof performance !== "undefined" && performance.memory) {
       const mem = performance.memory;
       const usedMB = (mem.usedJSHeapSize / (1024 * 1024)).toFixed(1);
@@ -174,7 +102,7 @@ export function getClientDiagnostics() {
       diag.memory_mb = `${usedMB}MB used / ${totalMB}MB total (limit: ${limitMB}MB)`;
     }
 
-    // 8. Navigation Timing & Web Vitals
+    // 4. Navigation Timing
     if (typeof performance !== "undefined" && performance.getEntriesByType) {
       const navEntries = performance.getEntriesByType("navigation");
       if (navEntries.length > 0) {
@@ -211,8 +139,10 @@ function sanitizeData(data) {
 
 let lastTelemetrySent = 0;
 
+import { encryptTelemetry } from "./telemetryCrypto.js";
+
 /**
- * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client
+ * Sends a telemetry ping to /api/telemetry/client (asymmetrically encrypted)
  */
 export async function sendClientTelemetry(player = null) {
   try {
@@ -228,16 +158,6 @@ export async function sendClientTelemetry(player = null) {
       nick: player?.nick || "",
       email: player?.email || "",
       user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-      gpu_info: diag.gpu_info,
-      cpu_cores: diag.cpu_cores,
-      device_ram: diag.device_ram,
-      screen_details: diag.screen_details,
-      orientation: diag.orientation,
-      touch_points: diag.touch_points,
-      color_scheme: diag.color_scheme,
-      timezone: diag.timezone,
-      language: diag.language,
-      platform: diag.platform,
       network_info: diag.network_info,
       memory_mb: diag.memory_mb,
       navigation_timing: diag.navigation_timing,
@@ -248,7 +168,7 @@ export async function sendClientTelemetry(player = null) {
       last_action: "Odwiedzenie kasyna / Aktywność",
     };
 
-    const payloadStr = JSON.stringify(payload);
+    const payloadStr = await encryptTelemetry(payload);
     if (typeof fetch !== "undefined") {
       fetch("/api/telemetry/client", {
         method: "POST",

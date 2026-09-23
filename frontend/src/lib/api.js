@@ -144,7 +144,8 @@ export async function postCasinoAction(body, retryCount = 0) {
       lower.includes("insufficient") ||
       lower.includes("brak aktywnej gry") ||
       lower.includes("masz już aktywną grę") ||
-      lower.includes("nieprawidłowa stawka");
+      lower.includes("nieprawidłowa stawka") ||
+      lower.includes("captcha");
     const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
 
     addBreadcrumb("game_action", `${actionLabel} rejected: ${errorMsg}`, { status: res.status, error: errorMsg });

@@ -72,14 +72,15 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		AllowedOrigins:   []string{"*", cfg.AppURL},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Cookie", "X-Browser-Proof"},
-		ExposedHeaders:   []string{"Link", "Set-Cookie"},
+		ExposedHeaders:   []string{"Link", "Set-Cookie", "X-Captcha-ID", "X-Captcha-Signature", "X-Captcha-Issued-At", "X-Captcha-Type"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
+	telCrypto, _ := telemetry.NewCryptoManager(cfg.SessionSecret)
 	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
-	errorHandler := NewErrorHandler(rep, tel)
+	errorHandler := NewErrorHandler(rep, telCrypto, tel)
 
 	// Healthcheck & Metrics Telemetry
 	healthHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -88,9 +89,10 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/health", healthHandler)
 	r.Head("/health", healthHandler)
 
-	// Prometheus and JSON Telemetry Endpoints
+	// Prometheus, JSON Telemetry and Encryption Key Endpoints
 	r.Get("/metrics", telemetry.PrometheusHandler(tel))
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
+	r.Get("/api/telemetry/key", errorHandler.GetPublicKey)
 
 	// Client Error & Telemetry Reporting endpoints
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
@@ -130,6 +132,8 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 		r.Route("/api/casino", func(r chi.Router) {
 			r.Get("/challenge", casinoHandler.GetChallenge)
+			r.Get("/captcha", casinoHandler.GetCaptcha)
+			r.Post("/captcha", casinoHandler.SolveCaptcha)
 			r.Get("/", casinoHandler.GetState)
 			r.Post("/", casinoHandler.PostAction)
 			r.Get("/history", casinoHandler.GetHistory)

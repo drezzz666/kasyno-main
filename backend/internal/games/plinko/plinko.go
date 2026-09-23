@@ -62,8 +62,10 @@ type Result struct {
 }
 
 func PlayPlinko(bet int64, rows int, risk string) (*Result, error) {
-	if rows < 8 || rows > 16 {
-		rows = 10
+	if rows != 14 && rows != 16 {
+		if rows < 8 || rows > 16 {
+			rows = 14
+		}
 	}
 
 	risk = strings.ToLower(strings.TrimSpace(risk))
@@ -116,8 +118,10 @@ func PlayPlinko(bet int64, rows int, risk string) (*Result, error) {
 
 // PlayPlinkoProvablyFair executes a deterministic game of Plinko using player seeds and nonce
 func PlayPlinkoProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, rows int, risk string) (*Result, error) {
-	if rows < 8 || rows > 16 {
-		rows = 10
+	if rows != 14 && rows != 16 {
+		if rows < 8 || rows > 16 {
+			rows = 14
+		}
 	}
 
 	risk = strings.ToLower(strings.TrimSpace(risk))

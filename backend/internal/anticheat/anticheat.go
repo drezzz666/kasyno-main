@@ -151,18 +151,18 @@ func (m *UserLockManager) cleanupLoop() {
 // ============================================================================
 
 const (
-	// Game action limits (standard turn-based games)
-	gameActionMaxPerSec = 6
-	gameActionMaxPer10s = 25
-	gameActionMaxPerMin = 90
+	// Game action limits (standard turn-based games: Blackjack, Roulette, Coinflip, RPS)
+	gameActionMaxPerSec = 10
+	gameActionMaxPer10s = 40
+	gameActionMaxPerMin = 180
 
-	// Rapid action limits (supports continuous rapid drops & spins: Plinko, Slots, Limbo, Mines moves)
-	rapidActionMaxPerSec = 20
-	rapidActionMaxPer10s = 200
-	rapidActionMaxPerMin = 1200
+	// Rapid action limits (supports continuous rapid 0.25s drops & spins: Plinko, Slots, Limbo, Mines moves)
+	rapidActionMaxPerSec = 25
+	rapidActionMaxPer10s = 250
+	rapidActionMaxPerMin = 1500
 
-	// Read state limits
-	stateReadMaxPerSec = 15
+	// Read state limits (pre-fetching proofs and status polling)
+	stateReadMaxPerSec = 30
 
 	// How many violations before we flag as bot
 	botViolationThreshold = 4
@@ -228,14 +228,15 @@ func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bo
 	e := rl.getEntry(userID)
 	now := time.Now()
 
-	gName := ""
+	actLower := strings.ToLower(strings.TrimSpace(action))
+	gLower := ""
 	if len(game) > 0 {
-		gName = game[0]
+		gLower = strings.ToLower(strings.TrimSpace(game[0]))
 	}
-	isRapid := action == "plinko" || gName == "plinko" ||
-		action == "mines" || (gName == "mines" && action != "start_mines") ||
-		action == "slots" || gName == "slots" ||
-		action == "limbo" || gName == "limbo"
+	isRapid := actLower == "plinko" || gLower == "plinko" ||
+		actLower == "mines" || (gLower == "mines" && actLower != "start_mines") ||
+		actLower == "slots" || gLower == "slots" ||
+		actLower == "limbo" || gLower == "limbo"
 
 	if isRapid {
 		e.rapidActions = pruneOlderThan(e.rapidActions, now, time.Minute)
@@ -453,8 +454,8 @@ func ValidatePlinkoParams(rows int, risk string) error {
 }
 
 func ValidateLimboTarget(target float64) error {
-	if target < 1.01 || target > 10000.0 {
-		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.01x do 10,000x", ErrInvalidGameParam)
+	if target < 1.20 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.20x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }

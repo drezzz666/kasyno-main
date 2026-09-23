@@ -76,7 +76,7 @@ export function GameTableDialog({
   // New games states
   const [isFlipping, setIsFlipping] = useState(false);
   const [isShootingRPS, setIsShootingRPS] = useState(false);
-  const [plinkoRows, setPlinkoRows] = useState(10);
+  const [plinkoRows, setPlinkoRows] = useState(14);
   const [plinkoRisk, setPlinkoRisk] = useState("medium");
   const plinkoRef = useRef(null);
 
@@ -312,7 +312,8 @@ export function GameTableDialog({
 
   const start = async () => {
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 1000) {
+    const cooldown = game === "plinko" ? 250 : 1000;
+    if (now - lastActionTimeRef.current < cooldown) {
       return;
     }
     lastActionTimeRef.current = now;
@@ -612,11 +613,6 @@ export function GameTableDialog({
       syncBalance(ball.balance);
     }
     setLast(ball.round);
-
-    // If high multiplier, show celebration overlay
-    if (ball.multiplier >= 3.0) {
-      triggerOutcome(ball.round);
-    }
   };
 
   const handlePostMines = async (body, opts) => {
@@ -811,7 +807,7 @@ export function GameTableDialog({
                 <BetControl
                   bet={bet}
                   setBet={setBet}
-                  maxBalance={data?.player?.balance || 1000000}
+                  maxBalance={data?.player?.balance ?? 0}
                   turbo={turbo}
                   setTurbo={setTurbo}
                 />

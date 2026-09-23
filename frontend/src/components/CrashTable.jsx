@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
@@ -25,6 +25,37 @@ export function CrashTable({
   loading,
 }) {
   const canvasRef = useRef(null);
+  const [cashoutStr, setCashoutStr] = useState(String(autoCashout ?? 2.0));
+
+  useEffect(() => {
+    setCashoutStr(String(autoCashout ?? 2.0));
+  }, [autoCashout]);
+
+  const handleCashoutChange = (raw) => {
+    if (raw === "") {
+      setCashoutStr("");
+      return;
+    }
+    setCashoutStr(raw);
+    const v = parseFloat(raw);
+    if (!isNaN(v) && v >= 0.8 && v <= 1000) {
+      setAutoCashout(v);
+    }
+  };
+
+  const handleCashoutBlur = () => {
+    const v = parseFloat(cashoutStr);
+    if (isNaN(v) || v < 0.8) {
+      setAutoCashout(0.8);
+      setCashoutStr("0.8");
+    } else if (v > 1000) {
+      setAutoCashout(1000);
+      setCashoutStr("1000");
+    } else {
+      setAutoCashout(v);
+      setCashoutStr(String(v));
+    }
+  };
 
   // 60FPS Canvas Graph Render Loop
   useEffect(() => {
@@ -178,13 +209,9 @@ export function CrashTable({
               min="0.8"
               max="1000"
               disabled={isPlaying || loading}
-              value={autoCashout}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 0.8) {
-                  setAutoCashout(Math.min(1000, v));
-                }
-              }}
+              value={cashoutStr}
+              onChange={(e) => handleCashoutChange(e.target.value)}
+              onBlur={handleCashoutBlur}
               className="crash-auto-input"
             />
             <span className="crash-auto-suffix">×</span>

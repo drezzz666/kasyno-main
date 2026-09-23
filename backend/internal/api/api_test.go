@@ -1,9 +1,17 @@
 package api
 
 import (
+	"bytes"
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/ecdh"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,6 +24,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
 	"github.com/drezzz666/kasyno/backend/internal/games/mines"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 )
 
 func TestJSONHelpers(t *testing.T) {
@@ -179,11 +188,11 @@ func TestAnticheatBotSimulation(t *testing.T) {
 	limiter := anticheat.NewRateLimiter()
 	limiter.SetIdentity(userID, nick, ip)
 
-	// Simulate bot rapidly dropping 25 Plinko balls within 1 second (limit is 20 rapid req/s)
+	// Simulate bot rapidly dropping 30 Plinko balls within 1 second (limit is 25 rapid req/s)
 	allowedCount := 0
 	blockedCount := 0
 
-	for i := 0; i < 25; i++ {
+	for i := 0; i < 30; i++ {
 		if limiter.AllowGameAction(userID, "play", "plinko") {
 			allowedCount++
 		} else {
@@ -191,8 +200,8 @@ func TestAnticheatBotSimulation(t *testing.T) {
 		}
 	}
 
-	if allowedCount != 20 {
-		t.Fatalf("expected exactly 20 allowed plinko requests, got %d", allowedCount)
+	if allowedCount != 25 {
+		t.Fatalf("expected exactly 25 allowed plinko requests, got %d", allowedCount)
 	}
 	if blockedCount != 5 {
 		t.Fatalf("expected 5 blocked plinko requests, got %d", blockedCount)
@@ -214,3 +223,184 @@ func TestAnticheatBotSimulation(t *testing.T) {
 		t.Fatalf("expected user to be flagged as bot after repeated violations")
 	}
 }
+
+func TestCaptchaEndpointSecurityAndNoLeakage(t *testing.T) {
+	secret := "test-secret-key-12345"
+	user := auth.SessionUser{
+		UserID: "user_captcha_sec_1",
+		Email:  "captcha_sec@example.com",
+		Nick:   "CaptchaSecUser",
+	}
+
+	// 1. Unauthenticated request to /api/casino/captcha should fail
+	reqUnauth := httptest.NewRequest("GET", "/api/casino/captcha", nil)
+	recUnauth := httptest.NewRecorder()
+	handler := &CasinoHandler{
+		sessionSecret: secret,
+		rateLimiter:   anticheat.NewRateLimiter(),
+	}
+	handler.GetCaptcha(recUnauth, reqUnauth)
+	if recUnauth.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unauthenticated captcha get, got %d", recUnauth.Code)
+	}
+
+	// 2. Authenticated request
+	ctx := context.WithValue(context.Background(), auth.PlayerContextKey, &ledger.Player{
+		UserID: user.UserID,
+		Nick:   user.Nick,
+	})
+	reqAuth := httptest.NewRequest("GET", "/api/casino/captcha", nil).WithContext(ctx)
+	recAuth := httptest.NewRecorder()
+	handler.GetCaptcha(recAuth, reqAuth)
+	if recAuth.Code != http.StatusOK {
+		t.Fatalf("expected 200 for authenticated captcha get, got %d", recAuth.Code)
+	}
+
+	// 3. Verify Content-Type is image/png
+	if recAuth.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("expected image/png content type, got %s", recAuth.Header().Get("Content-Type"))
+	}
+
+	// 4. Verify X-Captcha-* security headers are present
+	captchaID := recAuth.Header().Get("X-Captcha-ID")
+	sig := recAuth.Header().Get("X-Captcha-Signature")
+	issuedAt := recAuth.Header().Get("X-Captcha-Issued-At")
+	if captchaID == "" || sig == "" || issuedAt == "" {
+		t.Fatalf("missing required X-Captcha headers: id=%q sig=%q issued_at=%q", captchaID, sig, issuedAt)
+	}
+
+	// 5. Verify that headers do NOT leak answers
+	for k, v := range recAuth.Header() {
+		if strings.Contains(strings.ToLower(k), "answer") || strings.Contains(strings.ToLower(k), "display") {
+			t.Fatalf("SECURITY VIOLATION: answer/display leaked in headers: %s=%v", k, v)
+		}
+	}
+
+	// 6. Verify binary PNG signature (\x89PNG\r\n\x1a\n) in response body
+	bodyBytes := recAuth.Body.Bytes()
+	if len(bodyBytes) < 8 || !strings.HasPrefix(string(bodyBytes[:8]), "\x89PNG\r\n\x1a\n") {
+		t.Fatalf("expected pure binary PNG stream in response body, length=%d", len(bodyBytes))
+	}
+}
+
+func TestEncryptedClientErrorReporting(t *testing.T) {
+	secret := "test-secret-key-12345"
+	telCrypto, err := telemetry.NewCryptoManager(secret)
+	if err != nil {
+		t.Fatalf("failed to init crypto manager: %v", err)
+	}
+
+	serverPubBytes, _ := hex.DecodeString(telCrypto.PublicKeyHex())
+	serverPub, err := ecdh.P256().NewPublicKey(serverPubBytes)
+	if err != nil {
+		t.Fatalf("failed to parse server pubkey: %v", err)
+	}
+
+	// 1. Client encrypts an error report using P-256 ECDH + AES-GCM
+	clientPriv, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate client key: %v", err)
+	}
+	sharedSecret, err := clientPriv.ECDH(serverPub)
+	if err != nil {
+		t.Fatalf("ECDH failed: %v", err)
+	}
+
+	block, _ := aes.NewCipher(sharedSecret)
+	gcm, _ := cipher.NewGCM(block)
+	iv := make([]byte, 12)
+	_, _ = io.ReadFull(rand.Reader, iv)
+
+	reportJSON := `{"error_type":"REACT_RENDER_ERROR","message":"Cannot render element","context":"Game Table Render"}`
+	ciphertext := gcm.Seal(nil, iv, []byte(reportJSON), nil)
+
+	env := telemetry.EncryptedPayload{
+		Version:   1,
+		EpkBase64: base64.StdEncoding.EncodeToString(clientPriv.PublicKey().Bytes()),
+		IVBase64:  base64.StdEncoding.EncodeToString(iv),
+		Data:      base64.StdEncoding.EncodeToString(ciphertext),
+	}
+	envBytes, _ := json.Marshal(env)
+
+	// 2. Send to /api/report-error
+	handler := NewErrorHandler(nil, telCrypto)
+	req := httptest.NewRequest("POST", "/api/report-error", bytes.NewReader(envBytes))
+	rec := httptest.NewRecorder()
+	handler.ReportClientError(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from ReportClientError with encrypted body, got %d", rec.Code)
+	}
+
+	// 3. Test /api/telemetry/key endpoint
+	keyRec := httptest.NewRecorder()
+	keyReq := httptest.NewRequest("GET", "/api/telemetry/key", nil)
+	handler.GetPublicKey(keyRec, keyReq)
+
+	if keyRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from GetPublicKey, got %d", keyRec.Code)
+	}
+	var keyResp map[string]string
+	_ = json.Unmarshal(keyRec.Body.Bytes(), &keyResp)
+	if keyResp["pubkey"] != telCrypto.PublicKeyHex() {
+		t.Fatalf("unexpected pubkey in response: got %s, want %s", keyResp["pubkey"], telCrypto.PublicKeyHex())
+	}
+}
+
+func TestEncryptedClientTelemetryReporting(t *testing.T) {
+	secret := "test-secret-key-12345"
+	telCrypto, err := telemetry.NewCryptoManager(secret)
+	if err != nil {
+		t.Fatalf("failed to init crypto manager: %v", err)
+	}
+
+	serverPubBytes, _ := hex.DecodeString(telCrypto.PublicKeyHex())
+	serverPub, err := ecdh.P256().NewPublicKey(serverPubBytes)
+	if err != nil {
+		t.Fatalf("failed to parse server pubkey: %v", err)
+	}
+
+	// 1. Client encrypts hardware telemetry payload
+	clientPriv, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate client key: %v", err)
+	}
+	sharedSecret, err := clientPriv.ECDH(serverPub)
+	if err != nil {
+		t.Fatalf("ECDH failed: %v", err)
+	}
+
+	block, _ := aes.NewCipher(sharedSecret)
+	gcm, _ := cipher.NewGCM(block)
+	iv := make([]byte, 12)
+	_, _ = io.ReadFull(rand.Reader, iv)
+
+	telemetryJSON := `{"user_id":"usr_tel_1","nick":"TelUser","gpu_info":"NVIDIA RTX 4090","cpu_cores":"16 cores","memory_mb":"45MB / 128MB"}`
+	ciphertext := gcm.Seal(nil, iv, []byte(telemetryJSON), nil)
+
+	env := telemetry.EncryptedPayload{
+		Version:   1,
+		EpkBase64: base64.StdEncoding.EncodeToString(clientPriv.PublicKey().Bytes()),
+		IVBase64:  base64.StdEncoding.EncodeToString(iv),
+		Data:      base64.StdEncoding.EncodeToString(ciphertext),
+	}
+	envBytes, _ := json.Marshal(env)
+
+	// 2. Post to /api/telemetry/client with authenticated session context
+	handler := NewErrorHandler(nil, telCrypto)
+	ctx := context.WithValue(context.Background(), auth.SessionContextKey, &auth.SessionUser{
+		UserID: "usr_tel_1",
+		Nick:   "TelUser",
+		Email:  "tel@2fgt.pl",
+	})
+	req := httptest.NewRequest("POST", "/api/telemetry/client", bytes.NewReader(envBytes)).WithContext(ctx)
+	rec := httptest.NewRecorder()
+	handler.ReportClientTelemetry(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from ReportClientTelemetry with encrypted payload, got %d", rec.Code)
+	}
+}
+
+
+

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from "react";
+import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 
 export const PLINKO_MULTIPLIERS = {
@@ -87,7 +88,7 @@ function cubicBezier(t, p0, p1, p2, p3) {
 }
 
 export const PlinkoTable = forwardRef(function PlinkoTable(
-  { rows = 10, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
+  { rows = 14, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
   ref
 ) {
   const canvasRef = useRef(null);
@@ -98,7 +99,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const onBallFinishRef = useRef(onBallFinish);
   onBallFinishRef.current = onBallFinish;
 
-  const currentMults = PLINKO_MULTIPLIERS[risk]?.[rows] || PLINKO_MULTIPLIERS.medium[10];
+  const currentMults = PLINKO_MULTIPLIERS[risk]?.[rows] || PLINKO_MULTIPLIERS.medium[14];
   const currentMultsRef = useRef(currentMults);
   currentMultsRef.current = currentMults;
 
@@ -391,7 +392,17 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
             setBouncedBin(landedSlot);
             setTimeout(() => setBouncedBin(null), 300);
-            sounds.playWin();
+            sounds.playWin(finalMultiplier);
+
+            if (finalMultiplier >= 10) {
+              sounds.playCoins();
+              confetti({
+                particleCount: finalMultiplier >= 50 ? 100 : 50,
+                spread: 70,
+                origin: { y: 0.8 },
+                colors: ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#fbbf24"],
+              });
+            }
 
             // Push to recent hits
             setRecentHits((prev) => [
@@ -565,9 +576,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       {/* Row & Risk Selection Controls */}
       <div className="plinko-config-panel">
         <div className="plinko-config-group">
-          <span className="config-label">Liczba rzędów (8–16):</span>
+          <span className="config-label">Liczba rzędów:</span>
           <div className="config-pill-row">
-            {[8, 9, 10, 11, 12, 13, 14, 15, 16].map((r) => (
+            {[14, 16].map((r) => (
               <button
                 key={r}
                 type="button"

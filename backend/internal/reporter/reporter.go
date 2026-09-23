@@ -77,16 +77,6 @@ type FrontendErrorReport struct {
 	MemoryMB           string        `json:"memory_mb"`            // Client JS Heap memory
 	NavigationTiming   string        `json:"navigation_timing"`    // Page load / TTFB diagnostics
 	LatencyMs          float64       `json:"latency_ms"`           // Recent API action latency
-	GPUInfo            string        `json:"gpu_info,omitempty"`   // WebGL GPU Renderer / Vendor
-	CPUCores           string        `json:"cpu_cores,omitempty"`  // CPU logical cores
-	DeviceRAM          string        `json:"device_ram,omitempty"` // Device RAM
-	Timezone           string        `json:"timezone,omitempty"`   // User timezone & UTC offset
-	Language           string        `json:"language,omitempty"`   // Browser languages
-	Platform           string        `json:"platform,omitempty"`   // OS Platform
-	ScreenDetails      string        `json:"screen_details,omitempty"`
-	Orientation        string        `json:"orientation,omitempty"`
-	TouchPoints        int           `json:"touch_points,omitempty"`
-	ColorScheme        string        `json:"color_scheme,omitempty"`
 	PageVisibility     string        `json:"page_visibility,omitempty"`
 	Referrer           string        `json:"referrer,omitempty"`
 	SessionDurationSec int           `json:"session_duration_sec,omitempty"`
@@ -230,7 +220,15 @@ func isInsufficientFundsText(text string) bool {
 		strings.Contains(lower, "niewystarczające środki") ||
 		strings.Contains(lower, "brak środków") ||
 		strings.Contains(lower, "brak aktywnej gry") ||
-		strings.Contains(lower, "masz już aktywną grę")
+		strings.Contains(lower, "masz już aktywną grę") ||
+		strings.Contains(lower, "nieprawidłowy kod captcha") ||
+		strings.Contains(lower, "captcha wygasła") ||
+		strings.Contains(lower, "kod captcha został już wykorzystany") ||
+		strings.Contains(lower, "zbyt szybkie rozwiązywanie captcha") ||
+		strings.Contains(lower, "niepoprawna odpowiedź") ||
+		strings.Contains(lower, "brak wymaganych parametrów captcha") ||
+		strings.Contains(lower, "solve_captcha") ||
+		strings.Contains(lower, "captcha")
 }
 
 func isRateLimitText(errType, message, context string) bool {
@@ -413,32 +411,6 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	if report.Screen != "" {
 		envInfo += fmt.Sprintf("**Ekran:** `%s`\n", report.Screen)
 	}
-	if report.GPUInfo != "" {
-		envInfo += fmt.Sprintf("**Karta graficzna (GPU):** `%s`\n", truncate(report.GPUInfo, 150))
-	}
-	hwParts := []string{}
-	if report.CPUCores != "" {
-		hwParts = append(hwParts, fmt.Sprintf("CPU: %s", report.CPUCores))
-	}
-	if report.DeviceRAM != "" {
-		hwParts = append(hwParts, fmt.Sprintf("RAM: %s", report.DeviceRAM))
-	}
-	if report.TouchPoints > 0 {
-		hwParts = append(hwParts, fmt.Sprintf("Touch: %d pkt", report.TouchPoints))
-	}
-	if len(hwParts) > 0 {
-		envInfo += fmt.Sprintf("**Sprzęt:** `%s`\n", strings.Join(hwParts, " • "))
-	}
-	if report.Timezone != "" || report.Language != "" {
-		tzLang := []string{}
-		if report.Timezone != "" {
-			tzLang = append(tzLang, fmt.Sprintf("Strefa: %s", report.Timezone))
-		}
-		if report.Language != "" {
-			tzLang = append(tzLang, fmt.Sprintf("Język: %s", report.Language))
-		}
-		envInfo += fmt.Sprintf("**Lokalizacja:** `%s`\n", strings.Join(tzLang, " • "))
-	}
 	if report.NetworkInfo != "" {
 		envInfo += fmt.Sprintf("**Sieć:** `%s`\n", report.NetworkInfo)
 	}
@@ -451,13 +423,10 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	if report.LatencyMs > 0 {
 		envInfo += fmt.Sprintf("**Ostatnie RTT / Opóźnienie API:** `%.1f ms`\n", report.LatencyMs)
 	}
-	if report.SessionDurationSec > 0 || report.ColorScheme != "" || report.Referrer != "" {
+	if report.SessionDurationSec > 0 || report.Referrer != "" {
 		sessParts := []string{}
 		if report.SessionDurationSec > 0 {
 			sessParts = append(sessParts, fmt.Sprintf("Czas sesji: %ds", report.SessionDurationSec))
-		}
-		if report.ColorScheme != "" {
-			sessParts = append(sessParts, report.ColorScheme)
 		}
 		if report.PageVisibility != "" {
 			sessParts = append(sessParts, fmt.Sprintf("Karta: %s", report.PageVisibility))
@@ -469,7 +438,7 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	}
 	if envInfo != "" {
 		fields = append(fields, DiscordField{
-			Name:   "💻 Telemetria, Sprzęt i Środowisko Klienta",
+			Name:   "💻 Telemetria i Środowisko Klienta",
 			Value:  strings.TrimSpace(envInfo),
 			Inline: false,
 		})

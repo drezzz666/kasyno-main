@@ -52,9 +52,9 @@ func TodayString() string {
 }
 
 func DailyBonusAmount(streak int) int64 {
-	bonus := 100 + streak*50
-	if bonus > 1000 {
-		bonus = 1000
+	bonus := 150 + streak*75
+	if bonus > 1500 {
+		bonus = 1500
 	}
 	return int64(bonus)
 }
@@ -458,6 +458,40 @@ func (s *Service) ClaimDailyBonus(ctx context.Context, userID string) (int64, in
 	return amount, newBal, streak, nil
 }
 
+// CreditCaptchaReward awards the mini-game reward (25 $FGT) to the player's balance
+func (s *Service) CreditCaptchaReward(ctx context.Context, userID string, amount int64) (int64, error) {
+	if amount <= 0 {
+		return 0, fmt.Errorf("nieprawidłowa kwota nagrody")
+	}
+	t := NowMs()
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	var curBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
+	newBal := curBal + amount
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+		VALUES ($1, $2, 'captcha_reward', $3, $4, $5)
+	`, uuid.NewString(), userID, amount, newBal, t)
+	if err != nil {
+		return 0, fmt.Errorf("failed to record captcha reward: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+
+	return newBal, nil
+}
+
 type MissionDef struct {
 	ID          string
 	Title       string
@@ -479,8 +513,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "total",
 	},
 	{
@@ -490,8 +524,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      15,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "total",
 	},
 	{
@@ -501,8 +535,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      30,
-		Reward:      150,
-		XPReward:    35,
+		Reward:      225,
+		XPReward:    50,
 		StatKey:     "total",
 	},
 	{
@@ -512,8 +546,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "crown",
 		Target:      50,
-		Reward:      200,
-		XPReward:    50,
+		Reward:      350,
+		XPReward:    75,
 		StatKey:     "total",
 	},
 	{
@@ -523,8 +557,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      3,
-		Reward:      60,
-		XPReward:    15,
+		Reward:      90,
+		XPReward:    20,
 		StatKey:     "total_wins",
 	},
 	{
@@ -534,8 +568,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      10,
-		Reward:      120,
-		XPReward:    30,
+		Reward:      180,
+		XPReward:    40,
 		StatKey:     "total_wins",
 	},
 	{
@@ -545,8 +579,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "trophy",
 		Target:      25,
-		Reward:      200,
-		XPReward:    50,
+		Reward:      320,
+		XPReward:    70,
 		StatKey:     "total_wins",
 	},
 
@@ -558,8 +592,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      500,
-		Reward:      40,
-		XPReward:    10,
+		Reward:      60,
+		XPReward:    15,
 		StatKey:     "wager",
 	},
 	{
@@ -569,8 +603,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      2500,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "wager",
 	},
 	{
@@ -580,8 +614,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "High Roller",
 		Icon:        "trophy",
 		Target:      10000,
-		Reward:      250,
-		XPReward:    50,
+		Reward:      375,
+		XPReward:    75,
 		StatKey:     "wager",
 	},
 	{
@@ -591,8 +625,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "High Roller",
 		Icon:        "crown",
 		Target:      50000,
-		Reward:      500,
-		XPReward:    100,
+		Reward:      750,
+		XPReward:    150,
 		StatKey:     "wager",
 	},
 
@@ -604,8 +638,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "roulette",
 	},
 	{
@@ -615,8 +649,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "roulette",
 	},
 	{
@@ -626,8 +660,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "roulette_wins",
 	},
 
@@ -639,8 +673,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "mines",
 	},
 	{
@@ -650,8 +684,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "mines",
 	},
 	{
@@ -661,8 +695,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "mines_wins",
 	},
 
@@ -674,8 +708,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "blackjack",
 	},
 	{
@@ -685,8 +719,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "blackjack",
 	},
 	{
@@ -696,8 +730,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "blackjack_wins",
 	},
 
@@ -709,8 +743,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "slots",
 	},
 	{
@@ -720,8 +754,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      15,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "slots",
 	},
 	{
@@ -731,8 +765,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "slots_wins",
 	},
 
@@ -744,8 +778,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "coinflip",
 	},
 	{
@@ -755,8 +789,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      12,
-		Reward:      90,
-		XPReward:    20,
+		Reward:      135,
+		XPReward:    30,
 		StatKey:     "coinflip",
 	},
 	{
@@ -766,8 +800,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      4,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "coinflip_wins",
 	},
 
@@ -779,8 +813,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "rps",
 	},
 	{
@@ -790,8 +824,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      12,
-		Reward:      90,
-		XPReward:    20,
+		Reward:      135,
+		XPReward:    30,
 		StatKey:     "rps",
 	},
 	{
@@ -801,8 +835,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      4,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "rps_wins",
 	},
 
@@ -814,8 +848,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      10,
-		Reward:      60,
-		XPReward:    15,
+		Reward:      90,
+		XPReward:    20,
 		StatKey:     "plinko",
 	},
 	{
@@ -825,8 +859,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      25,
-		Reward:      120,
-		XPReward:    30,
+		Reward:      180,
+		XPReward:    40,
 		StatKey:     "plinko",
 	},
 	{
@@ -836,8 +870,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      5,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "plinko_wins",
 	},
 }
@@ -1881,6 +1915,78 @@ func (s *Service) LogFraud(ctx context.Context, userID, nick string, prevBalance
 	`, id, userID, nick, prevBalance, reason, details, now)
 	return err
 }
+
+func (s *Service) RecordLogin(ctx context.Context, userID, nick, ip, userAgent string) (*LoginLog, error) {
+	id := uuid.New().String()
+	now := NowMs()
+	_, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO login_logs (id, user_id, nick, ip, user_agent, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, userID, nick, ip, userAgent, now)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginLog{
+		ID:        id,
+		UserID:    userID,
+		Nick:      nick,
+		IP:        ip,
+		UserAgent: userAgent,
+		CreatedAt: now,
+	}, nil
+}
+
+func (s *Service) GetPlayerLoginSummary(ctx context.Context, userID string) (*PlayerLoginSummary, error) {
+	summary := &PlayerLoginSummary{}
+	
+	// Total logins
+	_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM login_logs WHERE user_id = $1`, userID).Scan(&summary.TotalLogins)
+	
+	// First login
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT created_at, ip FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, userID).Scan(&summary.FirstLoginAt, &summary.FirstIP)
+	
+	// Last login
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT created_at, ip FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, userID).Scan(&summary.LastLoginAt, &summary.LastIP)
+	
+	return summary, nil
+}
+
+func (s *Service) ListRecentLogins(ctx context.Context, userID string, limit int) ([]LoginLog, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT id, user_id, nick, ip, COALESCE(user_agent, ''), created_at
+		FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []LoginLog
+	for rows.Next() {
+		var l LoginLog
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Nick, &l.IP, &l.UserAgent, &l.CreatedAt); err == nil {
+			list = append(list, l)
+		}
+	}
+	return list, nil
+}
+
 
 
 

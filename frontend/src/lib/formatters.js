@@ -2,7 +2,7 @@ export const format = (n) => new Intl.NumberFormat("pl-PL").format(n || 0);
 
 export const money = (n) => `${format(n)} $FGT`;
 
-export const dailyBonus = (streak) => Math.min(100 + (streak || 0) * 50, 1000);
+export const dailyBonus = (streak) => Math.min(150 + (streak || 0) * 75, 1500);
 
 export const gameNames = {
   roulette: "Ruletka",
@@ -41,6 +41,12 @@ export function getHistoryDetails(item) {
     return {
       title: "Konto / Doładowanie",
       subtitle: item.result || "Doładowanie administratora",
+    };
+  }
+  if (item.type === "captcha_reward") {
+    return {
+      title: "Mini-gra Captcha",
+      subtitle: "Nagroda za rozwiązanie (+40 $FGT)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

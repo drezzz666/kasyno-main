@@ -19,16 +19,6 @@ type UserTelemetryReport struct {
 	Email              string  `json:"email"`
 	IP                 string  `json:"ip"`
 	UserAgent          string  `json:"user_agent"`
-	GPUInfo            string  `json:"gpu_info"`
-	CPUCores           string  `json:"cpu_cores"`
-	DeviceRAM          string  `json:"device_ram"`
-	ScreenDetails      string  `json:"screen_details"`
-	Orientation        string  `json:"orientation"`
-	TouchPoints        int     `json:"touch_points"`
-	ColorScheme        string  `json:"color_scheme"`
-	Timezone           string  `json:"timezone"`
-	Language           string  `json:"language"`
-	Platform           string  `json:"platform"`
 	NetworkInfo        string  `json:"network_info"`
 	MemoryMB           string  `json:"memory_mb"`
 	NavigationTiming   string  `json:"navigation_timing"`
@@ -86,36 +76,6 @@ func StoreUserTelemetry(data *UserTelemetryReport) *UserTelemetryReport {
 	}
 	if data.UserAgent != "" {
 		merged.UserAgent = data.UserAgent
-	}
-	if data.GPUInfo != "" {
-		merged.GPUInfo = data.GPUInfo
-	}
-	if data.CPUCores != "" {
-		merged.CPUCores = data.CPUCores
-	}
-	if data.DeviceRAM != "" {
-		merged.DeviceRAM = data.DeviceRAM
-	}
-	if data.ScreenDetails != "" {
-		merged.ScreenDetails = data.ScreenDetails
-	}
-	if data.Orientation != "" {
-		merged.Orientation = data.Orientation
-	}
-	if data.TouchPoints > 0 {
-		merged.TouchPoints = data.TouchPoints
-	}
-	if data.ColorScheme != "" {
-		merged.ColorScheme = data.ColorScheme
-	}
-	if data.Timezone != "" {
-		merged.Timezone = data.Timezone
-	}
-	if data.Language != "" {
-		merged.Language = data.Language
-	}
-	if data.Platform != "" {
-		merged.Platform = data.Platform
 	}
 	if data.NetworkInfo != "" {
 		merged.NetworkInfo = data.NetworkInfo
@@ -428,7 +388,7 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 			continue
 		}
 
-		embed := b.buildUserTelemetryEmbed(data, player, stats)
+		embed := b.buildUserTelemetryEmbed(ctx, data, player, stats)
 
 		// Fetch existing messages in the channel to update
 		messages, err := b.session.ChannelMessages(chID, 15, "", "", "")
@@ -541,7 +501,7 @@ func (b *Bot) sendEmbedWithRetry(chID string, embed *discordgo.MessageEmbed) (*d
 }
 
 // buildUserTelemetryEmbed constructs a rich embed with player account, gambling stats, hardware, and network telemetry.
-func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.Player, stats *ledger.PlayerStats) *discordgo.MessageEmbed {
+func (b *Bot) buildUserTelemetryEmbed(ctx context.Context, data *UserTelemetryReport, player *ledger.Player, stats *ledger.PlayerStats) *discordgo.MessageEmbed {
 	nick := data.Nick
 	if nick == "" {
 		nick = "Gracz"
@@ -595,127 +555,71 @@ func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.
 		})
 	}
 
-	hasHardwareInfo := data.GPUInfo != "" || data.CPUCores != "" || data.DeviceRAM != "" || data.ScreenDetails != "" || data.UserAgent != "" || data.IP != ""
+	// Login & IP Security History
+	var loginSummary *ledger.PlayerLoginSummary
+	if b.ledger != nil && data.UserID != "" {
+		loginSummary, _ = b.ledger.GetPlayerLoginSummary(ctx, data.UserID)
+	}
 
-	if !hasHardwareInfo {
-		// User has not loaded the web client yet
+	loginLines := []string{}
+	if loginSummary != nil && loginSummary.TotalLogins > 0 {
+		loginLines = append(loginLines, fmt.Sprintf("🔑 **Liczba logowań:** `%d`", loginSummary.TotalLogins))
+		if loginSummary.FirstLoginAt != nil {
+			firstTime := time.UnixMilli(*loginSummary.FirstLoginAt).Format("02.01.2006 15:04:05")
+			loginLines = append(loginLines, fmt.Sprintf("🟢 **Pierwsze logowanie:** `%s` (IP: `%s`)", firstTime, loginSummary.FirstIP))
+		}
+		if loginSummary.LastLoginAt != nil {
+			lastTime := time.UnixMilli(*loginSummary.LastLoginAt).Format("02.01.2006 15:04:05")
+			loginLines = append(loginLines, fmt.Sprintf("🔴 **Ostatnie logowanie:** `%s` (IP: `%s`)", lastTime, loginSummary.LastIP))
+		}
+	} else if data.IP != "" {
+		loginLines = append(loginLines, fmt.Sprintf("📡 **Ostatnie IP:** `%s`", data.IP))
+	}
+
+	if len(loginLines) > 0 {
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "💻 Sprzęt i Telemetria Klienta",
-			Value:  "⏳ *Oczekiwanie na pierwsze połączenie gracza z przeglądarki...*",
+			Name:   "🔐 Historia Logowań i Adresy IP",
+			Value:  limitStr(strings.Join(loginLines, "\n"), 1024),
 			Inline: false,
 		})
-	} else {
-		// Hardware Specs
-		hwLines := []string{}
-		if data.GPUInfo != "" {
-			hwLines = append(hwLines, fmt.Sprintf("🎮 **GPU:** `%s`", limitStr(data.GPUInfo, 200)))
-		}
-		hwSub := []string{}
-		if data.CPUCores != "" {
-			hwSub = append(hwSub, fmt.Sprintf("CPU: %s", data.CPUCores))
-		}
-		if data.DeviceRAM != "" {
-			hwSub = append(hwSub, fmt.Sprintf("RAM: %s", data.DeviceRAM))
-		}
-		if data.TouchPoints > 0 {
-			hwSub = append(hwSub, fmt.Sprintf("Touch: %d pkt", data.TouchPoints))
-		}
-		if len(hwSub) > 0 {
-			hwLines = append(hwLines, fmt.Sprintf("⚙️ **Podzespoły:** `%s`", strings.Join(hwSub, " • ")))
-		}
-		if len(hwLines) > 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "💻 Karta Graficzna i Sprzęt",
-				Value:  limitStr(strings.Join(hwLines, "\n"), 1024),
-				Inline: false,
-			})
-		}
+	}
 
-		// Display & Client Environment
-		envLines := []string{}
-		if data.ScreenDetails != "" {
-			envLines = append(envLines, fmt.Sprintf("🖥️ **Ekran:** `%s`", limitStr(data.ScreenDetails, 150)))
+	// Browser, Network and Session Performance
+	sessLines := []string{}
+	if data.UserAgent != "" {
+		sessLines = append(sessLines, fmt.Sprintf("🌐 **Przeglądarka / OS:** `%s`", limitStr(data.UserAgent, 250)))
+	}
+	if data.NetworkInfo != "" {
+		sessLines = append(sessLines, fmt.Sprintf("📶 **Połączenie:** `%s`", data.NetworkInfo))
+	}
+	if data.SessionDurationSec > 0 {
+		mins := data.SessionDurationSec / 60
+		secs := data.SessionDurationSec % 60
+		if mins > 0 {
+			sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%dm %ds`", mins, secs))
+		} else {
+			sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%ds`", secs))
 		}
-		if data.UserAgent != "" {
-			envLines = append(envLines, fmt.Sprintf("🌐 **Przeglądarka / OS:** `%s`", limitStr(data.UserAgent, 250)))
-		}
-		subEnv := []string{}
-		if data.Platform != "" {
-			subEnv = append(subEnv, fmt.Sprintf("Platform: %s", data.Platform))
-		}
-		if data.ColorScheme != "" {
-			subEnv = append(subEnv, data.ColorScheme)
-		}
-		if data.Orientation != "" {
-			subEnv = append(subEnv, data.Orientation)
-		}
-		if len(subEnv) > 0 {
-			envLines = append(envLines, fmt.Sprintf("🎨 **Środowisko:** `%s`", strings.Join(subEnv, " • ")))
-		}
-		if len(envLines) > 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "🖥️ Ekran i Przeglądarka",
-				Value:  limitStr(strings.Join(envLines, "\n"), 1024),
-				Inline: false,
-			})
-		}
+	}
+	if data.LatencyMs > 0 {
+		sessLines = append(sessLines, fmt.Sprintf("⚡ **Średnie RTT API:** `%.1f ms`", data.LatencyMs))
+	}
+	if data.MemoryMB != "" {
+		sessLines = append(sessLines, fmt.Sprintf("🧠 **Pamięć JS:** `%s`", data.MemoryMB))
+	}
+	if data.NavigationTiming != "" {
+		sessLines = append(sessLines, fmt.Sprintf("🚀 **Timing strony:** `%s`", data.NavigationTiming))
+	}
+	if data.LastAction != "" {
+		sessLines = append(sessLines, fmt.Sprintf("🎯 **Ostatnia akcja:** `%s`", data.LastAction))
+	}
 
-		// Network & Localization
-		netLines := []string{}
-		if data.IP != "" {
-			netLines = append(netLines, fmt.Sprintf("📡 **Ostatnie IP:** `%s`", data.IP))
-		}
-		if data.NetworkInfo != "" {
-			netLines = append(netLines, fmt.Sprintf("📶 **Połączenie:** `%s`", data.NetworkInfo))
-		}
-		if data.Timezone != "" || data.Language != "" {
-			locParts := []string{}
-			if data.Timezone != "" {
-				locParts = append(locParts, fmt.Sprintf("Strefa: %s", data.Timezone))
-			}
-			if data.Language != "" {
-				locParts = append(locParts, fmt.Sprintf("Język: %s", data.Language))
-			}
-			netLines = append(netLines, fmt.Sprintf("🌍 **Lokalizacja:** `%s`", strings.Join(locParts, " • ")))
-		}
-		if len(netLines) > 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "🌍 Sieć i Lokalizacja",
-				Value:  limitStr(strings.Join(netLines, "\n"), 1024),
-				Inline: false,
-			})
-		}
-
-		// Session & Activity
-		sessLines := []string{}
-		if data.SessionDurationSec > 0 {
-			mins := data.SessionDurationSec / 60
-			secs := data.SessionDurationSec % 60
-			if mins > 0 {
-				sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%dm %ds`", mins, secs))
-			} else {
-				sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%ds`", secs))
-			}
-		}
-		if data.LatencyMs > 0 {
-			sessLines = append(sessLines, fmt.Sprintf("⚡ **Średnie RTT API:** `%.1f ms`", data.LatencyMs))
-		}
-		if data.MemoryMB != "" {
-			sessLines = append(sessLines, fmt.Sprintf("🧠 **Pamięć JS:** `%s`", data.MemoryMB))
-		}
-		if data.NavigationTiming != "" {
-			sessLines = append(sessLines, fmt.Sprintf("🚀 **Timing strony:** `%s`", data.NavigationTiming))
-		}
-		if data.LastAction != "" {
-			sessLines = append(sessLines, fmt.Sprintf("🎯 **Ostatnia akcja:** `%s`", data.LastAction))
-		}
-		if len(sessLines) > 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "⏱️ Stan Sesji i Wydajność",
-				Value:  limitStr(strings.Join(sessLines, "\n"), 1024),
-				Inline: false,
-			})
-		}
+	if len(sessLines) > 0 {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "⏱️ Stan Sesji i Sieć",
+			Value:  limitStr(strings.Join(sessLines, "\n"), 1024),
+			Inline: false,
+		})
 	}
 
 	avatarURL := ""
@@ -894,7 +798,7 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 			report = StoreUserTelemetry(report)
 
 			stats, _ := b.ledger.GetPlayerStats(ctx, p.UserID)
-			embed := b.buildUserTelemetryEmbed(report, &p, stats)
+			embed := b.buildUserTelemetryEmbed(ctx, report, &p, stats)
 
 			_, sendErr := b.sendEmbedWithRetry(newCh.ID, embed)
 			if sendErr != nil {
@@ -907,3 +811,113 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 
 	return totalDeleted, totalCreated, nil
 }
+
+// LogUserLogin logs a user login event into a daily Discord thread inside the player's telemetry channel (1 thread per day).
+func (b *Bot) LogUserLogin(ctx context.Context, userID, nick, ip, userAgent string) error {
+	if b == nil || b.session == nil || userID == "" {
+		return nil
+	}
+
+	guildIDs := b.getGuildIDs()
+	if len(guildIDs) == 0 {
+		return fmt.Errorf("brak dostępnych serwerów discord dla bota")
+	}
+
+	telemetryChannelMu.Lock()
+	defer telemetryChannelMu.Unlock()
+
+	today := time.Now().UTC().Format("2006-01-02")
+	threadName := fmt.Sprintf("📅 Logowania %s", today)
+
+	for _, guildID := range guildIDs {
+		catID, err := b.EnsureTelemetryCategory(guildID)
+		if err != nil {
+			log.Printf("⚠️ [Discord Bot Login] Błąd kategorii na guild %s: %v", guildID, err)
+			continue
+		}
+
+		chID, err := b.getOrCreateUserTelemetryChannel(guildID, catID, nick, userID)
+		if err != nil {
+			log.Printf("⚠️ [Discord Bot Login] Błąd kanału gracza %s: %v", nick, err)
+			continue
+		}
+
+		// Look for existing active thread for today
+		var targetThreadID string
+		activeThreads, err := b.session.GuildThreadsActive(guildID)
+		if err == nil && activeThreads != nil {
+			for _, th := range activeThreads.Threads {
+				if th.ParentID == chID && strings.Contains(th.Name, today) {
+					targetThreadID = th.ID
+					break
+				}
+			}
+		}
+
+		// Look for existing archived thread if active was not found
+		if targetThreadID == "" {
+			archived, err := b.session.ThreadsArchived(chID, nil, 10)
+			if err == nil && archived != nil {
+				for _, th := range archived.Threads {
+					if strings.Contains(th.Name, today) {
+						targetThreadID = th.ID
+						unarchived := false
+						_, _ = b.session.ChannelEdit(th.ID, &discordgo.ChannelEdit{
+							Archived: &unarchived,
+						})
+						break
+					}
+				}
+			}
+		}
+
+		// Create thread for today if it does not exist
+		if targetThreadID == "" {
+			th, err := b.session.ThreadStart(chID, threadName, discordgo.ChannelTypeGuildPublicThread, 1440)
+			if err != nil {
+				// Fallback to private or start without complex
+				th, err = b.session.ThreadStartComplex(chID, &discordgo.ThreadStart{
+					Name:                threadName,
+					AutoArchiveDuration: 1440,
+					Type:                discordgo.ChannelTypeGuildPublicThread,
+				})
+			}
+			if err == nil && th != nil {
+				targetThreadID = th.ID
+				log.Printf("🧵 [Discord Bot] Utworzono wątek dzienny %s w kanale #%s dla gracza %s", threadName, chID, nick)
+			} else {
+				log.Printf("⚠️ [Discord Bot] Nie udało się utworzyć wątku logowań dla gracza %s: %v", nick, err)
+			}
+		}
+
+		// Target to send message: send to thread if available, otherwise to player channel
+		destinationID := targetThreadID
+		if destinationID == "" {
+			destinationID = chID
+		}
+
+		nowStr := time.Now().Format("15:04:05")
+		uaShort := limitStr(userAgent, 120)
+		if uaShort == "" {
+			uaShort = "Nieznana przeglądarka"
+		}
+
+		loginEmbed := &discordgo.MessageEmbed{
+			Color:       ColorEmerald,
+			Title:       fmt.Sprintf("🔑 Logowanie gracza `%s`", nick),
+			Description: fmt.Sprintf("🕒 **Czas:** `%s`\n📡 **Adres IP:** `%s`\n🌐 **Klient:** `%s`", nowStr, ip, uaShort),
+			Timestamp:   time.Now().UTC().Format(time.RFC3339),
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("ID: %s", userID),
+			},
+		}
+
+		_, sendErr := b.sendEmbedWithRetry(destinationID, loginEmbed)
+		if sendErr != nil {
+			log.Printf("⚠️ [Discord Bot Login] Błąd wysyłania embeda logowania do %s: %v", destinationID, sendErr)
+		}
+	}
+
+	return nil
+}
+

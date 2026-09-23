@@ -1,4 +1,5 @@
 import { getBreadcrumbs, getClientDiagnostics } from "./telemetry.js";
+import { encryptTelemetry } from "./telemetryCrypto.js";
 
 const recentErrors = new Map();
 
@@ -40,7 +41,7 @@ export function reportClientError({
     }
 
     const lower = `${errorMsg} ${context}`.toLowerCase();
-    // Ignore routine user balance, validation and race condition errors
+    // Ignore routine user balance, validation, captcha and race condition errors
     if (
       lower.includes("niewystarczające saldo") ||
       lower.includes("brak wystarczających środków") ||
@@ -53,7 +54,14 @@ export function reportClientError({
       lower.includes("nieprawidłowa stawka") ||
       lower.includes("wybierz stronę") ||
       lower.includes("wybierz swój gest") ||
-      lower.includes("postaw żetony")
+      lower.includes("postaw żetony") ||
+      lower.includes("nieprawidłowy kod captcha") ||
+      lower.includes("captcha wygasła") ||
+      lower.includes("kod captcha został już wykorzystany") ||
+      lower.includes("zbyt szybkie rozwiązywanie captcha") ||
+      lower.includes("niepoprawna odpowiedź") ||
+      lower.includes("solve_captcha") ||
+      lower.includes("captcha")
     ) {
       return;
     }
@@ -90,32 +98,29 @@ export function reportClientError({
       memory_mb: diag.memory_mb,
       navigation_timing: diag.navigation_timing,
       latency_ms: diag.latency_ms,
-      gpu_info: diag.gpu_info,
-      cpu_cores: diag.cpu_cores,
-      device_ram: diag.device_ram,
-      timezone: diag.timezone,
-      language: diag.language,
-      platform: diag.platform,
-      screen_details: diag.screen_details,
-      orientation: diag.orientation,
-      touch_points: diag.touch_points,
-      color_scheme: diag.color_scheme,
       page_visibility: diag.page_visibility,
       referrer: diag.referrer,
       session_duration_sec: diag.session_duration_sec,
       url: env.url,
       user_agent: env.user_agent,
-      screen: diag.screen_details || env.screen,
+      screen: env.screen,
       timestamp: env.timestamp,
     };
 
-    const payloadStr = JSON.stringify(payload);
-
-    // Send via sendBeacon for maximum reliability, fallback to fetch
-    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-      const blob = new Blob([payloadStr], { type: "application/json" });
-      const sent = navigator.sendBeacon("/api/report-error", blob);
-      if (!sent) {
+    // Asymmetrically encrypt payload so user cannot inspect diagnostics in DevTools
+    encryptTelemetry(payload).then((payloadStr) => {
+      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+        const blob = new Blob([payloadStr], { type: "application/json" });
+        const sent = navigator.sendBeacon("/api/report-error", blob);
+        if (!sent) {
+          fetch("/api/report-error", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payloadStr,
+            keepalive: true,
+          }).catch(() => {});
+        }
+      } else {
         fetch("/api/report-error", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -123,14 +128,7 @@ export function reportClientError({
           keepalive: true,
         }).catch(() => {});
       }
-    } else {
-      fetch("/api/report-error", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payloadStr,
-        keepalive: true,
-      }).catch(() => {});
-    }
+    }).catch(() => {});
   } catch (err) {
     console.warn("[Reporter] Failed to send error report:", err);
   }
