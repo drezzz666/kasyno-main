@@ -126,9 +126,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const numRows = rows;
       const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
-      // Precisely calibrated pin & ball sizes for generous spacing and zero clipping
-      const pinRadius = Math.max(3.5, 6.0 - numRows * 0.16);
-      const ballRadius = Math.max(7.5, 12.5 - numRows * 0.32);
+      // Prominent, solid, 3D balls and calibrated pins
+      const pinRadius = Math.max(3.6, 6.0 - numRows * 0.15);
+      const ballRadius = Math.max(11, 16.5 - numRows * 0.35);
       const collRadius = pinRadius + ballRadius;
 
       const segments = [];
@@ -203,13 +203,13 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           prevContact = nextContact;
         } else {
-          // 3. Final Drop into Multiplier Bin
+          // 3. Final Drop directly into center of Multiplier Bin
           const finalSlot = ballData.slot ?? (curCol - 1);
           const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistX;
 
           const binContact = {
             x: slotCenterX,
-            y: HEIGHT - 18,
+            y: HEIGHT - 20,
           };
 
           const finalApex = {
@@ -218,7 +218,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           };
           const binDescent = {
             x: slotCenterX,
-            y: HEIGHT - 40,
+            y: HEIGHT - 46,
           };
 
           segments.push({
