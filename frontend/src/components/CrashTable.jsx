@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
