@@ -212,12 +212,12 @@ function sanitizeData(data) {
 let lastTelemetrySent = 0;
 
 /**
- * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client (debounced to max once per 30s)
+ * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client
  */
 export async function sendClientTelemetry(player = null) {
   try {
     const now = Date.now();
-    if (now - lastTelemetrySent < 30000) {
+    if (now - lastTelemetrySent < 5000) {
       return;
     }
     lastTelemetrySent = now;
@@ -249,16 +249,17 @@ export async function sendClientTelemetry(player = null) {
     };
 
     const payloadStr = JSON.stringify(payload);
-    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-      const blob = new Blob([payloadStr], { type: "application/json" });
-      navigator.sendBeacon("/api/telemetry/client", blob);
-    } else {
+    if (typeof fetch !== "undefined") {
       fetch("/api/telemetry/client", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: payloadStr,
+        credentials: "include",
         keepalive: true,
       }).catch(() => {});
+    } else if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([payloadStr], { type: "application/json" });
+      navigator.sendBeacon("/api/telemetry/client", blob);
     }
   } catch (err) {
     // Ignore ping errors

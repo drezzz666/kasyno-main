@@ -44,7 +44,122 @@ var (
 	telemetryChannelMu sync.Mutex
 	userSyncDebounce   = make(map[string]time.Time)
 	userSyncDebounceMu sync.Mutex
+
+	telemetryStoreMu sync.RWMutex
+	telemetryStore   = make(map[string]*UserTelemetryReport)
 )
+
+// StoreUserTelemetry merges incoming telemetry with existing stored data.
+func StoreUserTelemetry(data *UserTelemetryReport) *UserTelemetryReport {
+	if data == nil {
+		return nil
+	}
+	telemetryStoreMu.Lock()
+	defer telemetryStoreMu.Unlock()
+
+	var existing *UserTelemetryReport
+	if data.UserID != "" {
+		existing = telemetryStore[data.UserID]
+	}
+	if existing == nil && data.Nick != "" {
+		existing = telemetryStore[data.Nick]
+	}
+
+	merged := &UserTelemetryReport{}
+	if existing != nil {
+		*merged = *existing
+	}
+
+	// Overwrite or update with non-empty fields
+	if data.UserID != "" {
+		merged.UserID = data.UserID
+	}
+	if data.Nick != "" {
+		merged.Nick = data.Nick
+	}
+	if data.Email != "" {
+		merged.Email = data.Email
+	}
+	if data.IP != "" {
+		merged.IP = data.IP
+	}
+	if data.UserAgent != "" {
+		merged.UserAgent = data.UserAgent
+	}
+	if data.GPUInfo != "" {
+		merged.GPUInfo = data.GPUInfo
+	}
+	if data.CPUCores != "" {
+		merged.CPUCores = data.CPUCores
+	}
+	if data.DeviceRAM != "" {
+		merged.DeviceRAM = data.DeviceRAM
+	}
+	if data.ScreenDetails != "" {
+		merged.ScreenDetails = data.ScreenDetails
+	}
+	if data.Orientation != "" {
+		merged.Orientation = data.Orientation
+	}
+	if data.TouchPoints > 0 {
+		merged.TouchPoints = data.TouchPoints
+	}
+	if data.ColorScheme != "" {
+		merged.ColorScheme = data.ColorScheme
+	}
+	if data.Timezone != "" {
+		merged.Timezone = data.Timezone
+	}
+	if data.Language != "" {
+		merged.Language = data.Language
+	}
+	if data.Platform != "" {
+		merged.Platform = data.Platform
+	}
+	if data.NetworkInfo != "" {
+		merged.NetworkInfo = data.NetworkInfo
+	}
+	if data.MemoryMB != "" {
+		merged.MemoryMB = data.MemoryMB
+	}
+	if data.NavigationTiming != "" {
+		merged.NavigationTiming = data.NavigationTiming
+	}
+	if data.LatencyMs > 0 {
+		merged.LatencyMs = data.LatencyMs
+	}
+	if data.PageVisibility != "" {
+		merged.PageVisibility = data.PageVisibility
+	}
+	if data.Referrer != "" {
+		merged.Referrer = data.Referrer
+	}
+	if data.SessionDurationSec > 0 {
+		merged.SessionDurationSec = data.SessionDurationSec
+	}
+	if data.LastAction != "" {
+		merged.LastAction = data.LastAction
+	}
+
+	if merged.UserID != "" {
+		telemetryStore[merged.UserID] = merged
+	}
+	if merged.Nick != "" {
+		telemetryStore[merged.Nick] = merged
+	}
+
+	return merged
+}
+
+// GetStoredUserTelemetry retrieves merged telemetry by User ID or Nick.
+func GetStoredUserTelemetry(identifier string) *UserTelemetryReport {
+	if identifier == "" {
+		return nil
+	}
+	telemetryStoreMu.RLock()
+	defer telemetryStoreMu.RUnlock()
+	return telemetryStore[identifier]
+}
 
 // SetGlobalBot sets the global bot singleton instance.
 func SetGlobalBot(b *Bot) {
@@ -262,10 +377,13 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		return nil
 	}
 
-	// Debounce rapid repeated syncs per user (minimum 4 seconds apart)
+	// Merge incoming report into the persistent telemetry cache
+	data = StoreUserTelemetry(data)
+
+	// Debounce rapid repeated syncs per user (minimum 2 seconds apart)
 	userSyncDebounceMu.Lock()
 	lastSync, exists := userSyncDebounce[identifier]
-	if exists && time.Since(lastSync) < 4*time.Second {
+	if exists && time.Since(lastSync) < 2*time.Second {
 		userSyncDebounceMu.Unlock()
 		return nil
 	}
@@ -288,6 +406,8 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 			if data.Email == "" {
 				data.Email = p.Email
 			}
+			// Update store with resolved ID/Nick
+			StoreUserTelemetry(data)
 		}
 	}
 
@@ -320,13 +440,18 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		embed := b.buildUserTelemetryEmbed(data, player, stats)
 
 		// Try updating existing bot message in the channel, or post new
-		messages, err := b.session.ChannelMessages(chID, 5, "", "", "")
+		messages, err := b.session.ChannelMessages(chID, 10, "", "", "")
 		var botMsg *discordgo.Message
-		if err == nil && b.session.State != nil && b.session.State.User != nil {
+		if err == nil {
 			for _, m := range messages {
-				if m.Author != nil && m.Author.ID == b.session.State.User.ID {
-					botMsg = m
-					break
+				if m.Author != nil {
+					if b.session.State != nil && b.session.State.User != nil && m.Author.ID == b.session.State.User.ID {
+						botMsg = m
+						break
+					} else if m.Author.Bot {
+						botMsg = m
+						break
+					}
 				}
 			}
 		}
@@ -334,6 +459,7 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		if botMsg != nil {
 			_, err = b.session.ChannelMessageEditEmbed(chID, botMsg.ID, embed)
 			if err != nil {
+				log.Printf("⚠️ [Discord Bot] Błąd edycji embeda w #%s (%v), wysyłam nowy...", chID, err)
 				_, _ = b.session.ChannelMessageSendEmbed(chID, embed)
 			}
 		} else {
@@ -347,6 +473,13 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 	return nil
 }
 
+func limitStr(s string, max int) string {
+	if len(s) > max {
+		return s[:max-3] + "..."
+	}
+	return s
+}
+
 // buildUserTelemetryEmbed constructs a rich embed with player account, gambling stats, hardware, and network telemetry.
 func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.Player, stats *ledger.PlayerStats) *discordgo.MessageEmbed {
 	nick := data.Nick
@@ -357,12 +490,12 @@ func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.
 	fields := []*discordgo.MessageEmbedField{
 		{
 			Name: "👤 Dane Konta",
-			Value: fmt.Sprintf(
+			Value: limitStr(fmt.Sprintf(
 				"**Nick:** `%s`\n**User ID:** `%s`\n**Email:** `%s`",
 				nick,
 				data.UserID,
 				data.Email,
-			),
+			), 1024),
 			Inline: true,
 		},
 	}
@@ -371,14 +504,14 @@ func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.
 		regTime := time.UnixMilli(player.CreatedAt).Format("02.01.2006 15:04")
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name: "💰 Finanse i Status",
-			Value: fmt.Sprintf(
+			Value: limitStr(fmt.Sprintf(
 				"**Saldo:** %s\n**Poziom:** %d (%d XP)\n**Streak:** %d dni\n**Rejestracja:** `%s`",
 				formatFGT(player.Balance),
 				player.Level,
 				player.XP,
 				player.Streak,
 				regTime,
-			),
+			), 1024),
 			Inline: true,
 		})
 	}
@@ -390,128 +523,139 @@ func (b *Bot) buildUserTelemetryEmbed(data *UserTelemetryReport, player *ledger.
 		}
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name: "🎮 Aktywność Kasynowa",
-			Value: fmt.Sprintf(
+			Value: limitStr(fmt.Sprintf(
 				"🕹️ Rundy: **%d**\n💸 Zakłady: **%s**\n🏆 Max Win: **%s** (×%.2f)\n🎯 Ulubiona: **%s**",
 				stats.TotalRounds,
 				formatFGT(stats.TotalWagered),
 				formatFGT(stats.BiggestWin),
 				stats.MaxMultiplier,
 				favGame,
-			),
+			), 1024),
 			Inline: false,
 		})
 	}
 
-	// Hardware Specs
-	hwLines := []string{}
-	if data.GPUInfo != "" {
-		hwLines = append(hwLines, fmt.Sprintf("🎮 **GPU:** `%s`", data.GPUInfo))
-	}
-	hwSub := []string{}
-	if data.CPUCores != "" {
-		hwSub = append(hwSub, fmt.Sprintf("CPU: %s", data.CPUCores))
-	}
-	if data.DeviceRAM != "" {
-		hwSub = append(hwSub, fmt.Sprintf("RAM: %s", data.DeviceRAM))
-	}
-	if data.TouchPoints > 0 {
-		hwSub = append(hwSub, fmt.Sprintf("Touch: %d pkt", data.TouchPoints))
-	}
-	if len(hwSub) > 0 {
-		hwLines = append(hwLines, fmt.Sprintf("⚙️ **Podzespoły:** `%s`", strings.Join(hwSub, " • ")))
-	}
-	if len(hwLines) > 0 {
+	hasHardwareInfo := data.GPUInfo != "" || data.CPUCores != "" || data.DeviceRAM != "" || data.ScreenDetails != "" || data.UserAgent != "" || data.IP != ""
+
+	if !hasHardwareInfo {
+		// User has not loaded the web client yet
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "💻 Karta Graficzna i Sprzęt",
-			Value:  strings.Join(hwLines, "\n"),
+			Name:   "💻 Sprzęt i Telemetria Klienta",
+			Value:  "⏳ *Oczekiwanie na pierwsze połączenie gracza z przeglądarki...*",
 			Inline: false,
 		})
-	}
-
-	// Display & Client Environment
-	envLines := []string{}
-	if data.ScreenDetails != "" {
-		envLines = append(envLines, fmt.Sprintf("🖥️ **Ekran:** `%s`", data.ScreenDetails))
-	}
-	if data.UserAgent != "" {
-		envLines = append(envLines, fmt.Sprintf("🌐 **Przeglądarka / OS:** `%s`", data.UserAgent))
-	}
-	subEnv := []string{}
-	if data.Platform != "" {
-		subEnv = append(subEnv, fmt.Sprintf("Platform: %s", data.Platform))
-	}
-	if data.ColorScheme != "" {
-		subEnv = append(subEnv, data.ColorScheme)
-	}
-	if data.Orientation != "" {
-		subEnv = append(subEnv, data.Orientation)
-	}
-	if len(subEnv) > 0 {
-		envLines = append(envLines, fmt.Sprintf("🎨 **Środowisko:** `%s`", strings.Join(subEnv, " • ")))
-	}
-	if len(envLines) > 0 {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "🖥️ Ekran i Przeglądarka",
-			Value:  strings.Join(envLines, "\n"),
-			Inline: false,
-		})
-	}
-
-	// Network & Localization
-	netLines := []string{}
-	if data.IP != "" {
-		netLines = append(netLines, fmt.Sprintf("📡 **Ostatnie IP:** `%s`", data.IP))
-	}
-	if data.NetworkInfo != "" {
-		netLines = append(netLines, fmt.Sprintf("📶 **Połączenie:** `%s`", data.NetworkInfo))
-	}
-	if data.Timezone != "" || data.Language != "" {
-		locParts := []string{}
-		if data.Timezone != "" {
-			locParts = append(locParts, fmt.Sprintf("Strefa: %s", data.Timezone))
+	} else {
+		// Hardware Specs
+		hwLines := []string{}
+		if data.GPUInfo != "" {
+			hwLines = append(hwLines, fmt.Sprintf("🎮 **GPU:** `%s`", limitStr(data.GPUInfo, 200)))
 		}
-		if data.Language != "" {
-			locParts = append(locParts, fmt.Sprintf("Język: %s", data.Language))
+		hwSub := []string{}
+		if data.CPUCores != "" {
+			hwSub = append(hwSub, fmt.Sprintf("CPU: %s", data.CPUCores))
 		}
-		netLines = append(netLines, fmt.Sprintf("🌍 **Lokalizacja:** `%s`", strings.Join(locParts, " • ")))
-	}
-	if len(netLines) > 0 {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "🌍 Sieć i Lokalizacja",
-			Value:  strings.Join(netLines, "\n"),
-			Inline: false,
-		})
-	}
+		if data.DeviceRAM != "" {
+			hwSub = append(hwSub, fmt.Sprintf("RAM: %s", data.DeviceRAM))
+		}
+		if data.TouchPoints > 0 {
+			hwSub = append(hwSub, fmt.Sprintf("Touch: %d pkt", data.TouchPoints))
+		}
+		if len(hwSub) > 0 {
+			hwLines = append(hwLines, fmt.Sprintf("⚙️ **Podzespoły:** `%s`", strings.Join(hwSub, " • ")))
+		}
+		if len(hwLines) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "💻 Karta Graficzna i Sprzęt",
+				Value:  limitStr(strings.Join(hwLines, "\n"), 1024),
+				Inline: false,
+			})
+		}
 
-	// Session & Activity
-	sessLines := []string{}
-	if data.SessionDurationSec > 0 {
-		mins := data.SessionDurationSec / 60
-		secs := data.SessionDurationSec % 60
-		if mins > 0 {
-			sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%dm %ds`", mins, secs))
-		} else {
-			sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%ds`", secs))
+		// Display & Client Environment
+		envLines := []string{}
+		if data.ScreenDetails != "" {
+			envLines = append(envLines, fmt.Sprintf("🖥️ **Ekran:** `%s`", limitStr(data.ScreenDetails, 150)))
 		}
-	}
-	if data.LatencyMs > 0 {
-		sessLines = append(sessLines, fmt.Sprintf("⚡ **Średnie RTT API:** `%.1f ms`", data.LatencyMs))
-	}
-	if data.MemoryMB != "" {
-		sessLines = append(sessLines, fmt.Sprintf("🧠 **Pamięć JS:** `%s`", data.MemoryMB))
-	}
-	if data.NavigationTiming != "" {
-		sessLines = append(sessLines, fmt.Sprintf("🚀 **Timing strony:** `%s`", data.NavigationTiming))
-	}
-	if data.LastAction != "" {
-		sessLines = append(sessLines, fmt.Sprintf("🎯 **Ostatnia akcja:** `%s`", data.LastAction))
-	}
-	if len(sessLines) > 0 {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "⏱️ Stan Sesji i Wydajność",
-			Value:  strings.Join(sessLines, "\n"),
-			Inline: false,
-		})
+		if data.UserAgent != "" {
+			envLines = append(envLines, fmt.Sprintf("🌐 **Przeglądarka / OS:** `%s`", limitStr(data.UserAgent, 250)))
+		}
+		subEnv := []string{}
+		if data.Platform != "" {
+			subEnv = append(subEnv, fmt.Sprintf("Platform: %s", data.Platform))
+		}
+		if data.ColorScheme != "" {
+			subEnv = append(subEnv, data.ColorScheme)
+		}
+		if data.Orientation != "" {
+			subEnv = append(subEnv, data.Orientation)
+		}
+		if len(subEnv) > 0 {
+			envLines = append(envLines, fmt.Sprintf("🎨 **Środowisko:** `%s`", strings.Join(subEnv, " • ")))
+		}
+		if len(envLines) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "🖥️ Ekran i Przeglądarka",
+				Value:  limitStr(strings.Join(envLines, "\n"), 1024),
+				Inline: false,
+			})
+		}
+
+		// Network & Localization
+		netLines := []string{}
+		if data.IP != "" {
+			netLines = append(netLines, fmt.Sprintf("📡 **Ostatnie IP:** `%s`", data.IP))
+		}
+		if data.NetworkInfo != "" {
+			netLines = append(netLines, fmt.Sprintf("📶 **Połączenie:** `%s`", data.NetworkInfo))
+		}
+		if data.Timezone != "" || data.Language != "" {
+			locParts := []string{}
+			if data.Timezone != "" {
+				locParts = append(locParts, fmt.Sprintf("Strefa: %s", data.Timezone))
+			}
+			if data.Language != "" {
+				locParts = append(locParts, fmt.Sprintf("Język: %s", data.Language))
+			}
+			netLines = append(netLines, fmt.Sprintf("🌍 **Lokalizacja:** `%s`", strings.Join(locParts, " • ")))
+		}
+		if len(netLines) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "🌍 Sieć i Lokalizacja",
+				Value:  limitStr(strings.Join(netLines, "\n"), 1024),
+				Inline: false,
+			})
+		}
+
+		// Session & Activity
+		sessLines := []string{}
+		if data.SessionDurationSec > 0 {
+			mins := data.SessionDurationSec / 60
+			secs := data.SessionDurationSec % 60
+			if mins > 0 {
+				sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%dm %ds`", mins, secs))
+			} else {
+				sessLines = append(sessLines, fmt.Sprintf("⏱️ **Czas sesji:** `%ds`", secs))
+			}
+		}
+		if data.LatencyMs > 0 {
+			sessLines = append(sessLines, fmt.Sprintf("⚡ **Średnie RTT API:** `%.1f ms`", data.LatencyMs))
+		}
+		if data.MemoryMB != "" {
+			sessLines = append(sessLines, fmt.Sprintf("🧠 **Pamięć JS:** `%s`", data.MemoryMB))
+		}
+		if data.NavigationTiming != "" {
+			sessLines = append(sessLines, fmt.Sprintf("🚀 **Timing strony:** `%s`", data.NavigationTiming))
+		}
+		if data.LastAction != "" {
+			sessLines = append(sessLines, fmt.Sprintf("🎯 **Ostatnia akcja:** `%s`", data.LastAction))
+		}
+		if len(sessLines) > 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "⏱️ Stan Sesji i Wydajność",
+				Value:  limitStr(strings.Join(sessLines, "\n"), 1024),
+				Inline: false,
+			})
+		}
 	}
 
 	avatarURL := ""
