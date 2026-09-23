@@ -27,12 +27,19 @@ export function CrashTable({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
-    const width = 420;
-    const height = 240;
-    canvas.width = width;
-    canvas.height = height;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(320, rect.width || 640);
+    const height = Math.max(180, rect.height || 360);
 
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+    }
+
+    const ctx = canvas.getContext("2d");
+    ctx.resetTransform?.();
+    ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
     // 1. Draw Grid Lines
