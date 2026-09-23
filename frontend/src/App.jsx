@@ -606,10 +606,10 @@ export default function App() {
                   type="button"
                   onClick={() => setCaptchaOpen(true)}
                   className="captcha-faucet-btn"
-                  title="Rozwiąż Captcha i zdobądź +25 $FGT"
+                  title="Rozwiąż Captcha i zdobądź +40 $FGT"
                 >
                   <ShieldCheck size={14} className="text-emerald-400" />
-                  <span>Captcha (+25 $FGT)</span>
+                  <span>Captcha (+40 $FGT)</span>
                 </button>
 
                 <button

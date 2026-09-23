@@ -52,9 +52,9 @@ func TodayString() string {
 }
 
 func DailyBonusAmount(streak int) int64 {
-	bonus := 100 + streak*50
-	if bonus > 1000 {
-		bonus = 1000
+	bonus := 150 + streak*75
+	if bonus > 1500 {
+		bonus = 1500
 	}
 	return int64(bonus)
 }
@@ -513,8 +513,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "total",
 	},
 	{
@@ -524,8 +524,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      15,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "total",
 	},
 	{
@@ -535,8 +535,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      30,
-		Reward:      150,
-		XPReward:    35,
+		Reward:      225,
+		XPReward:    50,
 		StatKey:     "total",
 	},
 	{
@@ -546,8 +546,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ogólne",
 		Icon:        "crown",
 		Target:      50,
-		Reward:      200,
-		XPReward:    50,
+		Reward:      350,
+		XPReward:    75,
 		StatKey:     "total",
 	},
 	{
@@ -557,8 +557,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      3,
-		Reward:      60,
-		XPReward:    15,
+		Reward:      90,
+		XPReward:    20,
 		StatKey:     "total_wins",
 	},
 	{
@@ -568,8 +568,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      10,
-		Reward:      120,
-		XPReward:    30,
+		Reward:      180,
+		XPReward:    40,
 		StatKey:     "total_wins",
 	},
 	{
@@ -579,8 +579,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Zwycięstwa",
 		Icon:        "trophy",
 		Target:      25,
-		Reward:      200,
-		XPReward:    50,
+		Reward:      320,
+		XPReward:    70,
 		StatKey:     "total_wins",
 	},
 
@@ -592,8 +592,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      500,
-		Reward:      40,
-		XPReward:    10,
+		Reward:      60,
+		XPReward:    15,
 		StatKey:     "wager",
 	},
 	{
@@ -603,8 +603,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      2500,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "wager",
 	},
 	{
@@ -614,8 +614,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "High Roller",
 		Icon:        "trophy",
 		Target:      10000,
-		Reward:      250,
-		XPReward:    50,
+		Reward:      375,
+		XPReward:    75,
 		StatKey:     "wager",
 	},
 	{
@@ -625,8 +625,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "High Roller",
 		Icon:        "crown",
 		Target:      50000,
-		Reward:      500,
-		XPReward:    100,
+		Reward:      750,
+		XPReward:    150,
 		StatKey:     "wager",
 	},
 
@@ -638,8 +638,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "roulette",
 	},
 	{
@@ -649,8 +649,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "roulette",
 	},
 	{
@@ -660,8 +660,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "roulette_wins",
 	},
 
@@ -673,8 +673,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "mines",
 	},
 	{
@@ -684,8 +684,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "mines",
 	},
 	{
@@ -695,8 +695,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "mines_wins",
 	},
 
@@ -708,8 +708,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "blackjack",
 	},
 	{
@@ -719,8 +719,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      8,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "blackjack",
 	},
 	{
@@ -730,8 +730,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "blackjack_wins",
 	},
 
@@ -743,8 +743,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "slots",
 	},
 	{
@@ -754,8 +754,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      15,
-		Reward:      100,
-		XPReward:    25,
+		Reward:      150,
+		XPReward:    35,
 		StatKey:     "slots",
 	},
 	{
@@ -765,8 +765,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      3,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "slots_wins",
 	},
 
@@ -778,8 +778,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "coinflip",
 	},
 	{
@@ -789,8 +789,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      12,
-		Reward:      90,
-		XPReward:    20,
+		Reward:      135,
+		XPReward:    30,
 		StatKey:     "coinflip",
 	},
 	{
@@ -800,8 +800,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      4,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "coinflip_wins",
 	},
 
@@ -813,8 +813,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      5,
-		Reward:      50,
-		XPReward:    15,
+		Reward:      75,
+		XPReward:    20,
 		StatKey:     "rps",
 	},
 	{
@@ -824,8 +824,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      12,
-		Reward:      90,
-		XPReward:    20,
+		Reward:      135,
+		XPReward:    30,
 		StatKey:     "rps",
 	},
 	{
@@ -835,8 +835,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      4,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "rps_wins",
 	},
 
@@ -848,8 +848,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      10,
-		Reward:      60,
-		XPReward:    15,
+		Reward:      90,
+		XPReward:    20,
 		StatKey:     "plinko",
 	},
 	{
@@ -859,8 +859,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      25,
-		Reward:      120,
-		XPReward:    30,
+		Reward:      180,
+		XPReward:    40,
 		StatKey:     "plinko",
 	},
 	{
@@ -870,8 +870,8 @@ var DailyMissionDefs = []MissionDef{
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      5,
-		Reward:      80,
-		XPReward:    20,
+		Reward:      120,
+		XPReward:    30,
 		StatKey:     "plinko_wins",
 	},
 }

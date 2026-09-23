@@ -29,11 +29,12 @@ type clientLimitEntry struct {
 type ErrorHandler struct {
 	reporter   *reporter.Reporter
 	telemetry  *telemetry.Collector
+	crypto     *telemetry.CryptoManager
 	mu         sync.Mutex
 	rateLimits map[string]*clientLimitEntry
 }
 
-func NewErrorHandler(rep *reporter.Reporter, tel ...*telemetry.Collector) *ErrorHandler {
+func NewErrorHandler(rep *reporter.Reporter, cryptoMgr *telemetry.CryptoManager, tel ...*telemetry.Collector) *ErrorHandler {
 	var collector *telemetry.Collector
 	if len(tel) > 0 {
 		collector = tel[0]
@@ -41,6 +42,7 @@ func NewErrorHandler(rep *reporter.Reporter, tel ...*telemetry.Collector) *Error
 	h := &ErrorHandler{
 		reporter:   rep,
 		telemetry:  collector,
+		crypto:     cryptoMgr,
 		rateLimits: make(map[string]*clientLimitEntry),
 	}
 	// Periodic cleanup of rate limiter map
@@ -51,6 +53,17 @@ func NewErrorHandler(rep *reporter.Reporter, tel ...*telemetry.Collector) *Error
 		}
 	}()
 	return h
+}
+
+// GetPublicKey returns the server P-256 public key for client-side asymmetric ECIES telemetry encryption.
+func (h *ErrorHandler) GetPublicKey(w http.ResponseWriter, r *http.Request) {
+	pubHex := ""
+	if h.crypto != nil {
+		pubHex = h.crypto.PublicKeyHex()
+	}
+	JSON(w, http.StatusOK, map[string]string{
+		"pubkey": pubHex,
+	})
 }
 
 func (h *ErrorHandler) cleanupLimits() {
@@ -129,11 +142,18 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	// 4. Strict Payload Size Limit: Max 32KB
-	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
+	// 4. Payload Limit (up to 64KB for encrypted payloads)
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
 	if err != nil || len(bodyBytes) == 0 {
 		JSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
+	}
+
+	if h.crypto != nil {
+		decrypted, err := h.crypto.Decrypt(bodyBytes)
+		if err == nil && len(decrypted) > 0 {
+			bodyBytes = decrypted
+		}
 	}
 
 	var report reporter.FrontendErrorReport
@@ -224,10 +244,17 @@ func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
 	if err != nil || len(bodyBytes) == 0 {
 		JSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
+	}
+
+	if h.crypto != nil {
+		decrypted, err := h.crypto.Decrypt(bodyBytes)
+		if err == nil && len(decrypted) > 0 {
+			bodyBytes = decrypted
+		}
 	}
 
 	var data discordbot.UserTelemetryReport

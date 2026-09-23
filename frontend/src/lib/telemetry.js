@@ -211,8 +211,10 @@ function sanitizeData(data) {
 
 let lastTelemetrySent = 0;
 
+import { encryptTelemetry } from "./telemetryCrypto.js";
+
 /**
- * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client
+ * Sends a full diagnostic/hardware telemetry ping to /api/telemetry/client (asymmetrically encrypted)
  */
 export async function sendClientTelemetry(player = null) {
   try {
@@ -248,7 +250,7 @@ export async function sendClientTelemetry(player = null) {
       last_action: "Odwiedzenie kasyna / Aktywność",
     };
 
-    const payloadStr = JSON.stringify(payload);
+    const payloadStr = await encryptTelemetry(payload);
     if (typeof fetch !== "undefined") {
       fetch("/api/telemetry/client", {
         method: "POST",
