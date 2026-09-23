@@ -443,8 +443,8 @@ func ValidateRPSChoice(choice string) error {
 }
 
 func ValidatePlinkoParams(rows int, risk string) error {
-	if rows < 8 || rows > 16 {
-		return fmt.Errorf("%w: plinko rows musi mieścić się w przedziale 8-16", ErrInvalidGameParam)
+	if rows != 14 && rows != 16 {
+		return fmt.Errorf("%w: plinko rows musi wynosić 14 lub 16", ErrInvalidGameParam)
 	}
 	risk = strings.ToLower(strings.TrimSpace(risk))
 	if risk != "low" && risk != "medium" && risk != "high" {

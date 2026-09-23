@@ -498,7 +498,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
 
       activeBallsRef.current = aliveBalls;
-      setActiveBallCount(aliveBalls.length);
+      setActiveBallCount((prev) => (prev !== aliveBalls.length ? aliveBalls.length : prev));
 
       animFrameIdRef.current = requestAnimationFrame(renderLoop);
     };
@@ -616,17 +616,20 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         <div className="plinko-config-group">
           <span className="config-label">Liczba rzędów:</span>
           <div className="config-pill-row">
-            {[8, 10, 12, 14, 16].map((r) => (
-              <button
-                key={r}
-                type="button"
-                disabled={loading || activeBallCount > 0}
-                className={`config-pill-btn ${rows === r ? "active" : ""}`}
-                onClick={() => setRows(r)}
-              >
-                {r}
-              </button>
-            ))}
+            {[14, 16].map((r) => {
+              const isSelected = Number(rows) === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  aria-pressed={isSelected}
+                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
+                  onClick={() => setRows && setRows(r)}
+                >
+                  {r} Rows
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -637,17 +640,20 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
               { id: "low", label: "Niskie" },
               { id: "medium", label: "Średnie" },
               { id: "high", label: "Wysokie" },
-            ].map((rk) => (
-              <button
-                key={rk.id}
-                type="button"
-                disabled={loading || activeBallCount > 0}
-                className={`config-pill-btn ${risk === rk.id ? "active" : ""}`}
-                onClick={() => setRisk(rk.id)}
-              >
-                {rk.label}
-              </button>
-            ))}
+            ].map((rk) => {
+              const isSelected = risk === rk.id;
+              return (
+                <button
+                  key={rk.id}
+                  type="button"
+                  aria-pressed={isSelected}
+                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
+                  onClick={() => setRisk && setRisk(rk.id)}
+                >
+                  {rk.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -3900,55 +3900,73 @@ body {
 
 .plinko-config-panel {
   width: 100%;
-  background: #11141c;
+  background: #10141e;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 0.35rem 0.55rem;
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
   display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 0.35rem;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 0.65rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .plinko-config-group {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.3rem;
 }
 
 .config-label {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .config-pill-row {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .config-pill-btn {
   flex: 1;
-  background: #1c2230;
-  border: 1px solid var(--border-subtle);
+  background: #181d28;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cbd5e1;
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  padding: 0.25rem 0.2rem;
-  border-radius: 5px;
+  padding: 0.48rem 0.35rem;
+  border-radius: 7px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .config-pill-btn:hover:not(:disabled) {
-  background: #252e40;
+  background: #232b3c;
+  border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
 }
 
+.config-pill-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 .config-pill-btn.active {
-  background: #f59e0b;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   border-color: #f59e0b;
   color: #000;
-  font-weight: 800;
+  font-weight: 900;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.config-pill-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ==========================================================================
@@ -5020,19 +5038,28 @@ body {
 
   .plinko-config-panel {
     padding: 0.85rem 1.15rem;
-    gap: 0.85rem;
+    gap: 1.25rem;
     border-radius: 12px;
     flex-shrink: 0;
   }
 
   .config-label {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
+  }
+
+  .config-pill-row {
+    gap: 0.45rem;
   }
 
   .config-pill-btn {
-    padding: 0.55rem 0.45rem;
-    font-size: 0.88rem;
-    border-radius: 8px;
+    padding: 0.65rem 0.55rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    border-radius: 9px;
+  }
+
+  .config-pill-btn.active {
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   }
 
   /* --- Coinflip & RPS Desktop --- */

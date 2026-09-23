@@ -92,7 +92,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span className="badge-mult">Do ×1000</span>
               </div>
               <p>
-                Kule spadają przez piramidę kołków. Konfiguracja 8–16 rzędów oraz 3 poziomy ryzyka (Low, Medium, High). Zewnętrzne sloty dają najwyższe mnożniki.
+                Kule spadają przez piramidę kołków. Konfiguracja 14 lub 16 rzędów oraz 3 poziomy ryzyka (Low, Medium, High). Zewnętrzne sloty dają najwyższe mnożniki.
               </p>
             </div>
 
