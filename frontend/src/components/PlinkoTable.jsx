@@ -69,8 +69,8 @@ function getBinColors(binCount) {
 
 const WIDTH = 760;
 const HEIGHT = 570;
-const PADDING_X = 52;
-const PADDING_TOP = 46;
+const PADDING_X = 36;
+const PADDING_TOP = 40;
 const PADDING_BOTTOM = 46;
 
 // Cubic Bezier calculation
@@ -126,9 +126,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const numRows = rows;
       const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
-      // Peg radius & Larger Solid 3D Ball Radius
-      const pinRadius = Math.max(4.5, (25 - numRows) / 2.1);
-      const ballRadius = Math.max(16, 24 - numRows * 0.45);
+      // Precisely calibrated pin & ball sizes for generous spacing and zero clipping
+      const pinRadius = Math.max(3.5, 6.0 - numRows * 0.16);
+      const ballRadius = Math.max(7.5, 12.5 - numRows * 0.32);
       const collRadius = pinRadius + ballRadius;
 
       const segments = [];
@@ -140,10 +140,11 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const firstStep = path[0] ?? (Math.random() < 0.5 ? 0 : 1);
       const firstDir = firstStep === 1 ? 1 : -1;
 
-      // Contact point on apex pin
+      // Contact point on apex pin (tangential contact, zero penetration)
+      const apexAngle = -firstDir * 0.52;
       const apexContact = {
-        x: apexPin.x - firstDir * collRadius * 0.35,
-        y: apexPin.y - collRadius * 0.88,
+        x: apexPin.x + Math.sin(apexAngle) * collRadius,
+        y: apexPin.y - Math.cos(apexAngle) * collRadius,
       };
 
       segments.push({
@@ -159,6 +160,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       let curCol = 1;
       let prevContact = apexContact;
 
+      const lastRowPinCount = 3 + numRows - 1;
+      const pinDistX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
+
       for (let r = 0; r < numRows; r++) {
         const step = path[r] ?? (Math.random() < 0.5 ? 0 : 1);
         const dir = step === 1 ? 1 : -1;
@@ -171,23 +175,22 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         if (r < numRows - 1) {
           // Next pin in row r + 1
           const nextPin = getPinPos(r + 1, curCol, numRows);
-          const nextStep = path[r + 1] ?? (Math.random() < 0.5 ? 0 : 1);
-          const nextDir = nextStep === 1 ? 1 : -1;
 
-          // Next contact point on next pin
+          // Tangential strike point on next pin based on approach direction
+          const strikeAngle = -dir * 0.55;
           const nextContact = {
-            x: nextPin.x - nextDir * collRadius * 0.35,
-            y: nextPin.y - collRadius * 0.88,
+            x: nextPin.x + Math.sin(strikeAngle) * collRadius,
+            y: nextPin.y - Math.cos(strikeAngle) * collRadius,
           };
 
           // Parabolic bounce upwards & outwards over peg flank with gravity curve
           const bounceApex = {
-            x: currentPin.x + dir * collRadius * 1.1,
-            y: currentPin.y - collRadius * 0.7 - rowHeight * 0.42,
+            x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.22),
+            y: currentPin.y - collRadius * 0.55 - rowHeight * 0.35,
           };
           const gravityDescent = {
-            x: nextPin.x - dir * collRadius * 0.25,
-            y: nextPin.y - collRadius * 1.35,
+            x: nextPin.x - dir * (collRadius * 0.25),
+            y: nextPin.y - collRadius * 1.25,
           };
 
           segments.push({
@@ -202,9 +205,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         } else {
           // 3. Final Drop into Multiplier Bin
           const finalSlot = ballData.slot ?? (curCol - 1);
-          const lastRowPinCount = 3 + numRows - 1;
-          const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
-          const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistanceX;
+          const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistX;
 
           const binContact = {
             x: slotCenterX,
@@ -212,8 +213,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           };
 
           const finalApex = {
-            x: currentPin.x + dir * collRadius * 1.1,
-            y: currentPin.y - collRadius * 0.6 - rowHeight * 0.35,
+            x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.2),
+            y: currentPin.y - collRadius * 0.5 - rowHeight * 0.3,
           };
           const binDescent = {
             x: slotCenterX,
@@ -240,7 +241,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         segments,
         curSegIndex: 0,
         segProgress: 0,
-        stepDuration: turbo ? 70 : 260, // Smooth, realistic gravity bounce speed
+        stepDuration: turbo ? 70 : 250, // Smooth, realistic gravity bounce speed
         color: ballColor,
         radius: ballRadius,
         slot: ballData.slot ?? 0,
@@ -281,7 +282,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
 
       // 2. Draw all Pins & Hit Glows
-      const pinRadius = Math.max(4.2, (24 - rows) / 1.8);
+      const pinRadius = Math.max(3.5, 6.0 - rows * 0.16);
       for (let r = 0; r < rows; ++r) {
         const cols = 3 + r;
         for (let c = 0; c < cols; ++c) {
@@ -578,7 +579,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         <div className="plinko-config-group">
           <span className="config-label">Liczba rzędów:</span>
           <div className="config-pill-row">
-            {[14, 16].map((r) => (
+            {[8, 10, 12, 14, 16].map((r) => (
               <button
                 key={r}
                 type="button"

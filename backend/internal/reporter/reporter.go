@@ -224,7 +224,9 @@ func isInsufficientFundsText(text string) bool {
 		strings.Contains(lower, "niewystarczające środki") ||
 		strings.Contains(lower, "brak środków") ||
 		strings.Contains(lower, "brak aktywnej gry") ||
-		strings.Contains(lower, "masz już aktywną grę")
+		strings.Contains(lower, "masz już aktywną grę") ||
+		strings.Contains(lower, "nieprawidłowy kod captcha") ||
+		strings.Contains(lower, "captcha_invalid")
 }
 
 func isRateLimitText(errType, message, context string) bool {
