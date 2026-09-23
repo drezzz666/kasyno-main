@@ -713,57 +713,53 @@ export default function App() {
 
             {/* View Tab: Minigames Grid */}
             {activeTab === "minigames" && (
-              <section className="games-section minigames-section">
-                <div className="minigames-grid">
-                  {MINIGAMES.map((mg) => {
-                    const IconComp = mg.icon || Sparkles;
-                    return (
-                      <div
-                        key={mg.id}
-                        className={`minigame-card ${mg.active ? "active-playable" : "coming-soon"}`}
-                        onClick={() => {
-                          if (mg.active) {
-                            setSelectedMinigameId(mg.id);
+              <section className="games-section">
+                <div className="games-grid">
+                  {MINIGAMES.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`game-card ${!g.active ? "opacity-60 cursor-not-allowed" : ""}`}
+                      aria-label={`Zagraj w ${g.name}`}
+                      onClick={() => {
+                        if (g.active) {
+                          setSelectedMinigameId(g.id);
+                          setCaptchaOpen(true);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (g.active) {
+                            setSelectedMinigameId(g.id);
                             setCaptchaOpen(true);
                           }
-                        }}
-                      >
-                        <div className="minigame-card-header">
-                          <div className="minigame-icon-wrap">
-                            <IconComp size={22} className={mg.iconColor || "text-amber-400"} />
-                          </div>
-                          <div className="minigame-badges">
-                            <span className={`tag-badge ${mg.active ? "gold" : ""}`}>{mg.badge}</span>
-                            {mg.reward && <span className="minigame-reward-badge">{mg.reward}</span>}
-                          </div>
-                        </div>
-
-                        <div className="minigame-card-body">
-                          <h3 className="minigame-title">{mg.name}</h3>
-                          <p className="minigame-desc">{mg.desc}</p>
-                        </div>
-
-                        <div className="minigame-card-footer">
-                          {mg.active ? (
-                            <button
-                              type="button"
-                              className="btn-play-minigame"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedMinigameId(mg.id);
-                                setCaptchaOpen(true);
-                              }}
-                            >
-                              <span>Zagraj teraz</span>
-                              <ChevronRight size={14} />
-                            </button>
-                          ) : (
-                            <span className="minigame-coming-text">Wkrótce dostępne</span>
-                          )}
-                        </div>
+                        }
+                      }}
+                    >
+                      <div className="game-card-media">
+                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
+                        <div className="game-card-gradient" />
+                        <span className="tag-badge gold">{g.badge}</span>
                       </div>
-                    );
-                  })}
+                      <div className="game-card-info">
+                        <div className="game-card-title-row">
+                          <h3 className="game-card-title">{g.name}</h3>
+                          <span className="game-card-mult text-emerald-400">{g.reward}</span>
+                        </div>
+                        <p className="game-card-desc">{g.desc}</p>
+                        <span className="btn-play-game" aria-hidden="true">
+                          {g.active ? (
+                            <>
+                              Zagraj <ChevronRight size={13} />
+                            </>
+                          ) : (
+                            "Wkrótce"
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </section>
             )}
