@@ -41,7 +41,7 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { WinCelebrationModal } from "./components/WinCelebrationModal";
-import { MinigamesModal } from "./minigames";
+import { MinigamesModal, MINIGAMES } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
@@ -52,17 +52,19 @@ export default function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
+  const [selectedMinigameId, setSelectedMinigameId] = useState("captcha");
   const [rankingType, setRankingType] = useState("balance"); // "balance" | "level"
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const p = window.location.pathname.toLowerCase();
       if (p === "/tos" || p === "/regulamin") return "tos";
+      if (p === "/minigry" || p === "/minigames") return "minigames";
       if (p === "/misje" || p === "/missions") return "missions";
       if (p === "/ranking") return "ranking";
       if (p === "/historia" || p === "/history") return "history";
     }
     return "games";
-  }); // "games" | "missions" | "ranking" | "history" | "tos"
+  }); // "games" | "minigames" | "missions" | "ranking" | "history" | "tos"
 
   // ToS Consent State
   const [tosAccepted, setTosAccepted] = useState(() => {
@@ -527,6 +529,51 @@ export default function App() {
           <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
 
+        {/* Desktop Navigation Tabs */}
+        <nav className="topbar-nav" aria-label="Nawigacja główna">
+          <button
+            type="button"
+            className={`topbar-nav-btn ${activeTab === "games" ? "active" : ""}`}
+            onClick={() => { setActiveTab("games"); setActiveGame(null); }}
+          >
+            <Spade size={15} />
+            <span>Gry</span>
+          </button>
+          <button
+            type="button"
+            className={`topbar-nav-btn ${activeTab === "minigames" ? "active" : ""}`}
+            onClick={() => { setActiveTab("minigames"); setActiveGame(null); }}
+          >
+            <Gamepad2 size={15} />
+            <span>Minigry</span>
+          </button>
+          <button
+            type="button"
+            className={`topbar-nav-btn ${activeTab === "missions" ? "active" : ""}`}
+            onClick={() => { setActiveTab("missions"); setActiveGame(null); }}
+          >
+            <Target size={15} />
+            <span>Misje</span>
+            {readyMissionsCount > 0 && <span className="topbar-badge">{readyMissionsCount}</span>}
+          </button>
+          <button
+            type="button"
+            className={`topbar-nav-btn ${activeTab === "ranking" ? "active" : ""}`}
+            onClick={() => { setActiveTab("ranking"); setActiveGame(null); }}
+          >
+            <Trophy size={15} />
+            <span>Ranking</span>
+          </button>
+          <button
+            type="button"
+            className={`topbar-nav-btn ${activeTab === "history" ? "active" : ""}`}
+            onClick={() => { setActiveTab("history"); setActiveGame(null); }}
+          >
+            <History size={15} />
+            <span>Historia</span>
+          </button>
+        </nav>
+
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
 
@@ -660,6 +707,85 @@ export default function App() {
                       </div>
                     </button>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {/* View Tab: Minigames Grid */}
+            {activeTab === "minigames" && (
+              <section className="tab-section minigames-section">
+                <div className="missions-hub-banner minigames-hub-banner">
+                  <div className="missions-hub-info">
+                    <div className="flex items-center gap-2">
+                      <Gamepad2 size={18} className="text-amber-400" />
+                      <h2 className="missions-hub-title">Strefa Minigier</h2>
+                    </div>
+                    <p className="missions-hub-subtitle">
+                      Graj w szybkie minigry, zdobywaj darmowe żetony $FGT i odbieraj dodatkowe nagrody bez żadnego ryzyka.
+                    </p>
+                  </div>
+                  <div className="missions-hub-stats">
+                    <div className="missions-stat-box">
+                      <span className="missions-stat-label">Minigry</span>
+                      <span className="missions-stat-val text-amber-400">{MINIGAMES.filter(m => m.active).length} aktywna</span>
+                    </div>
+                    <div className="missions-stat-box">
+                      <span className="missions-stat-label">Darmowy Faucet</span>
+                      <span className="missions-stat-val text-emerald-400">+40 $FGT</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="minigames-grid">
+                  {MINIGAMES.map((mg) => {
+                    const IconComp = mg.icon || Sparkles;
+                    return (
+                      <div
+                        key={mg.id}
+                        className={`minigame-card ${mg.active ? "active-playable" : "coming-soon"}`}
+                        onClick={() => {
+                          if (mg.active) {
+                            setSelectedMinigameId(mg.id);
+                            setCaptchaOpen(true);
+                          }
+                        }}
+                      >
+                        <div className="minigame-card-header">
+                          <div className="minigame-icon-wrap">
+                            <IconComp size={22} className={mg.iconColor || "text-amber-400"} />
+                          </div>
+                          <div className="minigame-badges">
+                            <span className={`tag-badge ${mg.active ? "gold" : ""}`}>{mg.badge}</span>
+                            {mg.reward && <span className="minigame-reward-badge">{mg.reward}</span>}
+                          </div>
+                        </div>
+
+                        <div className="minigame-card-body">
+                          <h3 className="minigame-title">{mg.name}</h3>
+                          <p className="minigame-desc">{mg.desc}</p>
+                        </div>
+
+                        <div className="minigame-card-footer">
+                          {mg.active ? (
+                            <button
+                              type="button"
+                              className="btn-play-minigame"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMinigameId(mg.id);
+                                setCaptchaOpen(true);
+                              }}
+                            >
+                              <span>Zagraj teraz</span>
+                              <ChevronRight size={14} />
+                            </button>
+                          ) : (
+                            <span className="minigame-coming-text">Wkrótce dostępne</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -1003,14 +1129,23 @@ export default function App() {
                 </div>
 
                 <div className="casino-footer-links">
-                  <button type="button" className="footer-link" onClick={() => setActiveTab("tos")}>
-                    <Scale size={13} /> Regulamin i Zasady
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("games")}>
+                    <Spade size={13} /> Gry
+                  </button>
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("minigames")}>
+                    <Gamepad2 size={13} /> Minigry
+                  </button>
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("missions")}>
+                    <Target size={13} /> Misje
                   </button>
                   <button type="button" className="footer-link" onClick={() => setActiveTab("ranking")}>
                     <Trophy size={13} /> Ranking
                   </button>
                   <button type="button" className="footer-link" onClick={() => setActiveTab("history")}>
                     <History size={13} /> Dziennik
+                  </button>
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("tos")}>
+                    <Scale size={13} /> Regulamin i Zasady
                   </button>
                 </div>
               </div>
@@ -1029,6 +1164,15 @@ export default function App() {
         >
           <Spade size={19} />
           <span>Gry</span>
+        </button>
+
+        <button
+          className={`mobile-tab-item ${activeTab === "minigames" ? "active" : ""}`}
+          onClick={() => { setActiveTab("minigames"); setActiveGame(null); }}
+          title="Minigry i darmowe żetony"
+        >
+          <Gamepad2 size={19} />
+          <span>Minigry</span>
         </button>
 
         <button
@@ -1056,15 +1200,6 @@ export default function App() {
         >
           <History size={19} />
           <span>Historia</span>
-        </button>
-
-        <button
-          className="mobile-tab-item"
-          onClick={() => setCaptchaOpen(true)}
-          title="Minigry i darmowe żetony"
-        >
-          <Gamepad2 size={19} />
-          <span>Minigry</span>
         </button>
       </nav>
 
@@ -1140,6 +1275,7 @@ export default function App() {
       {/* Mini-Games Hub Modal */}
       <MinigamesModal
         isOpen={captchaOpen}
+        initialGame={selectedMinigameId}
         onClose={() => setCaptchaOpen(false)}
         syncBalance={syncBalance}
         currentBalance={data?.player?.balance}
