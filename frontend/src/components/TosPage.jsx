@@ -265,8 +265,8 @@ export function TosPage({ onBack, onAccept, accepted }) {
                 </div>
                 <div className="tos-game-row">
                   <span className="tos-game-cell-name">Limbo</span>
-                  <span className="tos-game-cell-rtp">RTP 99.0%</span>
-                  <span className="tos-game-cell-desc">Docelowy mnożnik 1.20× – 10000×.</span>
+                  <span className="tos-game-cell-rtp">RTP 96.0%</span>
+                  <span className="tos-game-cell-desc">Docelowy mnożnik 1.50× – 10000×.</span>
                 </div>
                 <div className="tos-game-row">
                   <span className="tos-game-cell-name">Crash</span>

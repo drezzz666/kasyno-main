@@ -515,8 +515,8 @@ func ValidatePlinkoParams(rows int, risk string) error {
 }
 
 func ValidateLimboTarget(target float64) error {
-	if target < 1.20 || target > 10000.0 {
-		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.20x do 10,000x", ErrInvalidGameParam)
+	if target < 1.50 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.50x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }

@@ -295,7 +295,7 @@ func (b *Bot) buildGamesEmbed() *discordgo.MessageEmbed {
 				"6. **✂️ KPN (Kamień, Papier, Nożyce)** — Pojedynek PvE z serwerem (×1.98)\n"+
 				"7. **⚪ Plinko** — Fizyka kołków, 14 lub 16 rzędów, poziomy ryzyka Low/Med/High (mnożnik do ×1000)\n"+
 				"8. **🚀 Crash** — Startuje od 1.00x, rosnąca rakieta z manualnym lub automatycznym cashoutem (RTP 99.0%%)\n"+
-				"9. **📈 Limbo** — Ustaw mnożnik docelowy od 1.20x do 10000x i sprawdź swoje szczęście (RTP 99.0%%)\n\n"+
+				"9. **📈 Limbo** — Ustaw mnożnik docelowy od 1.50x do 10000x i sprawdź swoje szczęście (RTP 96.0%%)\n\n"+
 				"👉 **Zagraj teraz:** [**%s**](%s)",
 			b.appURL, b.appURL,
 		),

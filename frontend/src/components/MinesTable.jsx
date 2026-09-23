@@ -87,13 +87,13 @@ export function MineIcon({ className = "w-7 h-7" }) {
 }
 
 export function calculateMultiplier(revealedCount, mineCount) {
-  if (revealedCount <= 0) return 1.0;
+  if (revealedCount <= 0) return 0.80;
   let chance = 1.0;
   for (let i = 0; i < revealedCount; i++) {
     chance *= (25 - mineCount - i) / (25 - i);
   }
   const mult = Math.floor((0.97 / chance) * 100) / 100;
-  return Math.max(1.0, mult);
+  return Math.max(0.80, mult);
 }
 
 export function MinesTable({
@@ -128,7 +128,7 @@ export function MinesTable({
   const totalGems = 25 - mineCount;
   const remainingGems = Math.max(0, totalGems - revealed.length);
 
-  const currentMultiplier = p.multiplier || 1.0;
+  const currentMultiplier = p.multiplier !== undefined ? p.multiplier : 0.80;
   const nextMultiplier = calculateMultiplier(revealed.length + 1, mineCount);
   const currentBet = round?.bet || last?.bet || 10;
   const currentProfit = Math.floor(currentBet * currentMultiplier);

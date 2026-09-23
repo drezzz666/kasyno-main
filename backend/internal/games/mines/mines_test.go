@@ -17,10 +17,10 @@ func TestMinesMultiplier(t *testing.T) {
 		t.Errorf("multiplier should increase with more revealed diamonds: m1=%f, m2=%f", m1, m2)
 	}
 
-	// 0 diamonds -> 1.0
+	// 0 diamonds -> 0.80
 	m0 := CalculateMultiplier(0, 5)
-	if m0 != 1.0 {
-		t.Errorf("expected 1.0 for 0 diamonds, got %f", m0)
+	if m0 != 0.80 {
+		t.Errorf("expected 0.80 for 0 diamonds, got %f", m0)
 	}
 }
 

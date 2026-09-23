@@ -24,8 +24,8 @@ type Result struct {
 	Payload    Payload `json:"payload"`
 }
 
-// GenerateLimboMultiplier computes a cryptographically secure random multiplier with 99% RTP.
-// Standard crypto casino formula: M = floor((0.99 / (1 - U)) * 100) / 100
+// GenerateLimboMultiplier computes a cryptographically secure random multiplier with 96% RTP.
+// Standard crypto casino formula: M = floor((0.96 / (1 - U)) * 100) / 100
 func GenerateLimboMultiplier() float64 {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -40,7 +40,7 @@ func GenerateLimboMultiplier() float64 {
 		u = 0.9999999999
 	}
 
-	raw := 0.99 / (1.0 - u)
+	raw := 0.96 / (1.0 - u)
 	mult := math.Floor(raw*100.0) / 100.0
 	if mult < 1.00 {
 		mult = 1.00
@@ -53,8 +53,8 @@ func GenerateLimboMultiplier() float64 {
 
 // PlayLimbo executes a round of Limbo with the given bet and target multiplier.
 func PlayLimbo(bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 1.20 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.20x - 10000x")
+	if targetMultiplier < 1.50 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.50x - 10000x")
 	}
 
 	resultMult := GenerateLimboMultiplier()
@@ -90,7 +90,7 @@ func GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed string, nonce in
 	if u >= 0.9999999999 {
 		u = 0.9999999999
 	}
-	raw := 0.99 / (1.0 - u)
+	raw := 0.96 / (1.0 - u)
 	mult := math.Floor(raw*100.0) / 100.0
 	if mult < 1.00 {
 		mult = 1.00
@@ -103,8 +103,8 @@ func GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed string, nonce in
 
 // PlayLimboProvablyFair executes a deterministic round of Limbo
 func PlayLimboProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 1.20 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.20x - 10000x")
+	if targetMultiplier < 1.50 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.50x - 10000x")
 	}
 
 	resultMult := GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed, nonce)
