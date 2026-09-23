@@ -1,20 +1,22 @@
 services:
   traefik:
     image: traefik:latest
-    container_name: kasyno_traefik
     restart: unless-stopped
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.constraints=Label(`traefik.env`, `${TRAEFIK_TAG:-prod}`)"
       - "--entrypoints.web.address=:80"
     ports:
       - "${HTTP_PORT:-80}:80"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ=${TZ:-Europe/Warsaw}
+
 
   postgres:
     image: postgres:17-alpine
-    container_name: kasyno_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-kasyno}
@@ -32,7 +34,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: kasyno_backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -59,6 +60,7 @@ services:
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID:-}
       - DISCORD_ADMIN_ROLE=${DISCORD_ADMIN_ROLE:-}
       - DISCORD_ADMIN_USER_IDS=${DISCORD_ADMIN_USER_IDS:-}
+      - TZ=${TZ:-Europe/Warsaw}
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 15s
@@ -69,6 +71,7 @@ services:
       - ./logs:/app/logs
     labels:
       - "traefik.enable=true"
+      - "traefik.env=${TRAEFIK_TAG:-prod}"
       - "traefik.http.routers.backend.rule=PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/health`)"
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.routers.backend.priority=20"
@@ -78,13 +81,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: kasyno_frontend
     restart: unless-stopped
     depends_on:
       kasyno_backend:
         condition: service_healthy
+    environment:
+      - TZ=${TZ:-Europe/Warsaw}
+      - NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=0
     labels:
       - "traefik.enable=true"
+      - "traefik.env=${TRAEFIK_TAG:-prod}"
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.routers.frontend.priority=10"
