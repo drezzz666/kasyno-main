@@ -1124,10 +1124,10 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 	}
 
 	autoCashout, _ := body["auto_cashout"].(float64)
-	if autoCashout < 1.00 {
+	if autoCashout < 0.80 {
 		autoCashout, _ = body["target_multiplier"].(float64)
 	}
-	if autoCashout < 1.00 {
+	if autoCashout < 0.80 {
 		autoCashout = 1000.00
 	}
 	if autoCashout > 10000.00 {
@@ -1174,8 +1174,8 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 
 	// Auto-settle timer if player never sends cashout/settle
 	var crashSec float64
-	if crashPoint > 1.00 && flightSpeed > 0 {
-		crashSec = math.Log(crashPoint) / flightSpeed
+	if crashPoint > 0.80 && flightSpeed > 0 {
+		crashSec = math.Log(crashPoint/0.80) / flightSpeed
 	}
 	crashDuration := time.Duration(crashSec * float64(time.Second))
 	if crashDuration < 50*time.Millisecond {
@@ -1269,8 +1269,8 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 	elapsedSec := float64(nowMs-payload.StartedAt) / 1000.0
 
 	var crashSec float64
-	if payload.CrashPoint > 1.00 && payload.FlightSpeed > 0 {
-		crashSec = math.Log(payload.CrashPoint) / payload.FlightSpeed
+	if payload.CrashPoint > 0.80 && payload.FlightSpeed > 0 {
+		crashSec = math.Log(payload.CrashPoint/0.80) / payload.FlightSpeed
 	}
 
 	// Server calculates current multiplier with tight latency buffer (0.15s)
@@ -1278,14 +1278,14 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 
 	// Client requested multiplier if provided
 	reqMult, _ := body["requested_mult"].(float64)
-	if reqMult < 1.00 {
+	if reqMult < 0.80 {
 		reqMult, _ = body["mult"].(float64)
 	}
 	cashedMult := maxAllowedMult
-	if reqMult >= 1.00 && reqMult <= maxAllowedMult {
+	if reqMult >= 0.80 && reqMult <= maxAllowedMult {
 		cashedMult = math.Floor(reqMult*100.0) / 100.0
 	}
-	if payload.AutoCashout >= 1.00 && cashedMult > payload.AutoCashout {
+	if payload.AutoCashout >= 0.80 && cashedMult > payload.AutoCashout {
 		cashedMult = payload.AutoCashout
 	}
 
@@ -1388,7 +1388,7 @@ func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	won := payload.AutoCashout >= 1.00 && payload.AutoCashout <= payload.CrashPoint
+	won := payload.AutoCashout >= 0.80 && payload.AutoCashout <= payload.CrashPoint
 
 	var payout int64
 	var resultText string

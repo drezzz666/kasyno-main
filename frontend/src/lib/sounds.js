@@ -10,17 +10,36 @@ class CasinoSoundEngine {
     try {
       this.muted = localStorage.getItem("fgt_muted") === "true";
     } catch {}
+    // BGM Web Audio state (using Web Audio API to prevent Android media notification)
+    this.bgmBuffer = null;
+    this.bgmLoading = null;
+    this.bgmSource = null;
+    this.bgmGain = null;
+    this.bgmStartedAt = 0;
+    this.bgmPausedAt = 0;
+    this.bgmVolume = 0.2;
+    this.bgmIsPlaying = false;
+    this.bgmStarting = false;
+
+    this.cleanupMediaSession();
   }
 
-  setMuted(val) {
-    this.muted = Boolean(val);
-    try {
-      localStorage.setItem("fgt_muted", String(this.muted));
-    } catch {}
+  cleanupMediaSession() {
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = "none";
+        const actions = ["play", "pause", "stop", "seekbackward", "seekforward", "seekto", "previoustrack", "nexttrack", "skipad"];
+        actions.forEach((act) => {
+          try {
+            navigator.mediaSession.setActionHandler(act, null);
+          } catch {}
+        });
+      } catch {}
+    }
   }
 
-  init() {
-    if (this.muted) return;
+  getContext() {
     if (!this.ctx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
@@ -30,6 +49,135 @@ class CasinoSoundEngine {
     if (this.ctx && this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
     }
+    return this.ctx;
+  }
+
+  setMuted(val) {
+    this.muted = Boolean(val);
+    try {
+      localStorage.setItem("fgt_muted", String(this.muted));
+    } catch {}
+    if (this.muted) {
+      this.pauseBgm();
+    } else {
+      if (this.bgmIsPlaying || !this.bgmSource) {
+        this.resumeBgm();
+      }
+    }
+  }
+
+  init() {
+    if (this.muted) return;
+    this.getContext();
+  }
+
+  async loadBgm() {
+    if (this.bgmBuffer) return this.bgmBuffer;
+    if (this.bgmLoading) return this.bgmLoading;
+
+    this.bgmLoading = (async () => {
+      try {
+        const ctx = this.getContext();
+        if (!ctx) return null;
+        const res = await fetch("/audio/bgm.m4a");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = await ctx.decodeAudioData(arrayBuffer);
+        this.bgmBuffer = buffer;
+        return buffer;
+      } catch (err) {
+        this.bgmLoading = null;
+        return null;
+      }
+    })();
+
+    return this.bgmLoading;
+  }
+
+  async playBgm(volume = this.bgmVolume) {
+    this.bgmIsPlaying = true;
+    this.bgmVolume = volume;
+    if (this.muted || volume <= 0) return;
+
+    if (this.bgmSource || this.bgmStarting) return;
+    this.bgmStarting = true;
+
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+
+      if (ctx.state === "suspended") {
+        try {
+          await ctx.resume();
+        } catch {}
+      }
+
+      const buffer = await this.loadBgm();
+      if (!buffer || !this.bgmIsPlaying || this.muted || this.bgmVolume <= 0 || this.bgmSource) return;
+
+      if (!this.bgmGain) {
+        this.bgmGain = ctx.createGain();
+        this.bgmGain.connect(ctx.destination);
+      }
+      this.bgmGain.gain.cancelScheduledValues(ctx.currentTime);
+      this.bgmGain.gain.setValueAtTime(this.bgmVolume, ctx.currentTime);
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.bgmGain);
+
+      const offset = (this.bgmPausedAt || 0) % buffer.duration;
+      source.start(0, offset);
+      this.bgmStartedAt = ctx.currentTime - offset;
+      this.bgmSource = source;
+      this.cleanupMediaSession();
+    } catch (e) {
+      this.bgmSource = null;
+    } finally {
+      this.bgmStarting = false;
+    }
+  }
+
+  pauseBgm() {
+    if (this.bgmSource && this.ctx) {
+      try {
+        const elapsed = this.ctx.currentTime - this.bgmStartedAt;
+        const duration = this.bgmBuffer?.duration || 1;
+        this.bgmPausedAt = ((elapsed % duration) + duration) % duration;
+        this.bgmSource.stop();
+        this.bgmSource.disconnect();
+      } catch {}
+      this.bgmSource = null;
+    }
+    this.cleanupMediaSession();
+  }
+
+  resumeBgm() {
+    if (!this.muted && this.bgmVolume > 0 && !this.bgmSource) {
+      this.playBgm(this.bgmVolume);
+    }
+  }
+
+  setBgmVolume(val) {
+    this.bgmVolume = Math.max(0, Math.min(1, val));
+    if (this.ctx && this.bgmGain) {
+      try {
+        this.bgmGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.bgmGain.gain.setValueAtTime(this.muted ? 0 : this.bgmVolume, this.ctx.currentTime);
+      } catch {}
+    }
+    if (this.bgmVolume === 0) {
+      this.pauseBgm();
+    } else if (!this.muted && !this.bgmSource && this.bgmIsPlaying) {
+      this.resumeBgm();
+    }
+  }
+
+  stopBgm() {
+    this.bgmIsPlaying = false;
+    this.pauseBgm();
+    this.bgmPausedAt = 0;
   }
 
   playWin(multiplier = 2) {
