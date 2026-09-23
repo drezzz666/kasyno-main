@@ -188,11 +188,11 @@ func TestAnticheatBotSimulation(t *testing.T) {
 	limiter := anticheat.NewRateLimiter()
 	limiter.SetIdentity(userID, nick, ip)
 
-	// Simulate bot rapidly dropping 25 Plinko balls within 1 second (limit is 20 rapid req/s)
+	// Simulate bot rapidly dropping 30 Plinko balls within 1 second (limit is 25 rapid req/s)
 	allowedCount := 0
 	blockedCount := 0
 
-	for i := 0; i < 25; i++ {
+	for i := 0; i < 30; i++ {
 		if limiter.AllowGameAction(userID, "play", "plinko") {
 			allowedCount++
 		} else {
@@ -200,8 +200,8 @@ func TestAnticheatBotSimulation(t *testing.T) {
 		}
 	}
 
-	if allowedCount != 20 {
-		t.Fatalf("expected exactly 20 allowed plinko requests, got %d", allowedCount)
+	if allowedCount != 25 {
+		t.Fatalf("expected exactly 25 allowed plinko requests, got %d", allowedCount)
 	}
 	if blockedCount != 5 {
 		t.Fatalf("expected 5 blocked plinko requests, got %d", blockedCount)

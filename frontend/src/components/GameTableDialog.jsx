@@ -76,7 +76,7 @@ export function GameTableDialog({
   // New games states
   const [isFlipping, setIsFlipping] = useState(false);
   const [isShootingRPS, setIsShootingRPS] = useState(false);
-  const [plinkoRows, setPlinkoRows] = useState(10);
+  const [plinkoRows, setPlinkoRows] = useState(14);
   const [plinkoRisk, setPlinkoRisk] = useState("medium");
   const plinkoRef = useRef(null);
 
