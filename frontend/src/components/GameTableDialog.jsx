@@ -243,7 +243,6 @@ export function GameTableDialog({
         }
         if (typeof data.balance === "number") syncBalance(data.balance);
         if (animatingRef) animatingRef.current = false;
-        void load();
       }
     };
     window.addEventListener("casino:round_settled", handleRoundSettled);
@@ -268,7 +267,6 @@ export function GameTableDialog({
         if (typeof j.balance === "number") syncBalance(j.balance);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
-        void load();
       }, delay);
     } else {
       if (animatingRef) animatingRef.current = false;
@@ -299,12 +297,10 @@ export function GameTableDialog({
         if (typeof j.balance === "number") syncBalance(j.balance);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
-        void load();
       }
     } catch (e) {
       setCrashPlaying(false);
       if (animatingRef) animatingRef.current = false;
-      void load();
       if (!e.message?.toLowerCase().includes("brak aktywnej gry")) {
         toast.error(e.message || "Błąd podczas wypłaty Crash");
       }
@@ -390,7 +386,6 @@ export function GameTableDialog({
             if (typeof j.balance === "number") syncBalance(j.balance);
             if (animatingRef) animatingRef.current = false;
             triggerOutcome(j.round);
-            void load();
           }
         };
 
@@ -453,7 +448,6 @@ export function GameTableDialog({
                 console.warn("[Crash] Auto cashout race/settled:", e.message);
               } finally {
                 if (animatingRef) animatingRef.current = false;
-                void load();
               }
               return;
             }
@@ -481,7 +475,6 @@ export function GameTableDialog({
         setCrashMult(0.8);
         setCrashGraphPoints([]);
         if (animatingRef) animatingRef.current = false;
-        void load();
       }
       return;
     }
@@ -502,7 +495,6 @@ export function GameTableDialog({
           setPendingSlotsRound(null);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
-          void load();
         }, turbo ? 220 : 1200);
       } else {
         setSlotsSpinning(false);
@@ -527,7 +519,6 @@ export function GameTableDialog({
           setIsFlipping(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
-          void load();
         }, turbo ? 180 : 1200);
       } else {
         setIsFlipping(false);
@@ -551,7 +542,6 @@ export function GameTableDialog({
           setIsShootingRPS(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
-          void load();
         }, turbo ? 180 : 900);
       } else {
         setIsShootingRPS(false);
@@ -571,7 +561,6 @@ export function GameTableDialog({
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           triggerOutcome(j.round);
-          void load();
         }, delay);
       }
       return;
@@ -684,7 +673,6 @@ export function GameTableDialog({
                           }
                           triggerOutcome(pendingSpin.round);
                           setPendingSpin(null);
-                          void load();
                         }
                         if (animatingRef) animatingRef.current = false;
                       }}
