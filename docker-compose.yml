@@ -85,6 +85,7 @@ services:
         condition: service_healthy
     environment:
       - TZ=${TZ:-Europe/Warsaw}
+      - NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=0
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"

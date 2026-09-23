@@ -22,6 +22,8 @@ FROM nginx:alpine AS runner
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+ENV NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE=0
+
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["nginx", "-g", "daemon off; worker_processes 2;"]
