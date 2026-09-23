@@ -25,7 +25,6 @@ import {
   Rocket,
   TrendingUp,
   Scale,
-  ShieldCheck,
   FileText,
   Award,
   Star,
@@ -602,16 +601,6 @@ export default function App() {
               </div>
 
               <div className="player-summary-right">
-                <button
-                  type="button"
-                  onClick={() => setCaptchaOpen(true)}
-                  className="captcha-faucet-btn"
-                  title="Rozwiąż Captcha i zdobądź +40 $FGT"
-                >
-                  <ShieldCheck size={14} className="text-emerald-400" />
-                  <span>Captcha (+40 $FGT)</span>
-                </button>
-
                 <button
                   type="button"
                   disabled={!bonusAvailable || loading}
