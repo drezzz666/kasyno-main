@@ -27,10 +27,39 @@ export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
   const userBalance = typeof maxBalance === "number" && !isNaN(maxBalance) ? Math.max(0, maxBalance) : 0;
   const safeMax = userBalance > 0 ? userBalance : 1000000;
 
+  const [inputVal, setInputVal] = React.useState(String(bet ?? 1));
+
+  React.useEffect(() => {
+    setInputVal(String(bet ?? 1));
+  }, [bet]);
+
   const handleBetChange = (raw) => {
+    // Allow empty string while user is deleting/editing
+    if (raw === "") {
+      setInputVal("");
+      return;
+    }
+
     const val = Number(raw);
     if (!isNaN(val)) {
-      setBet(Math.max(1, userBalance > 0 ? Math.min(userBalance, val) : val));
+      setInputVal(raw);
+      if (val >= 1) {
+        setBet(userBalance > 0 ? Math.min(userBalance, val) : val);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    const val = Number(inputVal);
+    if (isNaN(val) || val < 1) {
+      setBet(1);
+      setInputVal("1");
+    } else if (userBalance > 0 && val > userBalance) {
+      setBet(userBalance);
+      setInputVal(String(userBalance));
+    } else {
+      setBet(val);
+      setInputVal(String(val));
     }
   };
 
@@ -88,8 +117,9 @@ export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
             type="number"
             min="1"
             max={userBalance > 0 ? userBalance : undefined}
-            value={bet}
+            value={inputVal}
             onChange={(e) => handleBetChange(e.target.value)}
+            onBlur={handleBlur}
             className="casino-bet-input"
             aria-label="Kwota zakładu w $FGT"
           />

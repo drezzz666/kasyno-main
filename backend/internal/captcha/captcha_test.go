@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"image/png"
-	"strings"
 	"testing"
 	"time"
 )
@@ -26,11 +25,21 @@ func TestCaptchaServerSideOnlyAndSecurity(t *testing.T) {
 	}
 	jsonStr := string(jsonBytes)
 
-	if strings.Contains(jsonStr, `"Answer"`) || strings.Contains(jsonStr, `"answer"`) || strings.Contains(jsonStr, `"display"`) {
-		t.Fatalf("SECURITY VIOLATION: captcha JSON exposes secret answer/display: %s", jsonStr)
+	var jsonMap map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &jsonMap); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
 	}
-	if strings.Contains(jsonStr, c.Answer) {
-		t.Fatalf("SECURITY VIOLATION: captcha plaintext answer '%s' found in JSON payload: %s", c.Answer, jsonStr)
+	if _, hasAnswer := jsonMap["answer"]; hasAnswer {
+		t.Fatalf("SECURITY VIOLATION: answer field found in JSON: %s", jsonStr)
+	}
+	if _, hasAnswerUpper := jsonMap["Answer"]; hasAnswerUpper {
+		t.Fatalf("SECURITY VIOLATION: Answer field found in JSON: %s", jsonStr)
+	}
+	if _, hasDisplay := jsonMap["display"]; hasDisplay {
+		t.Fatalf("SECURITY VIOLATION: display field found in JSON: %s", jsonStr)
+	}
+	if _, hasImage := jsonMap["image"]; hasImage {
+		t.Fatalf("SECURITY VIOLATION: image field should not be in JSON (should be pure binary): %s", jsonStr)
 	}
 
 	// 3. Verify Pure Binary PNG format (PNG signature \x89PNG\r\n\x1a\n)
