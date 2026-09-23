@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"sync"
@@ -239,7 +240,9 @@ func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Requ
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			_ = bot.SyncUserTelemetry(ctx, &data)
+			if err := bot.SyncUserTelemetry(ctx, &data); err != nil {
+				log.Printf("⚠️ [Discord Bot] Błąd SyncUserTelemetry dla gracza %s (%s): %v", data.Nick, data.UserID, err)
+			}
 		}()
 	}
 

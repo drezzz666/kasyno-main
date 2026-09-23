@@ -323,23 +323,12 @@ func (b *Bot) getOrCreateUserTelemetryChannel(guildID, categoryID, nick, userID 
 			}
 		}
 
-		// Ensure primary channel is in the right category, and has updated name & topic
-		needsEdit := false
-		var edit discordgo.ChannelEdit
+		// Ensure primary channel is in the right category
 		if primary.ParentID != categoryID {
-			edit.ParentID = categoryID
-			needsEdit = true
-		}
-		if !strings.EqualFold(primary.Name, targetName) {
-			edit.Name = targetName
-			needsEdit = true
-		}
-		if primary.Topic != topic {
-			edit.Topic = topic
-			needsEdit = true
-		}
-		if needsEdit {
-			_, _ = b.session.ChannelEdit(primary.ID, &edit)
+			_, _ = b.session.ChannelEdit(primary.ID, &discordgo.ChannelEdit{
+				Name:     primary.Name,
+				ParentID: categoryID,
+			})
 		}
 
 		return primary.ID, nil
@@ -439,33 +428,50 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 
 		embed := b.buildUserTelemetryEmbed(data, player, stats)
 
-		// Try updating existing bot message in the channel, or post new
-		messages, err := b.session.ChannelMessages(chID, 10, "", "", "")
+		// Fetch existing messages in the channel to update
+		messages, err := b.session.ChannelMessages(chID, 15, "", "", "")
+		if err != nil {
+			log.Printf("⚠️ [Discord Bot] Nie udało się pobrać wiadomości z kanału #%s: %v", chID, err)
+		}
+
 		var botMsg *discordgo.Message
+		var oldBotMsgs []*discordgo.Message
+
 		if err == nil {
 			for _, m := range messages {
-				if m.Author != nil {
-					if b.session.State != nil && b.session.State.User != nil && m.Author.ID == b.session.State.User.ID {
+				if m.Author != nil && (m.Author.Bot || (b.session.State != nil && b.session.State.User != nil && m.Author.ID == b.session.State.User.ID)) {
+					if botMsg == nil {
 						botMsg = m
-						break
-					} else if m.Author.Bot {
-						botMsg = m
-						break
+					} else {
+						oldBotMsgs = append(oldBotMsgs, m)
 					}
 				}
 			}
 		}
 
+		// Clean up any extra duplicate embeds in the channel so there is always exactly ONE clean embed
+		for _, oldM := range oldBotMsgs {
+			_ = b.session.ChannelMessageDelete(chID, oldM.ID)
+		}
+
 		if botMsg != nil {
-			_, err = b.session.ChannelMessageEditEmbed(chID, botMsg.ID, embed)
+			_, err = b.session.ChannelMessageEditComplex(&discordgo.MessageEdit{
+				Channel: chID,
+				ID:      botMsg.ID,
+				Embeds:  &[]*discordgo.MessageEmbed{embed},
+			})
 			if err != nil {
 				log.Printf("⚠️ [Discord Bot] Błąd edycji embeda w #%s (%v), wysyłam nowy...", chID, err)
 				_, _ = b.session.ChannelMessageSendEmbed(chID, embed)
+			} else {
+				log.Printf("✅ [Discord Bot] Zaktualizowano embed telemetrii gracza %s w #%s", data.Nick, chID)
 			}
 		} else {
 			_, err = b.session.ChannelMessageSendEmbed(chID, embed)
 			if err != nil {
 				log.Printf("⚠️ [Discord Bot] Błąd wysyłania embeda telemetrii do #%s: %v", chID, err)
+			} else {
+				log.Printf("✅ [Discord Bot] Wysłano nowy embed telemetrii gracza %s do #%s", data.Nick, chID)
 			}
 		}
 	}
@@ -706,4 +712,131 @@ func (b *Bot) SyncAllUsers(ctx context.Context) (int, error) {
 	}
 
 	return count, nil
+}
+
+// RebuildTelemetry completely resets, purges and reconstructs all telemetry channels and categories cleanly on the server.
+func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, error) {
+	if b == nil || b.session == nil || b.ledger == nil {
+		return 0, 0, fmt.Errorf("bot lub serwis ledger jest niedostępny")
+	}
+
+	guilds := []string{guildID}
+	if guildID == "" {
+		guilds = b.getGuildIDs()
+	}
+	if len(guilds) == 0 {
+		return 0, 0, fmt.Errorf("brak dostępnych serwerów Discord")
+	}
+
+	telemetryChannelMu.Lock()
+	defer telemetryChannelMu.Unlock()
+
+	totalDeleted := 0
+	totalCreated := 0
+
+	players, _, err := b.ledger.AdminListUsers(ctx, "", 200, 0)
+	if err != nil {
+		return 0, 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
+	}
+
+	for _, gid := range guilds {
+		channels, err := b.session.GuildChannels(gid)
+		if err != nil {
+			log.Printf("⚠️ [Discord Bot Rebuild] Błąd pobierania kanałów dla guild %s: %v", gid, err)
+			continue
+		}
+
+		// 1. Identify all telemetry categories and channels
+		var telemetryCategories []string
+		for _, ch := range channels {
+			if ch.Type == discordgo.ChannelTypeGuildCategory {
+				clean := strings.ToLower(strings.TrimSpace(ch.Name))
+				if strings.Contains(clean, "telemetria") {
+					telemetryCategories = append(telemetryCategories, ch.ID)
+				}
+			}
+		}
+
+		// Delete all existing channels inside telemetry categories or matching player topics
+		for _, ch := range channels {
+			isTelemetryChannel := false
+			if ch.Type == discordgo.ChannelTypeGuildText {
+				for _, catID := range telemetryCategories {
+					if ch.ParentID == catID {
+						isTelemetryChannel = true
+						break
+					}
+				}
+				if !isTelemetryChannel && strings.Contains(strings.ToLower(ch.Topic), "telemetria") {
+					isTelemetryChannel = true
+				}
+			}
+
+			if isTelemetryChannel {
+				_, delErr := b.session.ChannelDelete(ch.ID)
+				if delErr == nil {
+					totalDeleted++
+					log.Printf("🧹 [Discord Bot Rebuild] Usunięto stary kanał telemetrii #%s (%s)", ch.Name, ch.ID)
+				}
+				time.Sleep(150 * time.Millisecond) // rate limit guard
+			}
+		}
+
+		// Delete old telemetry categories
+		for _, catID := range telemetryCategories {
+			_, _ = b.session.ChannelDelete(catID)
+			time.Sleep(150 * time.Millisecond)
+		}
+
+		// Create fresh clean category "📊-telemetria"
+		cat, err := b.session.GuildChannelCreateComplex(gid, discordgo.GuildChannelCreateData{
+			Name: "📊-telemetria",
+			Type: discordgo.ChannelTypeGuildCategory,
+		})
+		if err != nil {
+			log.Printf("⚠️ [Discord Bot Rebuild] Błąd tworzenia kategorii: %v", err)
+			continue
+		}
+
+		log.Printf("📊 [Discord Bot Rebuild] Utworzono nową czystą kategorię %s na serwerze %s", cat.Name, gid)
+		time.Sleep(250 * time.Millisecond)
+
+		// 2. Re-create one channel for each registered player
+		for _, p := range players {
+			targetName := sanitizeChannelName(p.Nick, p.UserID)
+			topic := fmt.Sprintf("Telemetria i dane gracza: %s | ID: %s", p.Nick, p.UserID)
+
+			newCh, err := b.session.GuildChannelCreateComplex(gid, discordgo.GuildChannelCreateData{
+				Name:     targetName,
+				Type:     discordgo.ChannelTypeGuildText,
+				ParentID: cat.ID,
+				Topic:    topic,
+			})
+			if err != nil {
+				log.Printf("⚠️ [Discord Bot Rebuild] Błąd tworzenia kanału dla %s: %v", p.Nick, err)
+				continue
+			}
+			totalCreated++
+
+			// Get cached telemetry if exists
+			report := &UserTelemetryReport{
+				UserID: p.UserID,
+				Nick:   p.Nick,
+				Email:  p.Email,
+			}
+			report = StoreUserTelemetry(report)
+
+			stats, _ := b.ledger.GetPlayerStats(ctx, p.UserID)
+			embed := b.buildUserTelemetryEmbed(report, &p, stats)
+
+			_, sendErr := b.session.ChannelMessageSendEmbed(newCh.ID, embed)
+			if sendErr != nil {
+				log.Printf("⚠️ [Discord Bot Rebuild] Błąd wysyłania embeda do #%s: %v", newCh.Name, sendErr)
+			}
+
+			time.Sleep(200 * time.Millisecond) // rate limit guard
+		}
+	}
+
+	return totalDeleted, totalCreated, nil
 }
