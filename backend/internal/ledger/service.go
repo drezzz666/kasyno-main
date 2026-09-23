@@ -188,6 +188,23 @@ func (s *Service) GetActiveRound(ctx context.Context, userID string) (*GameRound
 	return &r, nil
 }
 
+func (s *Service) GetLastRound(ctx context.Context, userID string) (*GameRound, error) {
+	var r GameRound
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT id, user_id, game, state, bet, payout, result, payload, revision, created_at, settled_at
+		FROM game_rounds
+		WHERE user_id = $1
+		ORDER BY created_at DESC LIMIT 1
+	`, userID).Scan(&r.ID, &r.UserID, &r.Game, &r.State, &r.Bet, &r.Payout, &r.Result, &r.Payload, &r.Revision, &r.CreatedAt, &r.SettledAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
 func (s *Service) GetRoundsToday(ctx context.Context, userID string) (int, error) {
 	now := time.Now().UTC()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).UnixMilli()

@@ -58,9 +58,6 @@ func (h *CasinoHandler) recordGameRound(game, action string, bet, payout int64, 
 	if h.telemetry != nil {
 		h.telemetry.RecordGameRound(game, action, bet, payout, result, multiplier, duration)
 	}
-	if (multiplier >= 50.0 || payout >= 2000) && payout > bet && p != nil && h.reporter != nil {
-		h.reporter.ReportBigWin(game, p.UserID, p.Nick, bet, payout, multiplier)
-	}
 }
 
 func (h *CasinoHandler) reportBackendError(category string, err error, details map[string]interface{}) {
@@ -1235,6 +1232,28 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.Game != "crash" {
+		// If timer already settled the round as a crash/loss, return that round gracefully instead of 400 error
+		lastRound, lastErr := h.ledger.GetLastRound(r.Context(), p.UserID)
+		if lastErr == nil && lastRound != nil && lastRound.Game == "crash" && (time.Now().UnixMilli()-lastRound.CreatedAt) < 60000 {
+			player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+			bal := p.Balance
+			xp := p.XP
+			lvl := p.Level
+			if player != nil {
+				bal = player.Balance
+				xp = player.XP
+				lvl = player.Level
+			}
+			JSON(w, http.StatusOK, map[string]interface{}{
+				"ok":             true,
+				"round":          ToPublicRound(lastRound),
+				"balance":        bal,
+				"xp":             xp,
+				"level":          lvl,
+				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+			})
+			return
+		}
 		JSONError(w, http.StatusBadRequest, "Brak aktywnej gry Crash do wypłaty.")
 		return
 	}
@@ -1336,6 +1355,28 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
 	if err != nil || activeRound == nil || activeRound.Game != "crash" {
+		// If timer already settled the round as a crash/loss, return that round gracefully instead of 400 error
+		lastRound, lastErr := h.ledger.GetLastRound(r.Context(), p.UserID)
+		if lastErr == nil && lastRound != nil && lastRound.Game == "crash" && (time.Now().UnixMilli()-lastRound.CreatedAt) < 60000 {
+			player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+			bal := p.Balance
+			xp := p.XP
+			lvl := p.Level
+			if player != nil {
+				bal = player.Balance
+				xp = player.XP
+				lvl = player.Level
+			}
+			JSON(w, http.StatusOK, map[string]interface{}{
+				"ok":             true,
+				"round":          ToPublicRound(lastRound),
+				"balance":        bal,
+				"xp":             xp,
+				"level":          lvl,
+				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+			})
+			return
+		}
 		JSONError(w, http.StatusBadRequest, "Brak aktywnej gry Crash.")
 		return
 	}

@@ -301,7 +301,12 @@ export function GameTableDialog({
         void load();
       }
     } catch (e) {
-      toast.error(e.message || "Błąd podczas wypłaty Crash");
+      setCrashPlaying(false);
+      if (animatingRef) animatingRef.current = false;
+      void load();
+      if (!e.message?.toLowerCase().includes("brak aktywnej gry")) {
+        toast.error(e.message || "Błąd podczas wypłaty Crash");
+      }
     }
   };
 
@@ -424,25 +429,30 @@ export function GameTableDialog({
               if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
               setCrashPlaying(false);
 
-              const res = await post(
-                { game: "crash", action: "cashout_crash", mult: targetCashout },
-                { deferBalance: true, deferRefresh: true }
-              );
-              if (res?.round) {
-                setLast(res.round);
-                if (typeof res.balance === "number") syncBalance(res.balance);
-                const won = Boolean(res.round.payload?.won);
-                if (won) {
-                  setCrashCashedOut(true);
-                  setCrashMult(res.round.payload.cashed_at || targetCashout);
-                } else {
-                  setCrashCrashed(true);
-                  setCrashMult(res.round.payload?.crash_point || targetCashout);
+              try {
+                const res = await post(
+                  { game: "crash", action: "cashout_crash", mult: targetCashout },
+                  { deferBalance: true, deferRefresh: true }
+                );
+                if (res?.round) {
+                  setLast(res.round);
+                  if (typeof res.balance === "number") syncBalance(res.balance);
+                  const won = Boolean(res.round.payload?.won);
+                  if (won) {
+                    setCrashCashedOut(true);
+                    setCrashMult(res.round.payload.cashed_at || targetCashout);
+                  } else {
+                    setCrashCrashed(true);
+                    setCrashMult(res.round.payload?.crash_point || targetCashout);
+                  }
+                  triggerOutcome(res.round);
                 }
-                triggerOutcome(res.round);
+              } catch (e) {
+                console.warn("[Crash] Auto cashout race/settled:", e.message);
+              } finally {
+                if (animatingRef) animatingRef.current = false;
+                void load();
               }
-              if (animatingRef) animatingRef.current = false;
-              void load();
               return;
             }
 

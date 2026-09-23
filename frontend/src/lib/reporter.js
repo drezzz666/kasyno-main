@@ -40,14 +40,20 @@ export function reportClientError({
     }
 
     const lower = `${errorMsg} ${context}`.toLowerCase();
-    // Ignore routine user balance / insufficient funds errors
+    // Ignore routine user balance, validation and race condition errors
     if (
       lower.includes("niewystarczające saldo") ||
       lower.includes("brak wystarczających środków") ||
       lower.includes("insufficient_funds") ||
       lower.includes("insufficient_balance") ||
       lower.includes("niewystarczające środki") ||
-      lower.includes("brak środków")
+      lower.includes("brak środków") ||
+      lower.includes("brak aktywnej gry") ||
+      lower.includes("masz już aktywną grę") ||
+      lower.includes("nieprawidłowa stawka") ||
+      lower.includes("wybierz stronę") ||
+      lower.includes("wybierz swój gest") ||
+      lower.includes("postaw żetony")
     ) {
       return;
     }

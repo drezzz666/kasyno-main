@@ -228,7 +228,9 @@ func isInsufficientFundsText(text string) bool {
 		strings.Contains(lower, "insufficient_balance") ||
 		strings.Contains(lower, "insufficient_funds") ||
 		strings.Contains(lower, "niewystarczające środki") ||
-		strings.Contains(lower, "brak środków")
+		strings.Contains(lower, "brak środków") ||
+		strings.Contains(lower, "brak aktywnej gry") ||
+		strings.Contains(lower, "masz już aktywną grę")
 }
 
 func isRateLimitText(errType, message, context string) bool {
@@ -690,56 +692,6 @@ func (r *Reporter) ReportSecurityAlert(category, ip, userID, nick, action, detai
 	r.sendAsyncToURL(r.securityWebhookURL, DiscordWebhookPayload{
 		Username:  "Kasyno Anticheat Watcher",
 		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.png",
-		Embeds:    []DiscordEmbed{embed},
-	})
-}
-
-// ReportBigWin sends a celebration / high roller telemetry notification to Discord when a jackpot or massive multiplier occurs.
-func (r *Reporter) ReportBigWin(game, userID, nick string, bet, payout int64, multiplier float64) {
-	if r == nil || !r.HasErrorWebhook() {
-		return
-	}
-
-	title := fmt.Sprintf("🎉 [BIG WIN] %s wygrał %d $FGT (%.2fx) w %s!", nick, payout, multiplier, strings.ToUpper(game))
-	color := 0x10B981 // Emerald Green
-
-	fields := []DiscordField{
-		{
-			Name:   "👤 Gracz",
-			Value:  fmt.Sprintf("**%s** (ID: `%s`)", nick, userID),
-			Inline: true,
-		},
-		{
-			Name:   "🎮 Gra",
-			Value:  fmt.Sprintf("`%s`", strings.ToUpper(game)),
-			Inline: true,
-		},
-		{
-			Name:   "💰 Stawka / Mnożnik",
-			Value:  fmt.Sprintf("Stawka: **%d $FGT**\nMnożnik: **%.2fx**", bet, multiplier),
-			Inline: true,
-		},
-		{
-			Name:   "🏆 Wygrana (Wypłata)",
-			Value:  fmt.Sprintf("**+%d $FGT** (Zysk: +%d $FGT)", payout, payout-bet),
-			Inline: true,
-		},
-	}
-
-	embed := DiscordEmbed{
-		Title:       truncate(title, 250),
-		Description: "Wysoka wygrana gracza na platformie 2FGT Casino!",
-		Color:       color,
-		Fields:      fields,
-		Footer: &DiscordFooter{
-			Text: "2FGT Casino • Telemetry & High Roller Watcher",
-		},
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	}
-
-	r.sendAsync(DiscordWebhookPayload{
-		Username:  "Kasyno Win Watcher",
-		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/trophy.png",
 		Embeds:    []DiscordEmbed{embed},
 	})
 }

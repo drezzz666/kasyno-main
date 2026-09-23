@@ -138,15 +138,18 @@ export async function postCasinoAction(body, retryCount = 0) {
   if (!res.ok) {
     const errorMsg = data.error || `Błąd wykonywania akcji (HTTP ${res.status})`;
     const lower = errorMsg.toLowerCase();
-    const isInsufficientFunds =
+    const isBenignError =
       lower.includes("niewystarczające saldo") ||
       lower.includes("brak wystarczających środków") ||
-      lower.includes("insufficient");
+      lower.includes("insufficient") ||
+      lower.includes("brak aktywnej gry") ||
+      lower.includes("masz już aktywną grę") ||
+      lower.includes("nieprawidłowa stawka");
     const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
 
     addBreadcrumb("game_action", `${actionLabel} rejected: ${errorMsg}`, { status: res.status, error: errorMsg });
 
-    if (!isInsufficientFunds) {
+    if (!isBenignError) {
       reportClientError({
         errorType: isRateLimit ? "RATE_LIMIT" : "API_ERROR",
         message: errorMsg,
