@@ -3146,15 +3146,531 @@ body {
 }
 
 @media (min-width: 860px) {
+  .game-table-dialog,
+  .game-dialog-box {
+    max-width: 1140px !important;
+    width: 95vw !important;
+    height: auto !important;
+    min-height: 590px;
+    max-height: calc(100dvh - 36px) !important;
+    border-radius: 16px !important;
+    margin: auto !important;
+  }
+
+  .game-dialog-box .modal-header {
+    padding: 0.85rem 1.25rem;
+  }
+
+  .game-dialog-box .modal-header h3 {
+    font-size: 1.15rem;
+  }
+
+  .game-dialog-box .modal-header p {
+    font-size: 0.75rem;
+  }
+
+  .game-dialog-box .btn-close {
+    width: 32px;
+    height: 32px;
+  }
+
   .game-table-body.horizontal-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 0.75rem;
-    padding: 0.65rem 0.85rem;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 1.25rem;
+    padding: 1.25rem;
     align-items: stretch;
     height: 100%;
-    max-height: calc(100dvh - 65px);
+    min-height: 520px;
+    max-height: calc(100dvh - 85px);
     overflow: hidden;
+  }
+
+  .game-visual-column {
+    padding: 1.25rem;
+    border-radius: 14px;
+    justify-content: center;
+  }
+
+  .game-controls-column {
+    justify-content: flex-start;
+    padding: 1.1rem 1.25rem;
+    gap: 0.85rem;
+    border-radius: 14px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .game-controls-column::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* --- Bet Controller Desktop --- */
+  .casino-bet-controller {
+    padding: 0.75rem 0.85rem;
+    gap: 0.55rem;
+    border-radius: 12px;
+  }
+
+  .casino-bet-title {
+    font-size: 0.75rem;
+  }
+
+  .casino-bet-balance-hint {
+    font-size: 0.72rem;
+  }
+
+  .casino-bet-input-wrap {
+    padding: 4px 6px;
+    border-radius: 8px;
+  }
+
+  .casino-bet-mod-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.78rem;
+    border-radius: 6px;
+  }
+
+  .casino-bet-input {
+    font-size: 1.1rem;
+    padding: 0.25rem 0.4rem;
+  }
+
+  .casino-chip-inner {
+    padding: 0.45rem 0.25rem;
+    border-radius: 6px;
+    gap: 2px;
+  }
+
+  .casino-chip-label {
+    font-size: 0.78rem;
+  }
+
+  .btn-play-action {
+    padding: 0.85rem;
+    font-size: 0.95rem;
+    border-radius: 10px;
+  }
+
+  .mines-range-control {
+    padding: 0.75rem 0.85rem;
+    gap: 0.5rem;
+  }
+
+  .mines-range-control label {
+    font-size: 0.8rem;
+  }
+
+  /* --- Blackjack Desktop --- */
+  .hands {
+    max-width: 560px;
+    gap: 0.85rem;
+  }
+
+  .hand-container {
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    gap: 0.5rem;
+  }
+
+  .hand-label {
+    font-size: 0.8rem;
+  }
+
+  .hand-score {
+    font-size: 1.1rem;
+  }
+
+  .cards-row {
+    gap: 0.6rem;
+    min-height: 95px;
+  }
+
+  .playing-card {
+    width: 62px;
+    height: 90px;
+    border-radius: 7px;
+    padding: 4px 6px;
+  }
+
+  .card-corner {
+    font-size: 0.85rem;
+  }
+
+  .card-center-suit {
+    font-size: 1.4rem;
+  }
+
+  /* --- Roulette Desktop --- */
+  .roulette-custom {
+    width: 220px;
+    height: 220px;
+    border-width: 4px;
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
+  }
+
+  .roulette-spoke b {
+    font-size: 8px;
+    top: 4px;
+  }
+
+  .roulette-inner-ring {
+    width: 58%;
+    height: 58%;
+    inset: 21%;
+    border-width: 3px;
+  }
+
+  .roulette-hub {
+    width: 28px;
+    height: 28px;
+  }
+
+  .roulette-result {
+    font-size: 1.5rem;
+  }
+
+  .simple-roulette-container {
+    max-width: 560px;
+    gap: 0.5rem;
+  }
+
+  .btn-red-main,
+  .btn-black-main,
+  .btn-zero-main {
+    height: 44px;
+    font-size: 0.88rem;
+    border-radius: 8px;
+  }
+
+  .simple-r-grid-4 .simple-r-btn,
+  .simple-r-grid-3 .simple-r-btn {
+    height: 34px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .simple-r-numbers-board {
+    padding: 0.4rem;
+    border-radius: 8px;
+  }
+
+  .simple-r-btn.num-red,
+  .simple-r-btn.num-black,
+  .simple-r-btn.num-col {
+    height: 28px;
+    font-size: 0.75rem;
+  }
+
+  .simple-action-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+  }
+
+  .roulette-bet-summary-box {
+    padding: 0.55rem 0.85rem;
+  }
+
+  /* --- Crash Desktop --- */
+  .crash-container {
+    gap: 0.85rem;
+  }
+
+  .crash-arena {
+    max-width: 560px;
+    height: 300px;
+    max-height: 320px;
+    border-radius: 12px;
+  }
+
+  .crash-live-ticker {
+    font-size: 3.5rem;
+  }
+
+  .crash-live-ticker.crashed,
+  .crash-live-ticker.cashed-out {
+    font-size: 2.25rem;
+  }
+
+  .crash-live-profit {
+    font-size: 0.9rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+  }
+
+  .crash-controls-row {
+    max-width: 560px;
+    gap: 0.75rem;
+  }
+
+  .crash-auto-cashout-box {
+    padding: 0.6rem 0.85rem;
+    gap: 0.4rem;
+    border-radius: 10px;
+  }
+
+  .crash-auto-header {
+    font-size: 0.75rem;
+  }
+
+  .crash-auto-input {
+    font-size: 1rem;
+    padding: 0.45rem 1.6rem 0.45rem 0.65rem;
+  }
+
+  .crash-preset-btn {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.8rem;
+  }
+
+  .btn-crash-cashout {
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+  }
+
+  .btn-crash-cashout-main {
+    font-size: 1.35rem;
+  }
+
+  .btn-crash-cashout-sub {
+    font-size: 0.85rem;
+  }
+
+  /* --- Limbo Desktop --- */
+  .limbo-container {
+    gap: 0.85rem;
+  }
+
+  .limbo-arena {
+    max-width: 540px;
+    padding: 2.5rem 1.5rem;
+    border-radius: 14px;
+  }
+
+  .limbo-main-ticker {
+    font-size: 4.25rem;
+  }
+
+  .limbo-target-badge {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+  }
+
+  .limbo-controls-grid {
+    max-width: 540px;
+    gap: 0.65rem;
+  }
+
+  .limbo-config-card {
+    padding: 0.65rem 0.85rem;
+    gap: 0.5rem;
+    border-radius: 10px;
+  }
+
+  .limbo-config-title {
+    font-size: 0.78rem;
+  }
+
+  .limbo-step-btn {
+    height: 38px;
+    flex: 0 0 46px;
+    font-size: 0.85rem;
+  }
+
+  .limbo-target-display {
+    height: 38px;
+  }
+
+  .limbo-target-display-val {
+    font-size: 1.25rem;
+  }
+
+  .limbo-preset-btn {
+    padding: 0.45rem 0.3rem;
+    font-size: 0.8rem;
+  }
+
+  .limbo-stats-card {
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+  }
+
+  .limbo-stat-label {
+    font-size: 0.68rem;
+  }
+
+  .limbo-stat-value {
+    font-size: 0.82rem;
+  }
+
+  /* --- Mines Desktop --- */
+  .mines-craft-container {
+    max-width: 480px;
+    gap: 0.85rem;
+  }
+
+  .mines-hud {
+    padding: 0.55rem 0.9rem;
+    border-radius: 10px;
+  }
+
+  .hud-metric-label {
+    font-size: 0.68rem;
+  }
+
+  .hud-metric-value {
+    font-size: 0.95rem;
+  }
+
+  .mines-grid-surface {
+    gap: 0.55rem;
+    max-height: 340px;
+    max-width: 340px;
+    width: 100%;
+  }
+
+  .mines-cell {
+    border-radius: 9px;
+  }
+
+  .mines-count-selector {
+    padding: 0.6rem 0.85rem;
+    gap: 0.45rem;
+    border-radius: 10px;
+  }
+
+  .mines-count-title {
+    font-size: 0.75rem;
+  }
+
+  .mines-count-current {
+    font-size: 0.85rem;
+  }
+
+  .mines-preset-btn {
+    padding: 0.4rem 0;
+    font-size: 0.8rem;
+  }
+
+  .btn-mines-cashout {
+    padding: 0.85rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 10px;
+  }
+
+  /* --- Slots Desktop --- */
+  .slots-container {
+    max-width: 500px;
+    padding: 1.25rem 0.85rem;
+    border-radius: 14px;
+  }
+
+  .slots-reels-grid {
+    gap: 0.5rem;
+  }
+
+  .slot-reel-column {
+    gap: 0.5rem;
+  }
+
+  .slot-symbol-box {
+    height: 72px;
+    border-radius: 8px;
+  }
+
+  .symbol-glyph {
+    font-size: 1.85rem;
+  }
+
+  /* --- Plinko Desktop --- */
+  .plinko-stake-wrapper {
+    max-width: 480px;
+    gap: 0.65rem;
+  }
+
+  .plinko-viewport {
+    max-height: 320px;
+    padding: 0.5rem;
+    border-radius: 12px;
+  }
+
+  .plinko-matter-canvas {
+    max-height: 290px;
+  }
+
+  .plinko-stake-bin {
+    padding: 4px 1px;
+  }
+
+  .plinko-bin-text {
+    font-size: 8.5px;
+  }
+
+  .plinko-config-panel {
+    padding: 0.6rem 0.85rem;
+    gap: 0.6rem;
+    border-radius: 10px;
+  }
+
+  .config-label {
+    font-size: 0.7rem;
+  }
+
+  .config-pill-btn {
+    padding: 0.4rem 0.3rem;
+    font-size: 0.78rem;
+  }
+
+  /* --- Coinflip & RPS Desktop --- */
+  .coinflip-container,
+  .rps-container {
+    max-width: 460px;
+    gap: 0.85rem;
+  }
+
+  .coin-arena {
+    width: 125px;
+    height: 125px;
+  }
+
+  .coin-3d {
+    width: 105px;
+    height: 105px;
+  }
+
+  .coin-symbol {
+    font-size: 2.2rem;
+  }
+
+  .coin-choice-btn {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.85rem;
+    border-radius: 10px;
+  }
+
+  .rps-arena {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+  }
+
+  .rps-fighter-card {
+    padding: 0.65rem 0.5rem;
+    border-radius: 10px;
+  }
+
+  .rps-gesture-icon {
+    font-size: 2.4rem;
+  }
+
+  .rps-gesture-name {
+    font-size: 0.85rem;
+  }
+
+  .rps-choice-btn {
+    padding: 0.65rem 0.4rem;
+    border-radius: 8px;
   }
 }
 
@@ -3254,20 +3770,6 @@ body {
   padding: 0.65rem 0.75rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-}
-
-@media (min-width: 860px) {
-  .game-controls-column {
-    justify-content: flex-start;
-    padding: 0.75rem;
-    gap: 0.5rem;
-    overflow-y: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .game-controls-column::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 /* --- CONTROLS & ACTION BUTTONS --- */

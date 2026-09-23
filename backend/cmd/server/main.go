@@ -44,6 +44,9 @@ func main() {
 
 	// 3. Initialize Domain Services
 	ledgerService := ledger.NewService(database)
+	if refunded, err := ledgerService.RecoverInterruptedRoundsOnStartup(ctx); err == nil && refunded > 0 {
+		log.Printf("🛡️ [Server] Startup recovery: successfully refunded %d interrupted rounds.", refunded)
+	}
 	oidcClient := auth.NewOIDCClient(cfg)
 	wsHub := ws.NewHub()
 	go wsHub.Run()

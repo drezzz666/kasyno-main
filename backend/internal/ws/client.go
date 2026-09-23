@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -12,22 +13,43 @@ const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 64 * 1024
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Allow all web origins for casino websocket
 	},
 }
 
 type Client struct {
-	Hub    *Hub
-	Conn   *websocket.Conn
-	UserID string
-	send   chan []byte
+	Hub        *Hub
+	Conn       *websocket.Conn
+	UserID     string
+	RemoteAddr string
+	send       chan []byte
+}
+
+func (c *Client) SendJSON(v interface{}) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return
+	}
+	select {
+	case c.send <- data:
+	default:
+	}
+}
+
+func (c *Client) SendResponse(id string, status int, data interface{}) {
+	c.SendJSON(map[string]interface{}{
+		"type":   "response",
+		"id":     id,
+		"status": status,
+		"data":   data,
+	})
 }
 
 func (c *Client) readPump() {
@@ -47,12 +69,17 @@ func (c *Client) readPump() {
 	})
 
 	for {
-		_, _, err := c.Conn.ReadMessage()
+		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("[WS Client] Error: %v", err)
 			}
 			break
+		}
+
+		handler := c.Hub.GetMessageHandler()
+		if handler != nil && len(message) > 0 {
+			go handler(c, message)
 		}
 	}
 }
@@ -111,10 +138,11 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request, userID string) {
 	}
 
 	client := &Client{
-		Hub:    hub,
-		Conn:   conn,
-		UserID: userID,
-		send:   make(chan []byte, 256),
+		Hub:        hub,
+		Conn:       conn,
+		UserID:     userID,
+		RemoteAddr: r.RemoteAddr,
+		send:       make(chan []byte, 256),
 	}
 
 	client.Hub.register <- client

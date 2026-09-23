@@ -1,36 +1,45 @@
 import { getBrowserProof, invalidateBrowserProof, queueChallenge } from "./challenge";
 import { reportClientError } from "./reporter";
 import { addBreadcrumb, recordActionLatency } from "./telemetry.js";
+import { wsClient } from "./wsClient.js";
 
 export async function fetchCasinoState() {
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
-    addBreadcrumb("api_call", "GET /api/casino started");
-    const res = await fetch("/api/casino", { cache: "no-store" });
+    addBreadcrumb("api_call", "GET casino state started");
+    let data;
+
+    // 1. Prefer WebSocket RPC (Zero HTTP requests in network tab)
+    if (wsClient.isReady()) {
+      try {
+        data = await wsClient.sendRequest("get_state");
+      } catch (wsErr) {
+        if (wsErr.status === 401) {
+          window.location.href = "/api/auth/login";
+          return null;
+        }
+        // Fall back to HTTP if WS request fails
+        data = null;
+      }
+    }
+
+    // 2. HTTP Fetch fallback
+    if (!data) {
+      const res = await fetch("/api/casino", { cache: "no-store" });
+      if (res.status === 401) {
+        window.location.href = "/api/auth/login";
+        return null;
+      }
+      data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP error ${res.status}`);
+      }
+    }
+
     const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
     recordActionLatency("GET /api/casino", duration);
+    addBreadcrumb("api_call", "GET casino state succeeded", { balance: data.player?.balance, level: data.player?.level });
 
-    if (res.status === 401) {
-      addBreadcrumb("navigation", "Redirecting to /api/auth/login due to 401 Unauthorized");
-      window.location.href = "/api/auth/login";
-      return null;
-    }
-    const data = await res.json();
-    if (!res.ok) {
-      const errorMsg = data.error || `HTTP error ${res.status}`;
-      addBreadcrumb("api_call", `GET /api/casino failed: ${errorMsg}`, { status: res.status });
-      reportClientError({
-        errorType: "API_ERROR",
-        message: errorMsg,
-        context: `GET /api/casino (HTTP ${res.status})`,
-        sourceFile: "frontend/src/lib/api.js:fetchCasinoState",
-      });
-      throw new Error(errorMsg);
-    }
-
-    addBreadcrumb("api_call", "GET /api/casino succeeded", { balance: data.player?.balance, level: data.player?.level });
-
-    // Pre-solve single-use challenge for next request
     if (data.challenge) {
       queueChallenge(data.challenge);
     }
@@ -74,125 +83,117 @@ export async function postCasinoAction(body, optionsOrRetry = 0) {
 
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   let proof = "";
-  const actionLabel = `POST /api/casino [${body?.game || "action"}:${body?.action || "play"}]`;
+  const actionLabel = `WS/POST [${body?.game || "action"}:${body?.action || "play"}]`;
   addBreadcrumb("game_action", actionLabel, { bet: body?.bet, action: body?.action, game: body?.game });
+
   try {
-    // Retrieves a single-use proof token (consumes from queue or solves on demand)
     proof = await getBrowserProof();
   } catch (e) {
     console.warn("Nie udało się pobrać wyzwania antybotowego:", e);
   }
 
-  let res;
-  try {
-    res = await fetch("/api/casino", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(proof ? { "X-Browser-Proof": proof } : {}),
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
+  let data;
+  let usedWS = false;
+
+  // 1. Prefer WebSocket RPC (Zero HTTP requests in network tab)
+  if (wsClient.isReady()) {
+    try {
+      usedWS = true;
+      data = await wsClient.sendRequest("action", body, proof);
+    } catch (wsErr) {
+      if (wsErr.status === 401) {
+        window.location.href = "/api/auth/login";
+        return null;
+      }
+      if (wsErr.status === 403 && wsErr.data?.challenge && retryCount < 2) {
+        invalidateBrowserProof();
+        queueChallenge(wsErr.data.challenge);
+        const nextOptions = isOptionsObj ? { ...optionsOrRetry, _retryCount: retryCount + 1 } : retryCount + 1;
+        return postCasinoAction(body, nextOptions);
+      }
+      if (wsErr.message === "WS_NOT_CONNECTED" || wsErr.message.includes("przerwane")) {
+        // Fall back to HTTP below
+        data = null;
+      } else {
+        // Genuine business or game validation error from server
+        const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+        recordActionLatency(actionLabel, duration);
+        const errorMsg = wsErr.data?.error || wsErr.message || "Błąd wykonywania akcji";
+        throw new Error(errorMsg);
+      }
+    }
+  }
+
+  // 2. HTTP Fetch Fallback if WS was not ready or disconnected
+  if (!data && !usedWS) {
+    let res;
+    try {
+      res = await fetch("/api/casino", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(proof ? { "X-Browser-Proof": proof } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+      recordActionLatency(actionLabel, duration);
+      addBreadcrumb("api_call", `${actionLabel} network error: ${e.message}`, { duration_ms: Math.round(duration) });
+      if (!isSilent) {
+        reportClientError({
+          error: e,
+          errorType: "API_NETWORK_ERROR",
+          message: e.message || "Brak połączenia z serwerem gier",
+          context: `POST /api/casino (Network Error)`,
+          game: body?.game || "",
+          actionPayload: body,
+          sourceFile: "frontend/src/lib/api.js:postCasinoAction",
+        });
+      }
+      throw e;
+    }
+
     const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
     recordActionLatency(actionLabel, duration);
-    addBreadcrumb("api_call", `${actionLabel} network error: ${e.message}`, { duration_ms: Math.round(duration) });
-    if (!isSilent) {
-      reportClientError({
-        error: e,
-        errorType: "API_NETWORK_ERROR",
-        message: e.message || "Brak połączenia z serwerem gier",
-        context: `POST /api/casino (Network Error)`,
-        game: body?.game || "",
-        actionPayload: body,
-        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-      });
+
+    if (res.status === 401) {
+      window.location.href = "/api/auth/login";
+      return null;
     }
-    throw e;
+
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new Error(`Błąd odpowiedzi serwera (HTTP ${res.status})`);
+    }
+
+    if (res.status === 403 && data.challenge && retryCount < 2) {
+      invalidateBrowserProof();
+      queueChallenge(data.challenge);
+      const nextOptions = isOptionsObj ? { ...optionsOrRetry, _retryCount: retryCount + 1 } : retryCount + 1;
+      return postCasinoAction(body, nextOptions);
+    }
+
+    if (!res.ok) {
+      const errorMsg = data.error || `Błąd wykonywania akcji (HTTP ${res.status})`;
+      throw new Error(errorMsg);
+    }
   }
 
   const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
   recordActionLatency(actionLabel, duration);
 
-  if (res.status === 401) {
-    addBreadcrumb("navigation", "Redirecting to /api/auth/login due to 401 Unauthorized");
-    window.location.href = "/api/auth/login";
-    return null;
-  }
-
-  let data;
-  try {
-    data = await res.json();
-  } catch (e) {
-    addBreadcrumb("api_call", `${actionLabel} JSON parse error (HTTP ${res.status})`);
-    if (!isSilent) {
-      reportClientError({
-        error: e,
-        errorType: "API_JSON_PARSE_ERROR",
-        message: `Niepoprawna odpowiedź JSON serwera (HTTP ${res.status})`,
-        context: `POST /api/casino response JSON parse`,
-        game: body?.game || "",
-        actionPayload: body,
-        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-      });
-    }
-    throw new Error(`Błąd odpowiedzi serwera (HTTP ${res.status})`);
-  }
-
-  // If server returned a fresh challenge in response, queue it for next action immediately
-  if (data.next_challenge) {
+  if (data?.next_challenge) {
     queueChallenge(data.next_challenge);
-  } else if (data.challenge) {
+  } else if (data?.challenge) {
     queueChallenge(data.challenge);
-  }
-
-  // If server returned 403 with a challenge (expired/missing/replayed PoW), retry transparently with new proof
-  if (res.status === 403 && data.challenge && retryCount < 2) {
-    addBreadcrumb("security", `Received challenge refresh on 403 (attempt ${retryCount + 1}), retrying action transparently`);
-    invalidateBrowserProof();
-    queueChallenge(data.challenge);
-    const nextOptions = isOptionsObj ? { ...optionsOrRetry, _retryCount: retryCount + 1 } : retryCount + 1;
-    return postCasinoAction(body, nextOptions);
-  }
-
-  if (!res.ok) {
-    const errorMsg = data.error || `Błąd wykonywania akcji (HTTP ${res.status})`;
-    const lower = errorMsg.toLowerCase();
-    const isBenignError =
-      lower.includes("niewystarczające saldo") ||
-      lower.includes("brak wystarczających środków") ||
-      lower.includes("insufficient") ||
-      lower.includes("brak aktywnej gry") ||
-      lower.includes("masz już aktywną grę") ||
-      lower.includes("nieprawidłowa stawka") ||
-      lower.includes("captcha") ||
-      lower.includes("niepoprawny kod") ||
-      lower.includes("nieprawidłowy kod") ||
-      lower.includes("kod został już") ||
-      lower.includes("wygasł") ||
-      body?.action === "solve_captcha" ||
-      body?.action === "claim_captcha";
-    const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
-
-    addBreadcrumb("game_action", `${actionLabel} rejected: ${errorMsg}`, { status: res.status, error: errorMsg });
-
-    if (!isBenignError && !isSilent) {
-      reportClientError({
-        errorType: isRateLimit ? "RATE_LIMIT" : "API_ERROR",
-        message: errorMsg,
-        context: `POST /api/casino (HTTP ${res.status})`,
-        game: body?.game || "",
-        actionPayload: body,
-        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-      });
-    }
-    throw new Error(errorMsg);
   }
 
   addBreadcrumb("game_action", `${actionLabel} OK`, {
-    round_id: data.round?.id,
-    payout: data.round?.payout,
-    balance: data.balance,
+    round_id: data?.round?.id,
+    payout: data?.round?.payout,
+    balance: data?.balance,
     duration_ms: Math.round(duration),
   });
 
@@ -202,25 +203,37 @@ export async function postCasinoAction(body, optionsOrRetry = 0) {
 export async function fetchHistoryEntries(offset = 0, limit = 10) {
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
-    addBreadcrumb("api_call", `GET /api/casino/history (offset=${offset}, limit=${limit})`);
-    const res = await fetch(`/api/casino/history?offset=${offset}&limit=${limit}`, {
-      cache: "no-store",
-    });
-    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
-    recordActionLatency("GET /api/casino/history", duration);
+    addBreadcrumb("api_call", `GET history (offset=${offset}, limit=${limit})`);
+    let data;
 
-    if (res.status === 401) {
-      window.location.href = "/api/auth/login";
-      return null;
+    if (wsClient.isReady()) {
+      try {
+        data = await wsClient.sendRequest("get_history", { offset, limit });
+      } catch (wsErr) {
+        data = null;
+      }
     }
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Błąd pobierania historii");
+
+    if (!data) {
+      const res = await fetch(`/api/casino/history?offset=${offset}&limit=${limit}`, {
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        window.location.href = "/api/auth/login";
+        return null;
+      }
+      data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Błąd pobierania historii");
+      }
     }
+
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency("GET history", duration);
     return data;
   } catch (e) {
     const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
-    recordActionLatency("GET /api/casino/history", duration);
+    recordActionLatency("GET history", duration);
     reportClientError({
       error: e,
       errorType: "API_ERROR",

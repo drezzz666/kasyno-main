@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"math"
 	"math/rand"
 	"strings"
@@ -1985,6 +1986,76 @@ func (s *Service) ListRecentLogins(ctx context.Context, userID string, limit int
 		}
 	}
 	return list, nil
+}
+
+// RecoverInterruptedRoundsOnStartup refunds any interrupted in-flight games (like Crash rounds)
+// that were left active across server restarts, ensuring 0 funds are ever lost.
+func (s *Service) RecoverInterruptedRoundsOnStartup(ctx context.Context) (int, error) {
+	t := NowMs()
+	// Find active crash rounds (cannot continue flying after restart) or rounds older than 10 mins
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT id, user_id, game, bet
+		FROM game_rounds
+		WHERE state = 'active' AND (game = 'crash' OR created_at < $1)
+	`, t-10*60*1000)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type staleRound struct {
+		id     string
+		userID string
+		game   string
+		bet    int64
+	}
+	var stale []staleRound
+	for rows.Next() {
+		var r staleRound
+		if err := rows.Scan(&r.id, &r.userID, &r.game, &r.bet); err == nil {
+			stale = append(stale, r)
+		}
+	}
+	rows.Close()
+
+	refundCount := 0
+	for _, r := range stale {
+		tx, err := s.db.Pool.Begin(ctx)
+		if err != nil {
+			continue
+		}
+		_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(r.userID))
+
+		res, err := tx.Exec(ctx, `
+			UPDATE game_rounds
+			SET state = 'settled', payout = $1, result = 'Zwrot stawki po restarcie serwera', settled_at = $2
+			WHERE id = $3 AND state = 'active'
+		`, r.bet, t, r.id)
+		if err != nil || res.RowsAffected() == 0 {
+			_ = tx.Rollback(ctx)
+			continue
+		}
+
+		var curBal int64
+		_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, r.userID).Scan(&curBal)
+		newBal := curBal + r.bet
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, round_id, type, amount, balance_after, created_at)
+			VALUES ($1, $2, $3, 'payout', $4, $5, $6)
+		`, uuid.NewString(), r.userID, r.id, r.bet, newBal, t)
+		if err != nil {
+			_ = tx.Rollback(ctx)
+			continue
+		}
+
+		if err := tx.Commit(ctx); err == nil {
+			refundCount++
+			log.Printf("[Startup Recovery] Refunded %d $FGT to user %s for interrupted round %s (%s)", r.bet, r.userID, r.id, r.game)
+		}
+	}
+
+	return refundCount, nil
 }
 
 

@@ -49,13 +49,16 @@ func recordWSEvent(evType string) {
 	}
 }
 
+type MessageHandler func(client *Client, msg []byte)
+
 type Hub struct {
-	clients    map[*Client]bool
-	userClients map[string]map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	mu         sync.RWMutex
+	clients        map[*Client]bool
+	userClients    map[string]map[*Client]bool
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	messageHandler MessageHandler
+	mu             sync.RWMutex
 }
 
 func NewHub() *Hub {
@@ -66,6 +69,18 @@ func NewHub() *Hub {
 		register:    make(chan *Client),
 		unregister:  make(chan *Client),
 	}
+}
+
+func (h *Hub) SetMessageHandler(handler MessageHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.messageHandler = handler
+}
+
+func (h *Hub) GetMessageHandler() MessageHandler {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.messageHandler
 }
 
 func (h *Hub) Run() {

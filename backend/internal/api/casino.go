@@ -1,12 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"sync"
 	"time"
@@ -1632,5 +1634,83 @@ func (h *CasinoHandler) RotateProvablyFairSeed(w http.ResponseWriter, r *http.Re
 	}
 
 	JSON(w, http.StatusOK, resp)
+}
+
+type WSClientRequest struct {
+	Type    string                 `json:"type"`
+	ID      string                 `json:"id"`
+	Proof   string                 `json:"proof,omitempty"`
+	Offset  int                    `json:"offset,omitempty"`
+	Limit   int                    `json:"limit,omitempty"`
+	Payload map[string]interface{} `json:"payload,omitempty"`
+}
+
+func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
+	var req WSClientRequest
+	if err := json.Unmarshal(rawMsg, &req); err != nil {
+		client.SendResponse("", http.StatusBadRequest, map[string]string{"error": "Nieprawidłowy format JSON"})
+		return
+	}
+
+	if req.Type == "ping" {
+		client.SendJSON(map[string]interface{}{"type": "pong", "id": req.ID})
+		return
+	}
+
+	if client.UserID == "" {
+		client.SendResponse(req.ID, http.StatusUnauthorized, map[string]string{"error": "Wymagane logowanie"})
+		return
+	}
+
+	ctx := context.Background()
+	player, err := h.ledger.GetPlayer(ctx, client.UserID)
+	if err != nil || player == nil {
+		client.SendResponse(req.ID, http.StatusUnauthorized, map[string]string{"error": "Nie znaleziono gracza"})
+		return
+	}
+	ctx = auth.WithPlayer(ctx, player)
+	ctx = auth.WithSession(ctx, &auth.Session{UserID: client.UserID, Nick: player.Nick})
+
+	rec := httptest.NewRecorder()
+
+	switch req.Type {
+	case "get_state":
+		httpReq, _ := http.NewRequestWithContext(ctx, "GET", "/api/casino", nil)
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.GetState(rec, httpReq)
+
+	case "get_history":
+		url := fmt.Sprintf("/api/casino/history?offset=%d&limit=%d", req.Offset, req.Limit)
+		httpReq, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.GetHistory(rec, httpReq)
+
+	case "action":
+		bodyBytes, _ := json.Marshal(req.Payload)
+		httpReq, _ := http.NewRequestWithContext(ctx, "POST", "/api/casino", bytes.NewReader(bodyBytes))
+		httpReq.Header.Set("Content-Type", "application/json")
+		if req.Proof != "" {
+			httpReq.Header.Set("X-Browser-Proof", req.Proof)
+		}
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.PostAction(rec, httpReq)
+
+	default:
+		client.SendResponse(req.ID, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Nieznany typ akcji: %s", req.Type)})
+		return
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
+		data = rec.Body.String()
+	}
+
+	client.SendResponse(req.ID, rec.Code, data)
 }
 

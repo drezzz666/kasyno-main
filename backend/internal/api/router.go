@@ -79,6 +79,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	telCrypto, _ := telemetry.NewCryptoManager(cfg.SessionSecret)
 	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
+	wsHub.SetMessageHandler(casinoHandler.HandleWSMessage)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
 	errorHandler := NewErrorHandler(rep, telCrypto, tel)
 
