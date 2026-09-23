@@ -53,8 +53,8 @@ func GenerateLimboMultiplier() float64 {
 
 // PlayLimbo executes a round of Limbo with the given bet and target multiplier.
 func PlayLimbo(bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 1.01 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.01x - 10000x")
+	if targetMultiplier < 1.20 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.20x - 10000x")
 	}
 
 	resultMult := GenerateLimboMultiplier()
@@ -103,8 +103,8 @@ func GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed string, nonce in
 
 // PlayLimboProvablyFair executes a deterministic round of Limbo
 func PlayLimboProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 1.01 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.01x - 10000x")
+	if targetMultiplier < 1.20 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.20x - 10000x")
 	}
 
 	resultMult := GenerateLimboMultiplierProvablyFair(serverSeed, clientSeed, nonce)

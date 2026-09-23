@@ -612,11 +612,6 @@ export function GameTableDialog({
       syncBalance(ball.balance);
     }
     setLast(ball.round);
-
-    // If high multiplier, show celebration overlay
-    if (ball.multiplier >= 3.0) {
-      triggerOutcome(ball.round);
-    }
   };
 
   const handlePostMines = async (body, opts) => {
