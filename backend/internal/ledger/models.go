@@ -100,3 +100,20 @@ type ProvablyFairSeedRecord struct {
 	RevealedAt *int64  `json:"revealed_at,omitempty"`
 }
 
+type LoginLog struct {
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	Nick      string `json:"nick"`
+	IP        string `json:"ip"`
+	UserAgent string `json:"user_agent"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type PlayerLoginSummary struct {
+	FirstLoginAt *int64 `json:"first_login_at"`
+	LastLoginAt  *int64 `json:"last_login_at"`
+	FirstIP      string `json:"first_ip"`
+	LastIP       string `json:"last_ip"`
+	TotalLogins  int64  `json:"total_logins"`
+}
+

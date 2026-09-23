@@ -1916,5 +1916,77 @@ func (s *Service) LogFraud(ctx context.Context, userID, nick string, prevBalance
 	return err
 }
 
+func (s *Service) RecordLogin(ctx context.Context, userID, nick, ip, userAgent string) (*LoginLog, error) {
+	id := uuid.New().String()
+	now := NowMs()
+	_, err := s.db.Pool.Exec(ctx, `
+		INSERT INTO login_logs (id, user_id, nick, ip, user_agent, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, id, userID, nick, ip, userAgent, now)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginLog{
+		ID:        id,
+		UserID:    userID,
+		Nick:      nick,
+		IP:        ip,
+		UserAgent: userAgent,
+		CreatedAt: now,
+	}, nil
+}
+
+func (s *Service) GetPlayerLoginSummary(ctx context.Context, userID string) (*PlayerLoginSummary, error) {
+	summary := &PlayerLoginSummary{}
+	
+	// Total logins
+	_ = s.db.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM login_logs WHERE user_id = $1`, userID).Scan(&summary.TotalLogins)
+	
+	// First login
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT created_at, ip FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, userID).Scan(&summary.FirstLoginAt, &summary.FirstIP)
+	
+	// Last login
+	_ = s.db.Pool.QueryRow(ctx, `
+		SELECT created_at, ip FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, userID).Scan(&summary.LastLoginAt, &summary.LastIP)
+	
+	return summary, nil
+}
+
+func (s *Service) ListRecentLogins(ctx context.Context, userID string, limit int) ([]LoginLog, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT id, user_id, nick, ip, COALESCE(user_agent, ''), created_at
+		FROM login_logs
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []LoginLog
+	for rows.Next() {
+		var l LoginLog
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Nick, &l.IP, &l.UserAgent, &l.CreatedAt); err == nil {
+			list = append(list, l)
+		}
+	}
+	return list, nil
+}
+
+
 
 

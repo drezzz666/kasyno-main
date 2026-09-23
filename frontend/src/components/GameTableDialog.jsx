@@ -312,7 +312,8 @@ export function GameTableDialog({
 
   const start = async () => {
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 1000) {
+    const cooldown = game === "plinko" ? 250 : 1000;
+    if (now - lastActionTimeRef.current < cooldown) {
       return;
     }
     lastActionTimeRef.current = now;

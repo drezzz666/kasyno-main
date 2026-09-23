@@ -194,16 +194,6 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 				Email:              sess.Email,
 				IP:                 ip,
 				UserAgent:          report.UserAgent,
-				GPUInfo:            report.GPUInfo,
-				CPUCores:           report.CPUCores,
-				DeviceRAM:          report.DeviceRAM,
-				ScreenDetails:      report.ScreenDetails,
-				Orientation:        report.Orientation,
-				TouchPoints:        report.TouchPoints,
-				ColorScheme:        report.ColorScheme,
-				Timezone:           report.Timezone,
-				Language:           report.Language,
-				Platform:           report.Platform,
 				NetworkInfo:        report.NetworkInfo,
 				MemoryMB:           report.MemoryMB,
 				NavigationTiming:   report.NavigationTiming,
@@ -270,13 +260,8 @@ func (h *ErrorHandler) ReportClientTelemetry(w http.ResponseWriter, r *http.Requ
 	data.IP = ip
 
 	// Sanitize text fields against Discord mention injection
-	data.GPUInfo = sanitizeMentions(data.GPUInfo)
 	data.UserAgent = sanitizeMentions(data.UserAgent)
-	data.Platform = sanitizeMentions(data.Platform)
-	data.Timezone = sanitizeMentions(data.Timezone)
-	data.Language = sanitizeMentions(data.Language)
 	data.NetworkInfo = sanitizeMentions(data.NetworkInfo)
-	data.ScreenDetails = sanitizeMentions(data.ScreenDetails)
 	data.LastAction = sanitizeMentions(data.LastAction)
 
 	if bot := discordbot.GetGlobalBot(); bot != nil {
