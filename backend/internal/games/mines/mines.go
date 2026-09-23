@@ -25,16 +25,48 @@ type SettleResult struct {
 	Payload    Payload `json:"payload"`
 }
 
-// CalculateMultiplier returns the fair multiplier for given revealed count and mine count (97% RTP)
+// CalculateMultiplier returns the multiplier for given revealed count and mine count (96% RTP).
+// Anti-exploit rules:
+// - On 1st diamond for low mine counts (<= 5), returns partial refund (< 1.00x) to prevent 1-click spam.
+// - 2 mines: profit requires 3 diamonds (1.14x), 1.30x+ requires 5 diamonds (1.38x).
+// - 3 mines: profit at 2 diamonds (1.12x), 1.30x+ at 4 diamonds (1.44x).
+// - 5+ mines: 1.30x+ is unlocked immediately from 2 diamonds (1.51x).
 func CalculateMultiplier(revealedCount int, mineCount int) float64 {
 	if revealedCount <= 0 {
 		return 0.80
 	}
+
 	chance := 1.0
 	for i := 0; i < revealedCount; i++ {
 		chance *= float64(TotalTiles-mineCount-i) / float64(TotalTiles-i)
 	}
-	mult := math.Floor((0.97/chance)*100) / 100
+	raw := 0.96 / chance
+
+	if revealedCount == 1 && mineCount <= 5 {
+		raw = math.Min(0.92, 0.76+float64(mineCount)*0.032)
+	} else if mineCount == 2 {
+		if revealedCount == 2 {
+			raw = 0.95
+		} else if revealedCount == 3 {
+			raw = 1.14
+		} else if revealedCount == 4 {
+			raw = 1.25
+		}
+	} else if mineCount == 3 {
+		if revealedCount == 2 {
+			raw = 1.12
+		} else if revealedCount == 3 {
+			raw = 1.26
+		}
+	} else if mineCount == 4 {
+		if revealedCount == 2 {
+			raw = 1.18
+		} else if revealedCount == 3 {
+			raw = 1.28
+		}
+	}
+
+	mult := math.Floor(raw*100) / 100
 	return math.Max(0.80, mult)
 }
 

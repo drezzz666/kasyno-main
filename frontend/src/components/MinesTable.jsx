@@ -92,7 +92,33 @@ export function calculateMultiplier(revealedCount, mineCount) {
   for (let i = 0; i < revealedCount; i++) {
     chance *= (25 - mineCount - i) / (25 - i);
   }
-  const mult = Math.floor((0.97 / chance) * 100) / 100;
+  let raw = 0.96 / chance;
+
+  if (revealedCount === 1 && mineCount <= 5) {
+    raw = Math.min(0.92, 0.76 + mineCount * 0.032);
+  } else if (mineCount === 2) {
+    if (revealedCount === 2) {
+      raw = 0.95;
+    } else if (revealedCount === 3) {
+      raw = 1.14;
+    } else if (revealedCount === 4) {
+      raw = 1.25;
+    }
+  } else if (mineCount === 3) {
+    if (revealedCount === 2) {
+      raw = 1.12;
+    } else if (revealedCount === 3) {
+      raw = 1.26;
+    }
+  } else if (mineCount === 4) {
+    if (revealedCount === 2) {
+      raw = 1.18;
+    } else if (revealedCount === 3) {
+      raw = 1.28;
+    }
+  }
+
+  const mult = Math.floor(raw * 100) / 100;
   return Math.max(0.80, mult);
 }
 
