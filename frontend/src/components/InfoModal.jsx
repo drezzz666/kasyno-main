@@ -102,7 +102,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span className="badge-mult">Do ×10000</span>
               </div>
               <p>
-                Ustaw cel mnożnika (1.01× – 10,000×). Jeśli wylosowany mnożnik serwera jest równy lub wyższy od Twojego celu — zgarniasz pełną pulę.
+                Ustaw cel mnożnika (1.20× – 10,000×). Jeśli wylosowany mnożnik serwera jest równy lub wyższy od Twojego celu — zgarniasz pełną pulę.
               </p>
             </div>
 

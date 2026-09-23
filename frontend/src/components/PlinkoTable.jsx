@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from "react";
+import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 
 export const PLINKO_MULTIPLIERS = {
@@ -391,7 +392,17 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
             setBouncedBin(landedSlot);
             setTimeout(() => setBouncedBin(null), 300);
-            sounds.playWin();
+            sounds.playWin(finalMultiplier);
+
+            if (finalMultiplier >= 10) {
+              sounds.playCoins();
+              confetti({
+                particleCount: finalMultiplier >= 50 ? 100 : 50,
+                spread: 70,
+                origin: { y: 0.8 },
+                colors: ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#fbbf24"],
+              });
+            }
 
             // Push to recent hits
             setRecentHits((prev) => [

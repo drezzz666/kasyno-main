@@ -3767,61 +3767,92 @@ body {
   font-family: var(--font-mono);
 }
 
-.limbo-input-wrap {
-  position: relative;
+.limbo-stepper-row {
   display: flex;
   align-items: center;
+  gap: 0.35rem;
+  width: 100%;
 }
 
-.limbo-target-input {
-  width: 100%;
-  background: #0b0d13;
+.limbo-step-btn {
+  flex: 0 0 46px;
+  height: 38px;
+  background: #191f2c;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  padding: 0.5rem 1.8rem 0.5rem 0.75rem;
+  color: #cbd5e1;
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  color: #fbbf24;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.limbo-target-input:focus {
-  border-color: #f59e0b;
-}
-
-.limbo-input-suffix {
-  position: absolute;
-  right: 0.75rem;
-  color: #94a3b8;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 1rem;
-  pointer-events: none;
-}
-
-.limbo-presets-row {
+  cursor: pointer;
   display: flex;
-  gap: 0.3rem;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+
+.limbo-step-btn:hover:not(:disabled) {
+  background: #232c3d;
+  color: #fff;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.limbo-step-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.limbo-target-display {
+  flex: 1;
+  height: 38px;
+  background: #0b0d13;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 0.5rem;
+}
+
+.limbo-target-display-val {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #fbbf24;
+}
+
+.limbo-target-display-suffix {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.limbo-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  width: 100%;
 }
 
 .limbo-preset-btn {
-  flex: 1;
-  min-width: 42px;
   background: #191f2c;
   border: 1px solid var(--border-subtle);
   color: #94a3b8;
-  font-size: 0.7rem;
+  font-size: 0.725rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  padding: 0.35rem 0.2rem;
+  padding: 0.45rem 0.2rem;
   border-radius: 6px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.12s ease;
   white-space: nowrap;
+  user-select: none;
 }
 
 .limbo-preset-btn:hover:not(:disabled) {
@@ -3834,6 +3865,7 @@ body {
   border-color: #f59e0b;
   color: #000;
   font-weight: 900;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
 }
 
 .limbo-stats-card {
