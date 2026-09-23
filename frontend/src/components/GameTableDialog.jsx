@@ -806,7 +806,7 @@ export function GameTableDialog({
                 <BetControl
                   bet={bet}
                   setBet={setBet}
-                  maxBalance={data?.player?.balance || 1000000}
+                  maxBalance={data?.player?.balance ?? 0}
                   turbo={turbo}
                   setTurbo={setTurbo}
                 />
