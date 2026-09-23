@@ -1,12 +1,10 @@
 package discordbot
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/drezzz666/kasyno/backend/internal/config"
@@ -103,14 +101,6 @@ func (b *Bot) Stop() {
 
 func (b *Bot) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 	log.Printf("🤖 [Discord Bot] Bot jest gotowy. Serwery: %d", len(r.Guilds))
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		defer cancel()
-		for _, g := range r.Guilds {
-			_, _ = b.EnsureTelemetryCategory(g.ID)
-		}
-		_, _ = b.SyncAllUsers(ctx)
-	}()
 }
 
 // formatFGT formats amount with commas

@@ -241,7 +241,7 @@ export default function App() {
         setHasMoreHistory(j.hasMoreHistory);
       }
       if (j.active) setActiveGame(j.active.game);
-      if (j.player) {
+      if (!isPolling && j.player) {
         sendClientTelemetry(j.player);
       }
     } catch (e) {

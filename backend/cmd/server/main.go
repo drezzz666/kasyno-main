@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -65,6 +66,30 @@ func main() {
 
 	// 4. Setup Router
 	router := api.NewRouter(cfg, ledgerService, oidcClient, wsHub)
+
+	// 4b. Periodic Runtime Profiler Log (every 30s)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				stat := database.Pool.Stat()
+				log.Printf("📊 [Profile] Goroutines: %d | HeapAlloc: %.2fMB | HeapSys: %.2fMB | DBPool: %d/%d conns (idle: %d)",
+					runtime.NumGoroutine(),
+					float64(m.Alloc)/(1024*1024),
+					float64(m.Sys)/(1024*1024),
+					stat.AcquiredConns(),
+					stat.TotalConns(),
+					stat.IdleConns(),
+				)
+			}
+		}
+	}()
 
 	serverAddr := fmt.Sprintf(":%s", cfg.Port)
 	server := &http.Server{
