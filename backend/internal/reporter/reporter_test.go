@@ -141,6 +141,27 @@ func TestReporter_InsufficientFundsFiltered(t *testing.T) {
 	if atomic.LoadInt32(&errorCount) != 0 || atomic.LoadInt32(&securityCount) != 0 {
 		t.Fatalf("expected 0 backend webhooks for insufficient funds, got error=%d sec=%d", errorCount, securityCount)
 	}
+
+	// Captcha errors should also be completely ignored
+	captchaReport := &FrontendErrorReport{
+		ErrorType:  "API_ERROR",
+		Message:    "nieprawidłowy kod captcha",
+		SourceFile: "CaptchaModal.jsx:100",
+		Context:    "POST /api/casino (solve_captcha)",
+	}
+	rep.ReportFrontendError(captchaReport, nil, "127.0.0.1")
+	time.Sleep(100 * time.Millisecond)
+
+	if atomic.LoadInt32(&errorCount) != 0 || atomic.LoadInt32(&securityCount) != 0 {
+		t.Fatalf("expected 0 webhooks for captcha error, got error=%d sec=%d", errorCount, securityCount)
+	}
+
+	rep.ReportBackendError("CAPTCHA_INVALID", "nieprawidłowy kod captcha", "", nil)
+	time.Sleep(100 * time.Millisecond)
+
+	if atomic.LoadInt32(&errorCount) != 0 || atomic.LoadInt32(&securityCount) != 0 {
+		t.Fatalf("expected 0 backend webhooks for captcha error, got error=%d sec=%d", errorCount, securityCount)
+	}
 }
 
 func TestReporter_RateLimitRoutedToSecurityWebhook(t *testing.T) {

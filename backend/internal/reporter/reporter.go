@@ -230,7 +230,15 @@ func isInsufficientFundsText(text string) bool {
 		strings.Contains(lower, "niewystarczające środki") ||
 		strings.Contains(lower, "brak środków") ||
 		strings.Contains(lower, "brak aktywnej gry") ||
-		strings.Contains(lower, "masz już aktywną grę")
+		strings.Contains(lower, "masz już aktywną grę") ||
+		strings.Contains(lower, "nieprawidłowy kod captcha") ||
+		strings.Contains(lower, "captcha wygasła") ||
+		strings.Contains(lower, "kod captcha został już wykorzystany") ||
+		strings.Contains(lower, "zbyt szybkie rozwiązywanie captcha") ||
+		strings.Contains(lower, "niepoprawna odpowiedź") ||
+		strings.Contains(lower, "brak wymaganych parametrów captcha") ||
+		strings.Contains(lower, "solve_captcha") ||
+		strings.Contains(lower, "captcha")
 }
 
 func isRateLimitText(errType, message, context string) bool {
