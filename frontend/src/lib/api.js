@@ -56,7 +56,11 @@ export async function fetchCasinoState() {
   }
 }
 
-export async function postCasinoAction(body, retryCount = 0) {
+export async function postCasinoAction(body, optionsOrRetry = 0) {
+  const isOptionsObj = typeof optionsOrRetry === "object" && optionsOrRetry !== null;
+  const retryCount = typeof optionsOrRetry === "number" ? optionsOrRetry : (optionsOrRetry?._retryCount || 0);
+  const isSilent = isOptionsObj && optionsOrRetry.silent === true;
+
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   let proof = "";
   const actionLabel = `POST /api/casino [${body?.game || "action"}:${body?.action || "play"}]`;
@@ -82,15 +86,17 @@ export async function postCasinoAction(body, retryCount = 0) {
     const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
     recordActionLatency(actionLabel, duration);
     addBreadcrumb("api_call", `${actionLabel} network error: ${e.message}`, { duration_ms: Math.round(duration) });
-    reportClientError({
-      error: e,
-      errorType: "API_NETWORK_ERROR",
-      message: e.message || "Brak połączenia z serwerem gier",
-      context: `POST /api/casino (Network Error)`,
-      game: body?.game || "",
-      actionPayload: body,
-      sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-    });
+    if (!isSilent) {
+      reportClientError({
+        error: e,
+        errorType: "API_NETWORK_ERROR",
+        message: e.message || "Brak połączenia z serwerem gier",
+        context: `POST /api/casino (Network Error)`,
+        game: body?.game || "",
+        actionPayload: body,
+        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
+      });
+    }
     throw e;
   }
 
@@ -108,15 +114,17 @@ export async function postCasinoAction(body, retryCount = 0) {
     data = await res.json();
   } catch (e) {
     addBreadcrumb("api_call", `${actionLabel} JSON parse error (HTTP ${res.status})`);
-    reportClientError({
-      error: e,
-      errorType: "API_JSON_PARSE_ERROR",
-      message: `Niepoprawna odpowiedź JSON serwera (HTTP ${res.status})`,
-      context: `POST /api/casino response JSON parse`,
-      game: body?.game || "",
-      actionPayload: body,
-      sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-    });
+    if (!isSilent) {
+      reportClientError({
+        error: e,
+        errorType: "API_JSON_PARSE_ERROR",
+        message: `Niepoprawna odpowiedź JSON serwera (HTTP ${res.status})`,
+        context: `POST /api/casino response JSON parse`,
+        game: body?.game || "",
+        actionPayload: body,
+        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
+      });
+    }
     throw new Error(`Błąd odpowiedzi serwera (HTTP ${res.status})`);
   }
 
@@ -127,12 +135,13 @@ export async function postCasinoAction(body, retryCount = 0) {
     queueChallenge(data.challenge);
   }
 
-  // If server returned 403 with a challenge (expired/missing/replayed), retry transparently
+  // If server returned 403 with a challenge (expired/missing/replayed PoW), retry transparently with new proof
   if (res.status === 403 && data.challenge && retryCount < 2) {
-    addBreadcrumb("security", "Received challenge refresh on 403, retrying action transparently");
+    addBreadcrumb("security", `Received challenge refresh on 403 (attempt ${retryCount + 1}), retrying action transparently`);
     invalidateBrowserProof();
     queueChallenge(data.challenge);
-    return postCasinoAction(body, retryCount + 1);
+    const nextOptions = isOptionsObj ? { ...optionsOrRetry, _retryCount: retryCount + 1 } : retryCount + 1;
+    return postCasinoAction(body, nextOptions);
   }
 
   if (!res.ok) {
@@ -145,12 +154,18 @@ export async function postCasinoAction(body, retryCount = 0) {
       lower.includes("brak aktywnej gry") ||
       lower.includes("masz już aktywną grę") ||
       lower.includes("nieprawidłowa stawka") ||
-      lower.includes("captcha");
+      lower.includes("captcha") ||
+      lower.includes("niepoprawny kod") ||
+      lower.includes("nieprawidłowy kod") ||
+      lower.includes("kod został już") ||
+      lower.includes("wygasł") ||
+      body?.action === "solve_captcha" ||
+      body?.action === "claim_captcha";
     const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
 
     addBreadcrumb("game_action", `${actionLabel} rejected: ${errorMsg}`, { status: res.status, error: errorMsg });
 
-    if (!isBenignError) {
+    if (!isBenignError && !isSilent) {
       reportClientError({
         errorType: isRateLimit ? "RATE_LIMIT" : "API_ERROR",
         message: errorMsg,

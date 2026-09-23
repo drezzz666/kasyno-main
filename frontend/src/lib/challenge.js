@@ -155,18 +155,28 @@ export async function ensureChallengeBuffer() {
 
 /**
  * Retrieves a single-use browser proof.
- * Pops a pre-solved proof from the queue immediately (0ms delay),
- * and triggers background replenishment.
+ * Filters out any stale/expired tokens (older than 45s),
+ * pops a valid pre-solved proof immediately (0ms delay),
+ * or fetches a fresh challenge on demand.
  */
 export async function getBrowserProof() {
-  if (proofQueue.length > 0) {
-    const proof = proofQueue.shift();
-    if (proofQueue.length < 2) {
-      setTimeout(() => void ensureChallengeBuffer(), 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  // Drain and discard any expired proofs from the queue
+  while (proofQueue.length > 0) {
+    const candidate = proofQueue.shift();
+    const parts = candidate.split(":");
+    const issuedAt = parseInt(parts[2], 10);
+    // Keep only non-expired proofs (younger than 45 seconds, not in future > 60s)
+    if (!isNaN(issuedAt) && (now - issuedAt) < 45 && (issuedAt - now) < 60) {
+      if (proofQueue.length < 2) {
+        setTimeout(() => void ensureChallengeBuffer(), 0);
+      }
+      return candidate;
     }
-    return proof;
   }
 
+  // Queue is empty or had stale proofs: fetch a fresh challenge directly
   const res = await fetch("/api/casino/challenge", { cache: "no-store" });
   if (!res.ok) {
     throw new Error("Nie udało się pobrać unikalnego wyzwania antybotowego");
@@ -178,8 +188,9 @@ export async function getBrowserProof() {
 }
 
 /**
- * Invalidate all cached proofs (called on verification errors)
+ * Invalidate all cached proofs (called on verification errors or 403 refresh)
  */
 export function invalidateBrowserProof() {
   proofQueue.length = 0;
 }
+

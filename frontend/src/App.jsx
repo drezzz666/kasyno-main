@@ -41,7 +41,7 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { WinCelebrationModal } from "./components/WinCelebrationModal";
-import { CaptchaModal } from "./components/CaptchaModal";
+import { MinigamesModal } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { sendClientTelemetry } from "./lib/telemetry";
@@ -1142,8 +1142,8 @@ export default function App() {
         }}
       />
 
-      {/* Captcha Mini-Game Modal */}
-      <CaptchaModal
+      {/* Mini-Games Hub Modal */}
+      <MinigamesModal
         isOpen={captchaOpen}
         onClose={() => setCaptchaOpen(false)}
         syncBalance={syncBalance}
