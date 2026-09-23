@@ -41,8 +41,19 @@ export async function fetchCasinoState() {
     recordActionLatency("GET /api/casino", duration);
     if (e.message && !e.message.includes("401")) {
       const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      const isFailedFetch = e.name === "TypeError" && e.message.includes("Failed to fetch");
-      if (!isOffline && !isFailedFetch) {
+      const msg = (e.message || "").toLowerCase();
+      const isNetworkBlip =
+        isOffline ||
+        (e.name === "TypeError" && (
+          msg.includes("failed to fetch") ||
+          msg.includes("load failed") ||
+          msg.includes("networkerror") ||
+          msg.includes("network request failed") ||
+          msg.includes("connection was lost") ||
+          msg.includes("the operation was aborted") ||
+          msg.includes("aborted")
+        ));
+      if (!isNetworkBlip) {
         reportClientError({
           error: e,
           errorType: "API_NETWORK_ERROR",

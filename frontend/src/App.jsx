@@ -529,51 +529,6 @@ export default function App() {
           <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
 
-        {/* Desktop Navigation Tabs */}
-        <nav className="topbar-nav" aria-label="Nawigacja główna">
-          <button
-            type="button"
-            className={`topbar-nav-btn ${activeTab === "games" ? "active" : ""}`}
-            onClick={() => { setActiveTab("games"); setActiveGame(null); }}
-          >
-            <Spade size={15} />
-            <span>Gry</span>
-          </button>
-          <button
-            type="button"
-            className={`topbar-nav-btn ${activeTab === "minigames" ? "active" : ""}`}
-            onClick={() => { setActiveTab("minigames"); setActiveGame(null); }}
-          >
-            <Gamepad2 size={15} />
-            <span>Minigry</span>
-          </button>
-          <button
-            type="button"
-            className={`topbar-nav-btn ${activeTab === "missions" ? "active" : ""}`}
-            onClick={() => { setActiveTab("missions"); setActiveGame(null); }}
-          >
-            <Target size={15} />
-            <span>Misje</span>
-            {readyMissionsCount > 0 && <span className="topbar-badge">{readyMissionsCount}</span>}
-          </button>
-          <button
-            type="button"
-            className={`topbar-nav-btn ${activeTab === "ranking" ? "active" : ""}`}
-            onClick={() => { setActiveTab("ranking"); setActiveGame(null); }}
-          >
-            <Trophy size={15} />
-            <span>Ranking</span>
-          </button>
-          <button
-            type="button"
-            className={`topbar-nav-btn ${activeTab === "history" ? "active" : ""}`}
-            onClick={() => { setActiveTab("history"); setActiveGame(null); }}
-          >
-            <History size={15} />
-            <span>Historia</span>
-          </button>
-        </nav>
-
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
 
@@ -1103,23 +1058,14 @@ export default function App() {
                 </div>
 
                 <div className="casino-footer-links">
-                  <button type="button" className="footer-link" onClick={() => setActiveTab("games")}>
-                    <Spade size={13} /> Gry
-                  </button>
-                  <button type="button" className="footer-link" onClick={() => setActiveTab("minigames")}>
-                    <Gamepad2 size={13} /> Minigry
-                  </button>
-                  <button type="button" className="footer-link" onClick={() => setActiveTab("missions")}>
-                    <Target size={13} /> Misje
+                  <button type="button" className="footer-link" onClick={() => setActiveTab("tos")}>
+                    <Scale size={13} /> Regulamin i Zasady
                   </button>
                   <button type="button" className="footer-link" onClick={() => setActiveTab("ranking")}>
                     <Trophy size={13} /> Ranking
                   </button>
                   <button type="button" className="footer-link" onClick={() => setActiveTab("history")}>
                     <History size={13} /> Dziennik
-                  </button>
-                  <button type="button" className="footer-link" onClick={() => setActiveTab("tos")}>
-                    <Scale size={13} /> Regulamin i Zasady
                   </button>
                 </div>
               </div>
