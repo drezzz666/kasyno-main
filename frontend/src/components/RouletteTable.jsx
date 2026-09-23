@@ -130,7 +130,7 @@ export function RouletteBets({
 
   const renderBtn = (id, label, sublabel, cls = "") => {
     const isSelected = selectedBets.has(id);
-    const won = isWinning(id);
+    const won = isSelected && isWinning(id);
 
     return (
       <button
