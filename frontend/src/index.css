@@ -4072,6 +4072,51 @@ body {
   pointer-events: none;
 }
 
+.crash-presets-row,
+.limbo-presets-row {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.crash-preset-btn,
+.crash-presets-row .limbo-preset-btn,
+.limbo-presets-row .limbo-preset-btn {
+  flex: 1;
+  background: #191f2c;
+  border: 1px solid var(--border-subtle);
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 0.45rem 0.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.crash-preset-btn:hover:not(:disabled),
+.crash-presets-row .limbo-preset-btn:hover:not(:disabled),
+.limbo-presets-row .limbo-preset-btn:hover:not(:disabled) {
+  background: #232c3d;
+  color: #fff;
+}
+
+.crash-preset-btn.active,
+.crash-presets-row .limbo-preset-btn.active,
+.limbo-presets-row .limbo-preset-btn.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #000;
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
 .btn-crash-cashout {
   flex: 1;
   background: linear-gradient(135deg, #10b981, #059669);

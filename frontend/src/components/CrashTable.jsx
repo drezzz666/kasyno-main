@@ -3,12 +3,12 @@ import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
 const CRASH_PRESETS = [
-  { label: "0.9×", val: 0.9 },
   { label: "1.1×", val: 1.1 },
   { label: "1.2×", val: 1.2 },
   { label: "1.5×", val: 1.5 },
   { label: "2.0×", val: 2.0 },
   { label: "3.0×", val: 3.0 },
+  { label: "5.0×", val: 5.0 },
 ];
 
 export function CrashTable({
@@ -217,13 +217,13 @@ export function CrashTable({
             <span className="crash-auto-suffix">×</span>
           </div>
 
-          <div className="limbo-presets-row mt-2">
+          <div className="crash-presets-row mt-2">
             {CRASH_PRESETS.map((p) => (
               <button
                 key={p.val}
                 type="button"
                 disabled={isPlaying || loading}
-                className={`limbo-preset-btn ${autoCashout === p.val ? "active" : ""}`}
+                className={`crash-preset-btn ${autoCashout === p.val ? "active" : ""}`}
                 onClick={() => setAutoCashout(p.val)}
               >
                 {p.label}
