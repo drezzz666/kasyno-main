@@ -122,8 +122,11 @@ func (s *Service) AdminGetUser(ctx context.Context, identifier string) (*Player,
 
 // AdminListUsers returns a list of players with pagination and search.
 func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offset int) ([]Player, int, error) {
-	if limit <= 0 || limit > 100 {
+	if limit <= 0 {
 		limit = 20
+	}
+	if limit > 500 {
+		limit = 500
 	}
 	if offset < 0 {
 		offset = 0
@@ -180,6 +183,33 @@ func (s *Service) AdminListUsers(ctx context.Context, search string, limit, offs
 	}
 
 	return players, total, nil
+}
+
+// AdminListAllUsers returns all registered players without limit.
+func (s *Service) AdminListAllUsers(ctx context.Context) ([]Player, error) {
+	query := `
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0) AS balance, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		ORDER BY p.created_at ASC
+	`
+	rows, err := s.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var players []Player
+	for rows.Next() {
+		var p Player
+		if err := rows.Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		players = append(players, p)
+	}
+
+	return players, nil
 }
 
 // GrantBalanceAll adds (or removes) balance for ALL registered players in the casino.

@@ -747,7 +747,7 @@ func (b *Bot) SyncAllUsers(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("serwis ledger jest niedostępny")
 	}
 
-	players, _, err := b.ledger.AdminListUsers(ctx, "", 100, 0)
+	players, err := b.ledger.AdminListAllUsers(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
 	}
@@ -788,7 +788,7 @@ func (b *Bot) RebuildTelemetry(ctx context.Context, guildID string) (int, int, e
 	totalDeleted := 0
 	totalCreated := 0
 
-	players, _, err := b.ledger.AdminListUsers(ctx, "", 200, 0)
+	players, err := b.ledger.AdminListAllUsers(ctx)
 	if err != nil {
 		return 0, 0, fmt.Errorf("błąd pobierania listy graczy: %w", err)
 	}
