@@ -415,7 +415,7 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	const rewardAmount int64 = 25
+	const rewardAmount int64 = 40
 	newBal, err := h.ledger.CreditCaptchaReward(r.Context(), p.UserID, rewardAmount)
 	if err != nil {
 		JSONError(w, http.StatusInternalServerError, "Błąd przyznawania nagrody")

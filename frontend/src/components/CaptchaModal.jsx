@@ -114,9 +114,9 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
         }
 
         setSessionCount((prev) => prev + 1);
-        setSessionEarned((prev) => prev + (res.amount || 25));
+        setSessionEarned((prev) => prev + (res.amount || 40));
         setSuccessAnim(true);
-        toast.success(`+${res.amount || 25} $FGT za rozwiązanie Captcha!`);
+        toast.success(`+${res.amount || 40} $FGT za rozwiązanie Captcha!`);
 
         setTimeout(() => setSuccessAnim(false), 1200);
         await fetchCaptcha(false);
@@ -159,7 +159,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
             <div>
               <h2 className="text-base font-bold text-white leading-tight">Mini-gra: Rozwiąż Captcha</h2>
               <span className="text-xs text-slate-400 font-medium">
-                Bezpieczna weryfikacja serwerowa • <b className="text-amber-400">+25 $FGT</b> za grę
+                Bezpieczna weryfikacja serwerowa • <b className="text-amber-400">+40 $FGT</b> za grę
               </span>
             </div>
           </div>
@@ -175,7 +175,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
             <span className="text-xs font-bold text-amber-300">Nagroda za poprawne rozwiązanie:</span>
           </div>
           <span className="font-mono font-extrabold text-sm text-amber-400 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/40">
-            +25 $FGT
+            +40 $FGT
           </span>
         </div>
 
@@ -246,7 +246,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
           {successAnim && (
             <div className="captcha-status-msg success">
               <CheckCircle size={15} className="shrink-0" />
-              <span>Poprawnie! Przyznano +25 $FGT do salda.</span>
+              <span>Poprawnie! Przyznano +40 $FGT do salda.</span>
             </div>
           )}
 
@@ -263,7 +263,7 @@ export function CaptchaModal({ isOpen, onClose, syncBalance, currentBalance }) {
             ) : (
               <>
                 <Sparkles size={16} />
-                <span>Odbierz 25 $FGT</span>
+                <span>Odbierz 40 $FGT</span>
               </>
             )}
           </button>
