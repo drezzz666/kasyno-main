@@ -196,9 +196,51 @@ func (r *Reporter) sendAsync(payload DiscordWebhookPayload) {
 	r.sendAsyncToURL(r.errorWebhookURL, payload)
 }
 
+func isInsufficientFundsText(text string) bool {
+	lower := strings.ToLower(text)
+	return strings.Contains(lower, "niewystarczające saldo") ||
+		strings.Contains(lower, "brak wystarczających środków") ||
+		strings.Contains(lower, "insufficient_balance") ||
+		strings.Contains(lower, "insufficient_funds") ||
+		strings.Contains(lower, "niewystarczające środki") ||
+		strings.Contains(lower, "brak środków")
+}
+
+func isRateLimitText(errType, message, context string) bool {
+	if strings.EqualFold(errType, "RATE_LIMIT") || strings.EqualFold(errType, "RATE_LIMIT_EXCEEDED") {
+		return true
+	}
+	combined := strings.ToLower(errType + " " + message + " " + context)
+	return strings.Contains(combined, "rate limit") ||
+		strings.Contains(combined, "rate_limit") ||
+		strings.Contains(combined, "zbyt wiele akcji") ||
+		strings.Contains(combined, "429")
+}
+
 // ReportFrontendError sends a comprehensive report of a frontend crash or client-side error to Discord.
 func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.SessionUser, ip string) {
 	if report == nil {
+		return
+	}
+
+	// 1. Never send webhooks for routine insufficient funds / balance notifications
+	if isInsufficientFundsText(report.Message) || isInsufficientFundsText(report.Context) {
+		return
+	}
+
+	// 2. Route Rate Limit violations ONLY to the anticheat/security webhook, never the general error webhook
+	if isRateLimitText(report.ErrorType, report.Message, report.Context) {
+		userID := ""
+		nick := ""
+		if sess != nil {
+			userID = sess.UserID
+			nick = sess.Nick
+		}
+		action := report.Context
+		if report.Game != "" {
+			action = fmt.Sprintf("%s (%s)", report.Game, report.Context)
+		}
+		r.ReportSecurityAlert("RATE_LIMIT", ip, userID, nick, action, report.Message)
 		return
 	}
 
@@ -405,6 +447,17 @@ func (r *Reporter) ReportPanic(req *http.Request, sess *auth.SessionUser, panicV
 
 // ReportBackendError reports a server-side business logic / database / transaction error.
 func (r *Reporter) ReportBackendError(category, message, stack string, details map[string]interface{}) {
+	// 1. Never send webhooks for routine insufficient funds / balance notifications
+	if isInsufficientFundsText(category) || isInsufficientFundsText(message) {
+		return
+	}
+
+	// 2. Route Rate Limit violations ONLY to security/anticheat webhook
+	if isRateLimitText(category, message, "") {
+		r.ReportSecurityAlert("RATE_LIMIT", "", "", "", category, message)
+		return
+	}
+
 	fingerprint := hashFingerprint(fmt.Sprintf("%s:%s", category, message))
 	if r.shouldThrottle(fingerprint) {
 		return

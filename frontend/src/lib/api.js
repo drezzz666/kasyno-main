@@ -113,14 +113,23 @@ export async function postCasinoAction(body, retryCount = 0) {
 
   if (!res.ok) {
     const errorMsg = data.error || `Błąd wykonywania akcji (HTTP ${res.status})`;
-    reportClientError({
-      errorType: "API_ERROR",
-      message: errorMsg,
-      context: `POST /api/casino (HTTP ${res.status})`,
-      game: body?.game || "",
-      actionPayload: body,
-      sourceFile: "frontend/src/lib/api.js:postCasinoAction",
-    });
+    const lower = errorMsg.toLowerCase();
+    const isInsufficientFunds =
+      lower.includes("niewystarczające saldo") ||
+      lower.includes("brak wystarczających środków") ||
+      lower.includes("insufficient");
+    const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
+
+    if (!isInsufficientFunds) {
+      reportClientError({
+        errorType: isRateLimit ? "RATE_LIMIT" : "API_ERROR",
+        message: errorMsg,
+        context: `POST /api/casino (HTTP ${res.status})`,
+        game: body?.game || "",
+        actionPayload: body,
+        sourceFile: "frontend/src/lib/api.js:postCasinoAction",
+      });
+    }
     throw new Error(errorMsg);
   }
 

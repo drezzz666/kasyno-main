@@ -105,11 +105,17 @@ export function MinesTable({
   onPending,
 }) {
   const [explodedTile, setExplodedTile] = React.useState(null);
+  const [inFlightTile, setInFlightTile] = React.useState(null);
+  const [isCashingOut, setIsCashingOut] = React.useState(false);
+  const busyRef = React.useRef(false);
 
-  // Reset explodedTile when a new active round starts
+  // Reset explodedTile and busy lock when a new active round starts
   React.useEffect(() => {
     if (round) {
       setExplodedTile(null);
+      setInFlightTile(null);
+      setIsCashingOut(false);
+      busyRef.current = false;
     }
   }, [round?.id]);
 
@@ -128,14 +134,20 @@ export function MinesTable({
   const currentProfit = Math.floor(currentBet * currentMultiplier);
 
   const isTilePending = (tileIdx) => {
+    if (inFlightTile === tileIdx) return true;
     if (pendingTiles instanceof Set) return pendingTiles.has(tileIdx);
     if (Array.isArray(pendingTiles)) return pendingTiles.includes(tileIdx);
     return pendingTiles === tileIdx;
   };
 
-  const handleTileClick = async (i) => {
-    if (!round || isSettled || revealed.includes(i) || isTilePending(i)) return;
+  const isBusy = busyRef.current || inFlightTile !== null || isCashingOut || loading;
 
+  const handleTileClick = async (i) => {
+    // Synchronous guard against rapid double-clicks / concurrent requests
+    if (busyRef.current || isBusy || !round || isSettled || revealed.includes(i)) return;
+
+    busyRef.current = true;
+    setInFlightTile(i);
     sounds.playTileClick();
     if (onPending) onPending(i, true);
 
@@ -165,7 +177,24 @@ export function MinesTable({
         }
       }
     } finally {
+      busyRef.current = false;
+      setInFlightTile(null);
       if (onPending) onPending(i, false);
+    }
+  };
+
+  const handleCashoutClick = async () => {
+    if (busyRef.current || isBusy || !round || isSettled || revealed.length === 0) return;
+
+    busyRef.current = true;
+    setIsCashingOut(true);
+    sounds.playCoins();
+
+    try {
+      await post({ action: "mines", roundId: round.id, move: "cashout" });
+    } finally {
+      busyRef.current = false;
+      setIsCashingOut(false);
     }
   };
 
@@ -224,7 +253,7 @@ export function MinesTable({
           else if (isUnrevealedSettledMine) tileStateClass = "tile-mine-ghost";
           else if (isUnrevealedSettledGem) tileStateClass = "tile-gem-ghost";
 
-          const isDisabled = !round || isSettled || isRevealedGem || isPending;
+          const isDisabled = !round || isSettled || isRevealedGem || isBusy;
 
           return (
             <button
@@ -266,15 +295,14 @@ export function MinesTable({
         <div className="mines-active-action-bar">
           <button
             type="button"
-            disabled={revealed.length === 0}
-            className={`btn-mines-cashout ${revealed.length > 0 ? "active" : "disabled"}`}
-            onClick={async () => {
-              sounds.playCoins();
-              await post({ action: "mines", roundId: round.id, move: "cashout" });
-            }}
+            disabled={revealed.length === 0 || isBusy}
+            className={`btn-mines-cashout ${revealed.length > 0 && !isBusy ? "active" : "disabled"}`}
+            onClick={() => void handleCashoutClick()}
           >
             {revealed.length === 0 ? (
               <span>Wybierz pierwsze pole</span>
+            ) : isCashingOut ? (
+              <span>Wypłacanie...</span>
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <CheckCircle2 size={16} />

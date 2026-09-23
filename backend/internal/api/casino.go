@@ -991,6 +991,18 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	}
 	tile := int(tileFloat)
 
+	// Idempotent recovery: if tile is already revealed in the active round (e.g. duplicate retry), return current state gracefully
+	for _, r := range payload.Revealed {
+		if r == tile {
+			JSON(w, http.StatusOK, map[string]interface{}{
+				"ok":             true,
+				"round":          ToPublicRound(activeRound),
+				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+			})
+			return
+		}
+	}
+
 	if err := anticheat.ValidateMinesReveal(tile, payload.Revealed); err != nil {
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return

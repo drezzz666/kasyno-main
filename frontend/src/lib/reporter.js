@@ -40,6 +40,19 @@ export function reportClientError({
       return;
     }
 
+    const lower = `${errorMsg} ${context}`.toLowerCase();
+    // Ignore routine user balance / insufficient funds errors
+    if (
+      lower.includes("niewystarczające saldo") ||
+      lower.includes("brak wystarczających środków") ||
+      lower.includes("insufficient_funds") ||
+      lower.includes("insufficient_balance") ||
+      lower.includes("niewystarczające środki") ||
+      lower.includes("brak środków")
+    ) {
+      return;
+    }
+
     // Deduplication check: ignore exact same error occurring within 5 seconds
     const key = `${errorType}:${sourceFile}:${errorMsg}`;
     const now = Date.now();
