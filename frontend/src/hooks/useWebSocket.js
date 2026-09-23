@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { addBreadcrumb } from "../lib/telemetry.js";
 
 export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
   const wsRef = useRef(null);
@@ -23,12 +24,16 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
         wsRef.current = ws;
 
         ws.onopen = () => {
-          if (!unmounted) setConnected(true);
+          if (!unmounted) {
+            setConnected(true);
+            addBreadcrumb("ws_event", "WebSocket connected");
+          }
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            addBreadcrumb("ws_event", `WS message received: ${data.type}`, data.type === "global_win" ? { nick: data.payload?.nick, game: data.payload?.game, payout: data.payload?.payout } : null);
             if (data.type === "balance_update" && callbacksRef.current.onBalanceUpdate) {
               callbacksRef.current.onBalanceUpdate(data.payload);
             } else if (data.type === "global_win" && callbacksRef.current.onGlobalWin) {
@@ -47,6 +52,7 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
         ws.onclose = () => {
           if (!unmounted) {
             setConnected(false);
+            addBreadcrumb("ws_event", "WebSocket disconnected, scheduling reconnect");
             reconnectTimeoutRef.current = setTimeout(connect, 3000);
           }
         };
@@ -54,6 +60,7 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
         ws.onerror = () => {
           if (!unmounted) {
             setConnected(false);
+            addBreadcrumb("ws_event", "WebSocket transport error");
           }
           try {
             ws.close();

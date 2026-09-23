@@ -14,6 +14,7 @@ import { LimboTable } from "./LimboTable";
 import { CrashTable } from "./CrashTable";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
 import { reportClientError } from "../lib/reporter";
+import { addBreadcrumb } from "../lib/telemetry.js";
 
 export function GameTableDialog({
   game,
@@ -37,6 +38,16 @@ export function GameTableDialog({
   tosAccepted = true,
   onOpenTosModal,
 }) {
+  useEffect(() => {
+    if (game) {
+      addBreadcrumb("ui", `Opened Game Table Modal: ${game}`, { game, bet });
+    }
+    return () => {
+      if (game) {
+        addBreadcrumb("ui", `Closed Game Table Modal: ${game}`);
+      }
+    };
+  }, [game]);
 
   const round = data?.active?.game === game ? data.active : null;
   const [spinning, setSpinning] = useState(false);

@@ -24,6 +24,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/slots"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
+	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
 
@@ -34,9 +35,14 @@ type CasinoHandler struct {
 	rateLimiter   *anticheat.RateLimiter
 	sessionSecret string
 	reporter      *reporter.Reporter
+	telemetry     *telemetry.Collector
 }
 
-func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporter.Reporter, sessionSecret string) *CasinoHandler {
+func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporter.Reporter, sessionSecret string, tel ...*telemetry.Collector) *CasinoHandler {
+	var collector *telemetry.Collector
+	if len(tel) > 0 {
+		collector = tel[0]
+	}
 	return &CasinoHandler{
 		ledger:        ledgerService,
 		hub:           wsHub,
@@ -44,10 +50,23 @@ func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporte
 		rateLimiter:   anticheat.NewRateLimiter(),
 		sessionSecret: sessionSecret,
 		reporter:      rep,
+		telemetry:     collector,
+	}
+}
+
+func (h *CasinoHandler) recordGameRound(game, action string, bet, payout int64, result string, multiplier float64, duration time.Duration, p *ledger.Player) {
+	if h.telemetry != nil {
+		h.telemetry.RecordGameRound(game, action, bet, payout, result, multiplier, duration)
+	}
+	if (multiplier >= 50.0 || payout >= 2000) && payout > bet && p != nil && h.reporter != nil {
+		h.reporter.ReportBigWin(game, p.UserID, p.Nick, bet, payout, multiplier)
 	}
 }
 
 func (h *CasinoHandler) reportBackendError(category string, err error, details map[string]interface{}) {
+	if h.telemetry != nil {
+		h.telemetry.RecordBackendError(category)
+	}
 	if h.reporter != nil && err != nil {
 		h.reporter.ReportBackendError(category, err.Error(), "", details)
 	}
@@ -666,6 +685,12 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	var mult float64
+	if bet > 0 {
+		mult = float64(payout) / float64(bet)
+	}
+	h.recordGameRound(game, "play", bet, payout, resultText, mult, 0, p)
+
 	// Broadcast wins to all live players
 	if payout > 0 {
 		h.broadcastWin(outcome.Round.ID, p.Nick, game, p.Avatar, payout, bet, resultText)
@@ -739,6 +764,12 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 
 		outcome, err := h.ledger.SettleActiveRound(r.Context(), round.ID, p.UserID, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
 		if err == nil {
+			var mult float64
+			if bet > 0 {
+				mult = float64(settleRes.Payout) / float64(bet)
+			}
+			h.recordGameRound("blackjack", "deal", bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+
 			if settleRes.Payout > 0 {
 				h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, bet, settleRes.ResultText)
 			}
@@ -815,6 +846,12 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		var mult float64
+		if newBet > 0 {
+			mult = float64(settleRes.Payout) / float64(newBet)
+		}
+		h.recordGameRound("blackjack", "double", newBet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+
 		if settleRes.Payout > 0 {
 			h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, newBet, settleRes.ResultText)
 		}
@@ -868,6 +905,12 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 		JSONError(w, http.StatusInternalServerError, "Błąd rozliczania blackjacka")
 		return
 	}
+
+	var mult float64
+	if activeRound.Bet > 0 {
+		mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+	}
+	h.recordGameRound("blackjack", move, activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
 
 	if settleRes.Payout > 0 {
 		h.broadcastWin(outcome.Round.ID, p.Nick, "blackjack", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
@@ -965,6 +1008,12 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 			return
 		}
 
+		var mult float64
+		if activeRound.Bet > 0 {
+			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+		}
+		h.recordGameRound("mines", "cashout", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+
 		if settleRes.Payout > 0 {
 			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
 		}
@@ -1021,6 +1070,12 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 			JSONError(w, http.StatusInternalServerError, "Błąd rozliczania miny")
 			return
 		}
+
+		var mult float64
+		if activeRound.Bet > 0 {
+			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+		}
+		h.recordGameRound("mines", "reveal", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
 
 		if settleRes.Payout > 0 {
 			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
@@ -1250,6 +1305,8 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	h.recordGameRound("crash", "cashout", activeRound.Bet, payout, resultText, finalMult, 0, p)
+
 	h.hub.SendToUser(p.UserID, ws.Event{
 		Type: ws.EventBalanceUpdate,
 		Payload: ws.BalanceUpdatePayload{
@@ -1320,6 +1377,8 @@ func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request
 		JSONError(w, http.StatusInternalServerError, "Błąd finalizacji gry Crash")
 		return
 	}
+
+	h.recordGameRound("crash", "settle", activeRound.Bet, payout, resultText, finalMult, 0, p)
 
 	h.hub.SendToUser(p.UserID, ws.Event{
 		Type: ws.EventBalanceUpdate,

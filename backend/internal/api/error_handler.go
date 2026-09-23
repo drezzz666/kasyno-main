@@ -10,6 +10,7 @@ import (
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
+	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 )
 
 var (
@@ -23,13 +24,19 @@ type clientLimitEntry struct {
 
 type ErrorHandler struct {
 	reporter   *reporter.Reporter
+	telemetry  *telemetry.Collector
 	mu         sync.Mutex
 	rateLimits map[string]*clientLimitEntry
 }
 
-func NewErrorHandler(rep *reporter.Reporter) *ErrorHandler {
+func NewErrorHandler(rep *reporter.Reporter, tel ...*telemetry.Collector) *ErrorHandler {
+	var collector *telemetry.Collector
+	if len(tel) > 0 {
+		collector = tel[0]
+	}
 	h := &ErrorHandler{
 		reporter:   rep,
+		telemetry:  collector,
 		rateLimits: make(map[string]*clientLimitEntry),
 	}
 	// Periodic cleanup of rate limiter map
@@ -99,6 +106,9 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 	// 3. Strict Rate Limiting: Check both IP and User ID
 	ipKey := "ip:" + ip
 	if h.isRateLimited(ipKey) {
+		if h.telemetry != nil {
+			h.telemetry.RecordRateLimitHit()
+		}
 		// Return 200 OK silently so spammers get no error hints / retry loops
 		JSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
@@ -107,6 +117,9 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 	if sess != nil {
 		userKey := "user:" + sess.UserID
 		if h.isRateLimited(userKey) {
+			if h.telemetry != nil {
+				h.telemetry.RecordRateLimitHit()
+			}
 			JSON(w, http.StatusOK, map[string]bool{"ok": true})
 			return
 		}
@@ -125,14 +138,19 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 5. Sanitize text fields against Discord mention injection
+	// 5. Record error in telemetry
+	if h.telemetry != nil {
+		h.telemetry.RecordFrontendError(report.ErrorType)
+	}
+
+	// 6. Sanitize text fields against Discord mention injection
 	report.Message = sanitizeMentions(report.Message)
 	report.Stack = sanitizeMentions(report.Stack)
 	report.Context = sanitizeMentions(report.Context)
 	report.ComponentStack = sanitizeMentions(report.ComponentStack)
 	report.SourceFile = sanitizeMentions(report.SourceFile)
 
-	// 6. Asynchronous dispatch to Discord webhook (with deduplication & global throttling)
+	// 7. Asynchronous dispatch to Discord webhook (with deduplication & global throttling)
 	if h.reporter != nil {
 		h.reporter.ReportFrontendError(&report, sess, ip)
 	}

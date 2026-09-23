@@ -38,6 +38,27 @@ type BrowserChallenge struct {
 	Signature  string `json:"signature"`
 }
 
+var (
+	challengeTelemetryMu sync.RWMutex
+	challengeTelemetryCb func(event string)
+)
+
+// SetChallengeTelemetryCallback registers a callback to record PoW challenge telemetry.
+func SetChallengeTelemetryCallback(cb func(event string)) {
+	challengeTelemetryMu.Lock()
+	defer challengeTelemetryMu.Unlock()
+	challengeTelemetryCb = cb
+}
+
+func recordChallengeTelemetry(event string) {
+	challengeTelemetryMu.RLock()
+	cb := challengeTelemetryCb
+	challengeTelemetryMu.RUnlock()
+	if cb != nil {
+		cb(event)
+	}
+}
+
 // Replay attack prevention: in-memory store tracking consumed single-use challenge IDs
 type challengeStore struct {
 	mu       sync.Mutex
@@ -89,6 +110,8 @@ func GenerateBrowserChallenge(userID, secret string) *BrowserChallenge {
 
 	sig := SignChallenge(id, salt, issuedAt, difficulty, userID, secret)
 
+	recordChallengeTelemetry("generated")
+
 	return &BrowserChallenge{
 		ID:         id,
 		Salt:       salt,
@@ -111,11 +134,13 @@ func SignChallenge(id, salt string, issuedAt int64, difficulty int, userID, secr
 func VerifyBrowserProof(userID, secret, proofHeader string) error {
 	proofHeader = strings.TrimSpace(proofHeader)
 	if proofHeader == "" {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeMissing
 	}
 
 	parts := strings.Split(proofHeader, ":")
 	if len(parts) != 6 {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeMalformed
 	}
 
@@ -127,32 +152,38 @@ func VerifyBrowserProof(userID, secret, proofHeader string) error {
 	nonce := parts[5]
 
 	if id == "" || salt == "" {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeMalformed
 	}
 
 	issuedAt, err := strconv.ParseInt(issuedAtStr, 10, 64)
 	if err != nil {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeMalformed
 	}
 
 	difficulty, err := strconv.Atoi(diffStr)
 	if err != nil {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeMalformed
 	}
 
 	if difficulty < DefaultChallengeDifficulty {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeInvalidDifficulty
 	}
 
 	// Timestamp validation (allow max 60s future clock drift, max 5min age)
 	now := time.Now().Unix()
 	if issuedAt > now+60 || (now-issuedAt) > ChallengeMaxAgeSeconds {
+		recordChallengeTelemetry("expired")
 		return ErrChallengeExpired
 	}
 
 	// HMAC Signature validation (constant-time comparison)
 	expectedSig := SignChallenge(id, salt, issuedAt, difficulty, userID, secret)
 	if !hmac.Equal([]byte(signature), []byte(expectedSig)) {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeInvalidSignature
 	}
 
@@ -163,13 +194,16 @@ func VerifyBrowserProof(userID, secret, proofHeader string) error {
 
 	prefix := strings.Repeat("0", difficulty)
 	if !strings.HasPrefix(hexHash, prefix) {
+		recordChallengeTelemetry("failed")
 		return ErrChallengeInvalidProof
 	}
 
 	// Single-Use / Anti-Replay Check: mark challenge ID as consumed
 	if !consumedChallenges.MarkConsumed(id, issuedAt+ChallengeMaxAgeSeconds) {
+		recordChallengeTelemetry("reused")
 		return ErrChallengeReused
 	}
 
+	recordChallengeTelemetry("solved")
 	return nil
 }

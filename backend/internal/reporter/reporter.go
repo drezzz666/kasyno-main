@@ -56,19 +56,31 @@ type DiscordWebhookPayload struct {
 	Embeds          []DiscordEmbed          `json:"embeds,omitempty"`
 }
 
+type Breadcrumb struct {
+	Timestamp string      `json:"timestamp"`
+	Category  string      `json:"category"` // navigation, game_action, bet_change, ws_event, api_call, ui
+	Message   string      `json:"message"`
+	Data      interface{} `json:"data,omitempty"`
+}
+
 type FrontendErrorReport struct {
-	ErrorType      string      `json:"error_type"`      // UNHANDLED_EXCEPTION, PROMISE_REJECTION, REACT_RENDER_ERROR, API_ERROR, GAME_ACTION_ERROR
-	Message        string      `json:"message"`         // Error message
-	Stack          string      `json:"stack"`           // Stack trace string
-	ComponentStack string      `json:"component_stack"` // React component stack if any
-	SourceFile     string      `json:"source_file"`     // File & line number (e.g. GameTableDialog.jsx:333)
-	Context        string      `json:"context"`         // Description of user action (e.g. "Crash: start round")
-	Game           string      `json:"game"`            // Active game name (crash, limbo, slots, etc.)
-	ActionPayload  interface{} `json:"action_payload"`  // Bet amount, target multiplier, etc.
-	URL            string      `json:"url"`             // Full page URL
-	UserAgent      string      `json:"user_agent"`      // Client Browser / OS
-	Screen         string      `json:"screen"`          // Screen resolution (e.g. 1920x1080)
-	Timestamp      string      `json:"timestamp"`       // Client ISO timestamp
+	ErrorType        string        `json:"error_type"`        // UNHANDLED_EXCEPTION, PROMISE_REJECTION, REACT_RENDER_ERROR, API_ERROR, GAME_ACTION_ERROR
+	Message          string        `json:"message"`           // Error message
+	Stack            string        `json:"stack"`             // Stack trace string
+	ComponentStack   string        `json:"component_stack"`   // React component stack if any
+	SourceFile       string        `json:"source_file"`       // File & line number (e.g. GameTableDialog.jsx:333)
+	Context          string        `json:"context"`           // Description of user action (e.g. "Crash: start round")
+	Game             string        `json:"game"`              // Active game name (crash, limbo, slots, etc.)
+	ActionPayload    interface{}   `json:"action_payload"`    // Bet amount, target multiplier, etc.
+	Breadcrumbs      []Breadcrumb  `json:"breadcrumbs"`       // Ring buffer of last player actions before crash
+	NetworkInfo      string        `json:"network_info"`      // Effective connection (e.g. 4g / 25Mbps / 40ms RTT)
+	MemoryMB         string        `json:"memory_mb"`         // Client JS Heap memory
+	NavigationTiming string        `json:"navigation_timing"` // Page load / TTFB diagnostics
+	LatencyMs        float64       `json:"latency_ms"`        // Recent API action latency
+	URL              string        `json:"url"`               // Full page URL
+	UserAgent        string        `json:"user_agent"`        // Client Browser / OS
+	Screen           string        `json:"screen"`            // Screen resolution (e.g. 1920x1080)
+	Timestamp        string        `json:"timestamp"`         // Client ISO timestamp
 }
 
 type Reporter struct {
@@ -352,7 +364,33 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 		})
 	}
 
-	// Client Environment
+	// Breadcrumbs trace (last player actions before error)
+	if len(report.Breadcrumbs) > 0 {
+		var bcLines []string
+		for i, bc := range report.Breadcrumbs {
+			ts := bc.Timestamp
+			if len(ts) > 19 {
+				ts = ts[11:19] // Keep HH:MM:SS
+			}
+			line := fmt.Sprintf("`%s` [%s] %s", ts, bc.Category, bc.Message)
+			if bc.Data != nil {
+				if dBytes, err := json.Marshal(bc.Data); err == nil && len(dBytes) > 2 && len(dBytes) < 80 {
+					line += fmt.Sprintf(" %s", string(dBytes))
+				}
+			}
+			bcLines = append(bcLines, line)
+			if i >= 15 {
+				break
+			}
+		}
+		fields = append(fields, DiscordField{
+			Name:   "👣 Ślad Akcji Gracza (Breadcrumbs)",
+			Value:  truncate(strings.Join(bcLines, "\n"), 950),
+			Inline: false,
+		})
+	}
+
+	// Client Environment & Performance Telemetry
 	envInfo := ""
 	if report.UserAgent != "" {
 		envInfo += fmt.Sprintf("**Przeglądarka / OS:** `%s`\n", truncate(report.UserAgent, 200))
@@ -360,9 +398,21 @@ func (r *Reporter) ReportFrontendError(report *FrontendErrorReport, sess *auth.S
 	if report.Screen != "" {
 		envInfo += fmt.Sprintf("**Ekran:** `%s`\n", report.Screen)
 	}
+	if report.NetworkInfo != "" {
+		envInfo += fmt.Sprintf("**Sieć:** `%s`\n", report.NetworkInfo)
+	}
+	if report.MemoryMB != "" {
+		envInfo += fmt.Sprintf("**Pamięć JS Heap:** `%s`\n", report.MemoryMB)
+	}
+	if report.NavigationTiming != "" {
+		envInfo += fmt.Sprintf("**Czasy strony (TTFB/Load):** `%s`\n", report.NavigationTiming)
+	}
+	if report.LatencyMs > 0 {
+		envInfo += fmt.Sprintf("**Ostatnie RTT / Opóźnienie API:** `%.1f ms`\n", report.LatencyMs)
+	}
 	if envInfo != "" {
 		fields = append(fields, DiscordField{
-			Name:   "💻 Środowisko Klienta",
+			Name:   "💻 Telemetria i Środowisko Klienta",
 			Value:  strings.TrimSpace(envInfo),
 			Inline: false,
 		})
@@ -585,6 +635,56 @@ func (r *Reporter) ReportSecurityAlert(category, ip, userID, nick, action, detai
 	r.sendAsyncToURL(r.securityWebhookURL, DiscordWebhookPayload{
 		Username:  "Kasyno Anticheat Watcher",
 		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-alert.png",
+		Embeds:    []DiscordEmbed{embed},
+	})
+}
+
+// ReportBigWin sends a celebration / high roller telemetry notification to Discord when a jackpot or massive multiplier occurs.
+func (r *Reporter) ReportBigWin(game, userID, nick string, bet, payout int64, multiplier float64) {
+	if r == nil || !r.HasErrorWebhook() {
+		return
+	}
+
+	title := fmt.Sprintf("🎉 [BIG WIN] %s wygrał %d $FGT (%.2fx) w %s!", nick, payout, multiplier, strings.ToUpper(game))
+	color := 0x10B981 // Emerald Green
+
+	fields := []DiscordField{
+		{
+			Name:   "👤 Gracz",
+			Value:  fmt.Sprintf("**%s** (ID: `%s`)", nick, userID),
+			Inline: true,
+		},
+		{
+			Name:   "🎮 Gra",
+			Value:  fmt.Sprintf("`%s`", strings.ToUpper(game)),
+			Inline: true,
+		},
+		{
+			Name:   "💰 Stawka / Mnożnik",
+			Value:  fmt.Sprintf("Stawka: **%d $FGT**\nMnożnik: **%.2fx**", bet, multiplier),
+			Inline: true,
+		},
+		{
+			Name:   "🏆 Wygrana (Wypłata)",
+			Value:  fmt.Sprintf("**+%d $FGT** (Zysk: +%d $FGT)", payout, payout-bet),
+			Inline: true,
+		},
+	}
+
+	embed := DiscordEmbed{
+		Title:       truncate(title, 250),
+		Description: "Wysoka wygrana gracza na platformie 2FGT Casino!",
+		Color:       color,
+		Fields:      fields,
+		Footer: &DiscordFooter{
+			Text: "2FGT Casino • Telemetry & High Roller Watcher",
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	r.sendAsync(DiscordWebhookPayload{
+		Username:  "Kasyno Win Watcher",
+		AvatarURL: "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/trophy.png",
 		Embeds:    []DiscordEmbed{embed},
 	})
 }

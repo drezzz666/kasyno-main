@@ -1,5 +1,4 @@
-// Comprehensive Frontend Error Reporter for 2FGT Casino
-// Gathers full stack traces, action payloads, and client context for AI/Dev debugging.
+import { getBreadcrumbs, getClientDiagnostics } from "./telemetry.js";
 
 const recentErrors = new Map();
 
@@ -68,6 +67,8 @@ export function reportClientError({
     }
 
     const env = getClientEnv();
+    const diag = getClientDiagnostics();
+    const breadcrumbs = getBreadcrumbs();
 
     const payload = {
       error_type: errorType,
@@ -78,6 +79,11 @@ export function reportClientError({
       game,
       action_payload: actionPayload,
       component_stack: componentStack,
+      breadcrumbs,
+      network_info: diag.network_info,
+      memory_mb: diag.memory_mb,
+      navigation_timing: diag.navigation_timing,
+      latency_ms: diag.latency_ms,
       url: env.url,
       user_agent: env.user_agent,
       screen: env.screen,

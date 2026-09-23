@@ -11,6 +11,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
+	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,16 +21,29 @@ import (
 func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *auth.OIDCClient, wsHub *ws.Hub) *chi.Mux {
 	r := chi.NewRouter()
 
+	// Initialize Telemetry Collector
+	tel := telemetry.NewCollector()
+
 	// Initialize Discord Error & Security Reporter
 	rep := reporter.NewReporter(cfg.DiscordErrorWebhookURL, cfg.DiscordSecurityWebhookURL)
-	anticheat.SetSecurityAlertHandler(rep.ReportSecurityAlert)
+	anticheat.SetSecurityAlertHandler(func(category, ip, userID, nick, action, details string) {
+		tel.RecordSecurityAlert(category)
+		if rep != nil {
+			rep.ReportSecurityAlert(category, ip, userID, nick, action, details)
+		}
+	})
+	anticheat.SetChallengeTelemetryCallback(tel.RecordChallengeEvent)
+
+	// WebSocket telemetry hooks
+	ws.SetWSTelemetryCallbacks(tel.RecordWSConnect, tel.RecordWSDisconnect, tel.RecordWSEvent)
 
 	// Standard middlewares
 	r.Use(middleware.RequestID)
 	r.Use(RealIPMiddleware)
+	r.Use(telemetry.HTTPMiddleware(tel))
 	r.Use(middleware.Logger)
 
-	// Custom Panic Recoverer with Discord Webhook reporting
+	// Custom Panic Recoverer with Discord Webhook and Telemetry reporting
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			defer func() {
@@ -37,6 +51,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 					if rvr == http.ErrAbortHandler {
 						panic(rvr)
 					}
+					tel.RecordPanic()
 					stack := string(debug.Stack())
 					log.Printf("[PANIC RECOVER] %v\n%s", rvr, stack)
 					sess := auth.GetSessionFromContext(req.Context())
@@ -62,16 +77,20 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		MaxAge:           300,
 	}))
 
-	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret)
+	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
-	errorHandler := NewErrorHandler(rep)
+	errorHandler := NewErrorHandler(rep, tel)
 
-	// Healthcheck
+	// Healthcheck & Metrics Telemetry
 	healthHandler := func(w http.ResponseWriter, r *http.Request) {
 		JSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "2fgt-casino-go"})
 	}
 	r.Get("/health", healthHandler)
 	r.Head("/health", healthHandler)
+
+	// Prometheus and JSON Telemetry Endpoints
+	r.Get("/metrics", telemetry.PrometheusHandler(tel))
+	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
 
 	// Client Error Reporting endpoint (receives errors from frontend with optional auth session)
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)

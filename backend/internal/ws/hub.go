@@ -6,6 +6,49 @@ import (
 	"sync"
 )
 
+var (
+	wsTelemetryMu         sync.RWMutex
+	wsTelemetryConnect    func()
+	wsTelemetryDisconnect func()
+	wsTelemetryEvent      func(eventType string)
+)
+
+// SetWSTelemetryCallbacks configures telemetry hooks for WebSocket connections and events.
+func SetWSTelemetryCallbacks(onConnect, onDisconnect func(), onEvent func(eventType string)) {
+	wsTelemetryMu.Lock()
+	defer wsTelemetryMu.Unlock()
+	wsTelemetryConnect = onConnect
+	wsTelemetryDisconnect = onDisconnect
+	wsTelemetryEvent = onEvent
+}
+
+func recordWSConnect() {
+	wsTelemetryMu.RLock()
+	fn := wsTelemetryConnect
+	wsTelemetryMu.RUnlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+func recordWSDisconnect() {
+	wsTelemetryMu.RLock()
+	fn := wsTelemetryDisconnect
+	wsTelemetryMu.RUnlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+func recordWSEvent(evType string) {
+	wsTelemetryMu.RLock()
+	fn := wsTelemetryEvent
+	wsTelemetryMu.RUnlock()
+	if fn != nil {
+		fn(evType)
+	}
+}
+
 type Hub struct {
 	clients    map[*Client]bool
 	userClients map[string]map[*Client]bool
@@ -38,6 +81,7 @@ func (h *Hub) Run() {
 				h.userClients[client.UserID][client] = true
 			}
 			h.mu.Unlock()
+			recordWSConnect()
 			log.Printf("[WS Hub] Client registered: %s (Total: %d)", client.UserID, len(h.clients))
 
 		case client := <-h.unregister:
@@ -77,11 +121,13 @@ func (h *Hub) internalRemoveClient(client *Client) {
 				delete(h.userClients, client.UserID)
 			}
 		}
+		recordWSDisconnect()
 		log.Printf("[WS Hub] Client disconnected: %s (Remaining: %d)", client.UserID, len(h.clients))
 	}
 }
 
 func (h *Hub) Broadcast(event Event) {
+	recordWSEvent(string(event.Type))
 	data, err := json.Marshal(event)
 	if err != nil {
 		return
@@ -94,6 +140,7 @@ func (h *Hub) Broadcast(event Event) {
 }
 
 func (h *Hub) SendToUser(userID string, event Event) {
+	recordWSEvent(string(event.Type))
 	data, err := json.Marshal(event)
 	if err != nil {
 		return

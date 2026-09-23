@@ -1,16 +1,24 @@
 import { getBrowserProof, invalidateBrowserProof, queueChallenge } from "./challenge";
 import { reportClientError } from "./reporter";
+import { addBreadcrumb, recordActionLatency } from "./telemetry.js";
 
 export async function fetchCasinoState() {
+  const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
+    addBreadcrumb("api_call", "GET /api/casino started");
     const res = await fetch("/api/casino", { cache: "no-store" });
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency("GET /api/casino", duration);
+
     if (res.status === 401) {
+      addBreadcrumb("navigation", "Redirecting to /api/auth/login due to 401 Unauthorized");
       window.location.href = "/api/auth/login";
       return null;
     }
     const data = await res.json();
     if (!res.ok) {
       const errorMsg = data.error || `HTTP error ${res.status}`;
+      addBreadcrumb("api_call", `GET /api/casino failed: ${errorMsg}`, { status: res.status });
       reportClientError({
         errorType: "API_ERROR",
         message: errorMsg,
@@ -20,6 +28,8 @@ export async function fetchCasinoState() {
       throw new Error(errorMsg);
     }
 
+    addBreadcrumb("api_call", "GET /api/casino succeeded", { balance: data.player?.balance, level: data.player?.level });
+
     // Pre-solve single-use challenge for next request
     if (data.challenge) {
       queueChallenge(data.challenge);
@@ -27,6 +37,8 @@ export async function fetchCasinoState() {
 
     return data;
   } catch (e) {
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency("GET /api/casino", duration);
     if (e.message && !e.message.includes("401")) {
       const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
       const isFailedFetch = e.name === "TypeError" && e.message.includes("Failed to fetch");
@@ -45,7 +57,10 @@ export async function fetchCasinoState() {
 }
 
 export async function postCasinoAction(body, retryCount = 0) {
+  const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   let proof = "";
+  const actionLabel = `POST /api/casino [${body?.game || "action"}:${body?.action || "play"}]`;
+  addBreadcrumb("game_action", actionLabel, { bet: body?.bet, action: body?.action, game: body?.game });
   try {
     // Retrieves a single-use proof token (consumes from queue or solves on demand)
     proof = await getBrowserProof();
@@ -64,6 +79,9 @@ export async function postCasinoAction(body, retryCount = 0) {
       body: JSON.stringify(body),
     });
   } catch (e) {
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency(actionLabel, duration);
+    addBreadcrumb("api_call", `${actionLabel} network error: ${e.message}`, { duration_ms: Math.round(duration) });
     reportClientError({
       error: e,
       errorType: "API_NETWORK_ERROR",
@@ -76,7 +94,11 @@ export async function postCasinoAction(body, retryCount = 0) {
     throw e;
   }
 
+  const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+  recordActionLatency(actionLabel, duration);
+
   if (res.status === 401) {
+    addBreadcrumb("navigation", "Redirecting to /api/auth/login due to 401 Unauthorized");
     window.location.href = "/api/auth/login";
     return null;
   }
@@ -85,6 +107,7 @@ export async function postCasinoAction(body, retryCount = 0) {
   try {
     data = await res.json();
   } catch (e) {
+    addBreadcrumb("api_call", `${actionLabel} JSON parse error (HTTP ${res.status})`);
     reportClientError({
       error: e,
       errorType: "API_JSON_PARSE_ERROR",
@@ -106,6 +129,7 @@ export async function postCasinoAction(body, retryCount = 0) {
 
   // If server returned 403 with a challenge (expired/missing/replayed), retry transparently
   if (res.status === 403 && data.challenge && retryCount < 2) {
+    addBreadcrumb("security", "Received challenge refresh on 403, retrying action transparently");
     invalidateBrowserProof();
     queueChallenge(data.challenge);
     return postCasinoAction(body, retryCount + 1);
@@ -120,6 +144,8 @@ export async function postCasinoAction(body, retryCount = 0) {
       lower.includes("insufficient");
     const isRateLimit = res.status === 429 || lower.includes("rate_limit") || lower.includes("zbyt wiele akcji");
 
+    addBreadcrumb("game_action", `${actionLabel} rejected: ${errorMsg}`, { status: res.status, error: errorMsg });
+
     if (!isInsufficientFunds) {
       reportClientError({
         errorType: isRateLimit ? "RATE_LIMIT" : "API_ERROR",
@@ -133,14 +159,26 @@ export async function postCasinoAction(body, retryCount = 0) {
     throw new Error(errorMsg);
   }
 
+  addBreadcrumb("game_action", `${actionLabel} OK`, {
+    round_id: data.round?.id,
+    payout: data.round?.payout,
+    balance: data.balance,
+    duration_ms: Math.round(duration),
+  });
+
   return data;
 }
 
 export async function fetchHistoryEntries(offset = 0, limit = 10) {
+  const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
+    addBreadcrumb("api_call", `GET /api/casino/history (offset=${offset}, limit=${limit})`);
     const res = await fetch(`/api/casino/history?offset=${offset}&limit=${limit}`, {
       cache: "no-store",
     });
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency("GET /api/casino/history", duration);
+
     if (res.status === 401) {
       window.location.href = "/api/auth/login";
       return null;
@@ -151,6 +189,8 @@ export async function fetchHistoryEntries(offset = 0, limit = 10) {
     }
     return data;
   } catch (e) {
+    const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
+    recordActionLatency("GET /api/casino/history", duration);
     reportClientError({
       error: e,
       errorType: "API_ERROR",
