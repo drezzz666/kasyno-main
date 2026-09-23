@@ -1,13 +1,16 @@
 package telemetry
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 )
 
-// responseWriterInterceptor wraps http.ResponseWriter to capture status code.
+// responseWriterInterceptor wraps http.ResponseWriter to capture status code while preserving interfaces like http.Hijacker and http.Flusher.
 type responseWriterInterceptor struct {
 	http.ResponseWriter
 	statusCode int
@@ -16,6 +19,23 @@ type responseWriterInterceptor struct {
 func (rw *responseWriterInterceptor) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriterInterceptor) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
+}
+
+func (rw *responseWriterInterceptor) Flush() {
+	if fl, ok := rw.ResponseWriter.(http.Flusher); ok {
+		fl.Flush()
+	}
+}
+
+func (rw *responseWriterInterceptor) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
 }
 
 // HTTPMiddleware measures HTTP request durations and status codes, pushing telemetry into the Collector.

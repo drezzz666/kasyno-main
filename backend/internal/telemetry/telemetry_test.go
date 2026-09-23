@@ -1,7 +1,9 @@
 package telemetry
 
 import (
+	"bufio"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -142,5 +144,50 @@ func TestTelemetryHandlers(t *testing.T) {
 
 	if snap.OverallCasino.TotalWagered != 20 {
 		t.Fatalf("expected total wagered=20, got %d", snap.OverallCasino.TotalWagered)
+	}
+}
+
+type fakeHijacker struct {
+	http.ResponseWriter
+	hijacked bool
+	flushed  bool
+}
+
+func (f *fakeHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	f.hijacked = true
+	return nil, nil, nil
+}
+
+func (f *fakeHijacker) Flush() {
+	f.flushed = true
+}
+
+func TestTelemetryMiddleware_HijackAndFlush(t *testing.T) {
+	c := NewCollector()
+	var capturedHijacker bool
+	var capturedFlusher bool
+
+	handler := HTTPMiddleware(c)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hj, ok := w.(http.Hijacker); ok {
+			_, _, _ = hj.Hijack()
+			capturedHijacker = true
+		}
+		if fl, ok := w.(http.Flusher); ok {
+			fl.Flush()
+			capturedFlusher = true
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	baseRec := httptest.NewRecorder()
+	fake := &fakeHijacker{ResponseWriter: baseRec}
+	req, _ := http.NewRequest("GET", "/ws", nil)
+	handler.ServeHTTP(fake, req)
+
+	if !capturedHijacker || !fake.hijacked {
+		t.Fatalf("expected responseWriter to pass http.Hijacker")
+	}
+	if !capturedFlusher || !fake.flushed {
+		t.Fatalf("expected responseWriter to pass http.Flusher")
 	}
 }
