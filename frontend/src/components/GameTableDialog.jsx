@@ -261,6 +261,7 @@ export function GameTableDialog({
     );
     if (j?.round?.state === "settled") {
       setBlackjackPreview({ ...j.round, state: "settled" });
+      const delay = turbo ? 400 : 750;
       setTimeout(() => {
         setBlackjackPreview(null);
         setLast(j.round);
@@ -268,7 +269,7 @@ export function GameTableDialog({
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
-      }, 350);
+      }, delay);
     } else {
       if (animatingRef) animatingRef.current = false;
     }
@@ -564,13 +565,14 @@ export function GameTableDialog({
       const j = await post({ action: "deal_blackjack", bet });
       if (j?.round?.state === "settled") {
         setBlackjackPreview({ ...j.round, state: "settled" });
+        const delay = turbo ? 500 : 950;
         setTimeout(() => {
           setBlackjackPreview(null);
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           triggerOutcome(j.round);
           void load();
-        }, 350);
+        }, delay);
       }
       return;
     }
