@@ -275,15 +275,6 @@ func (b *Bot) getOrCreateUserTelemetryChannel(guildID, categoryID, nick, userID 
 	if len(matchingChannels) > 0 {
 		primary := matchingChannels[0]
 
-		// Automatically prune and DELETE any extra duplicate channels for this user
-		for _, dup := range matchingChannels[1:] {
-			log.Printf("🧹 [Discord Bot] Usuwanie zduplikowanego kanału telemetrii #%s (ID: %s) dla gracza %s", dup.Name, dup.ID, nick)
-			_, delErr := b.session.ChannelDelete(dup.ID)
-			if delErr != nil {
-				log.Printf("⚠️ [Discord Bot] Nie udało się usunąć zduplikowanego kanału %s: %v", dup.ID, delErr)
-			}
-		}
-
 		// Ensure primary channel is in the right category
 		if primary.ParentID != categoryID {
 			_, _ = b.session.ChannelEdit(primary.ID, &discordgo.ChannelEdit{
@@ -397,24 +388,23 @@ func (b *Bot) SyncUserTelemetry(ctx context.Context, data *UserTelemetryReport) 
 		}
 
 		var botMsg *discordgo.Message
-		var oldBotMsgs []*discordgo.Message
-
 		if err == nil {
 			for _, m := range messages {
 				if m.Author != nil && (m.Author.Bot || (b.session.State != nil && b.session.State.User != nil && m.Author.ID == b.session.State.User.ID)) {
-					if botMsg == nil {
-						botMsg = m
-					} else {
-						oldBotMsgs = append(oldBotMsgs, m)
+					// Specifically match the Telemetry embed so we NEVER overwrite login logs or other messages
+					if len(m.Embeds) > 0 {
+						title := m.Embeds[0].Title
+						footer := ""
+						if m.Embeds[0].Footer != nil {
+							footer = m.Embeds[0].Footer.Text
+						}
+						if strings.Contains(title, "Telemetria") || strings.Contains(footer, "Telemetrii") {
+							botMsg = m
+							break
+						}
 					}
 				}
 			}
-		}
-
-		// Clean up any extra duplicate embeds in the channel so there is always exactly ONE clean embed
-		for _, oldM := range oldBotMsgs {
-			_ = b.session.ChannelMessageDelete(chID, oldM.ID)
-			time.Sleep(150 * time.Millisecond)
 		}
 
 		if botMsg != nil {

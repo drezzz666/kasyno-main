@@ -109,8 +109,6 @@ func normalizePath(path string) string {
 		return "/api/auth/me"
 	case strings.HasPrefix(path, "/api/auth/verify"):
 		return "/api/auth/verify"
-	case strings.HasPrefix(path, "/api/auth/dev-login"):
-		return "/api/auth/dev-login"
 	case strings.HasPrefix(path, "/api/auth"):
 		return "/api/auth"
 	case path == "/api/casino/challenge":

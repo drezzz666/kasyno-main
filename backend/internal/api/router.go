@@ -108,9 +108,6 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		r.Get("/verify", authHandler.Verify)
 		r.Head("/verify", authHandler.Verify)
 		r.Post("/backchannel-logout", authHandler.BackchannelLogout)
-		if cfg.DevAuthEnabled {
-			r.Get("/dev-login", authHandler.DevLogin)
-		}
 	})
 
 	// WebSocket endpoint
