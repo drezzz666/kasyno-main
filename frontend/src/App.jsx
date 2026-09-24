@@ -610,25 +610,6 @@ export default function App() {
               </div>
 
               <div className="player-summary-right flex items-center gap-2 flex-wrap">
-                {data && data.player.balance < 10 && (
-                  <button
-                    type="button"
-                    disabled={loading}
-                    className="streak-bonus-btn ready border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-sm"
-                    onClick={async () => {
-                      const j = await post({ action: "faucet" });
-                      if (j?.ok) {
-                        toast.success(`Przyznano pakiet ratunkowy +${money(j.amount || 100)}!`);
-                      } else if (j?.error) {
-                        toast.error(j.error);
-                      }
-                    }}
-                    title="Odbierz darmowe 100 $FGT na grę (dostępne co 10 minut przy zerowym saldzie)"
-                  >
-                    <Coins size={14} className="text-emerald-400 animate-pulse" />
-                    <span>Pakiet ratunkowy (+100)</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   disabled={!bonusAvailable || loading}

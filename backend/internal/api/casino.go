@@ -368,8 +368,6 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "bonus":
 		h.handleBonus(w, r, p)
-	case "claim_faucet", "faucet", "relief", "claim_relief", "bankruptcy_relief":
-		h.handleBankruptcyRelief(w, r, p)
 	case "claim_mission", "mission":
 		h.handleMission(w, r, p, body)
 	case "get_captcha":
@@ -480,31 +478,6 @@ func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *l
 		"amount":         amount,
 		"balance":        newBal,
 		"streak":         streak,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
-	})
-}
-
-func (h *CasinoHandler) handleBankruptcyRelief(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
-	amount, newBal, err := h.ledger.ClaimBankruptcyRelief(r.Context(), p.UserID)
-	if err != nil {
-		JSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	h.hub.SendToUser(p.UserID, ws.Event{
-		Type: ws.EventBalanceUpdate,
-		Payload: ws.BalanceUpdatePayload{
-			Balance: newBal,
-			XP:      p.XP,
-			Level:   p.Level,
-		},
-	})
-
-	JSON(w, http.StatusOK, map[string]interface{}{
-		"ok":             true,
-		"amount":         amount,
-		"balance":        newBal,
-		"message":        "Koło ratunkowe: Otrzymujesz +100 $FGT!",
 		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }

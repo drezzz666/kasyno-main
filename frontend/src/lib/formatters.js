@@ -44,16 +44,10 @@ export function getHistoryDetails(item) {
       subtitle: item.result || "Doładowanie administratora",
     };
   }
-  if (item.type === "bankruptcy_relief" || item.type === "faucet") {
-    return {
-      title: "Pakiet ratunkowy",
-      subtitle: "Zapomoga kryzysowa (+100 $FGT)",
-    };
-  }
   if (item.type === "captcha_reward") {
     return {
       title: "Mini-gra Captcha",
-      subtitle: "Nagroda za rozwiązanie (+50 $FGT)",
+      subtitle: "Nagroda za rozwiązanie (+0,40 zł)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

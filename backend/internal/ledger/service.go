@@ -2068,59 +2068,11 @@ func (s *Service) RecoverInterruptedRoundsOnStartup(ctx context.Context) (int, e
 
 		if err := tx.Commit(ctx); err == nil {
 			refundCount++
-			log.Printf("[Startup Recovery] Refunded %d $FGT to user %s for interrupted round %s (%s)", r.bet, r.userID, r.id, r.game)
+			log.Printf("[Startup Recovery] Refunded %d groszy to user %s for interrupted round %s (%s)", r.bet, r.userID, r.id, r.game)
 		}
 	}
 
 	return refundCount, nil
-}
-
-// ClaimBankruptcyRelief grants 100 $FGT to players whose balance is strictly under 10 $FGT.
-// Rate limited to once every 10 minutes to prevent abuse.
-func (s *Service) ClaimBankruptcyRelief(ctx context.Context, userID string) (grantedAmount int64, newBalance int64, err error) {
-	t := NowMs()
-	tx, err := s.db.Pool.Begin(ctx)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer tx.Rollback(ctx)
-
-	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
-
-	var curBal int64
-	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
-	if curBal >= 10 {
-		return 0, curBal, fmt.Errorf("koło ratunkowe jest dostępne tylko, gdy Twoje saldo wynosi mniej niż 10 $FGT")
-	}
-
-	// Cooldown check: max once per 10 minutes (600,000 ms)
-	var lastReliefTime int64
-	err = tx.QueryRow(ctx, `
-		SELECT created_at FROM ledger_entries
-		WHERE user_id = $1 AND type = 'bankruptcy_relief'
-		ORDER BY created_at DESC LIMIT 1
-	`, userID).Scan(&lastReliefTime)
-	if err == nil && (t-lastReliefTime) < 600000 {
-		waitSec := int((600000 - (t - lastReliefTime)) / 1000)
-		return 0, curBal, fmt.Errorf("koło ratunkowe będzie dostępne ponownie za %d sek.", waitSec)
-	}
-
-	const reliefAmount int64 = 100
-	newBal := curBal + reliefAmount
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-		VALUES ($1, $2, 'bankruptcy_relief', $3, $4, $5)
-	`, uuid.NewString(), userID, reliefAmount, newBal, t)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, 0, err
-	}
-
-	return reliefAmount, newBal, nil
 }
 
 
