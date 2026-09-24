@@ -200,7 +200,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         {successAnim && (
           <div className="captcha-status-msg success">
             <CheckCircle size={15} className="shrink-0" />
-            <span>+40 $FGT dodano do salda</span>
+            <span>+80 $FGT dodano do salda</span>
           </div>
         )}
 
@@ -217,7 +217,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           ) : (
             <>
               <Sparkles size={16} />
-              <span>Odbierz 40 $FGT</span>
+              <span>Odbierz 80 $FGT</span>
             </>
           )}
         </button>
