@@ -214,8 +214,16 @@ func (s *Service) AdminListAllUsers(ctx context.Context) ([]Player, error) {
 
 // GrantBalanceAll adds (or removes) balance for ALL registered players in the casino.
 func (s *Service) GrantBalanceAll(ctx context.Context, amount int64, reason string) (int, int64, error) {
+	return s.GrantBalanceAllWithType(ctx, amount, "grant_all", reason)
+}
+
+// GrantBalanceAllWithType adds balance for ALL registered players with custom ledger entry type and description.
+func (s *Service) GrantBalanceAllWithType(ctx context.Context, amount int64, entryType, reason string) (int, int64, error) {
 	if amount == 0 {
 		return 0, 0, fmt.Errorf("kwota musi być różna od 0")
+	}
+	if entryType == "" {
+		entryType = "grant_all"
 	}
 
 	rows, err := s.db.Pool.Query(ctx, `
@@ -267,9 +275,9 @@ func (s *Service) GrantBalanceAll(ctx context.Context, amount int64, reason stri
 
 		_, _ = tx.Exec(ctx, `UPDATE players SET updated_at = $1 WHERE user_id = $2`, t, p.userID)
 		_, err = tx.Exec(ctx, `
-			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-			VALUES ($1, $2, 'grant_all', $3, $4, $5)
-		`, uuid.NewString(), p.userID, actualDelta, newBal, t)
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, uuid.NewString(), p.userID, entryType, actualDelta, newBal, t, reason)
 		if err != nil {
 			return 0, 0, fmt.Errorf("błąd aktualizacji konta %s: %w", p.userID, err)
 		}
@@ -330,9 +338,9 @@ func (s *Service) AdminSetBalanceAll(ctx context.Context, newBalance int64, reas
 		delta := newBalance - p.balance
 		_, _ = tx.Exec(ctx, `UPDATE players SET updated_at = $1 WHERE user_id = $2`, t, p.userID)
 		_, err = tx.Exec(ctx, `
-			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-			VALUES ($1, $2, 'admin_set_all', $3, $4, $5)
-		`, uuid.NewString(), p.userID, delta, newBalance, t)
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, 'admin_set_all', $3, $4, $5, $6)
+		`, uuid.NewString(), p.userID, delta, newBalance, t, reason)
 		if err != nil {
 			return 0, fmt.Errorf("błąd aktualizacji konta %s: %w", p.userID, err)
 		}
@@ -398,9 +406,9 @@ func (s *Service) AdminSetBalance(ctx context.Context, identifier string, newBal
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-		VALUES ($1, $2, 'admin_set', $3, $4, $5)
-	`, uuid.NewString(), p.UserID, delta, newBalance, t)
+		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+		VALUES ($1, $2, 'admin_set', $3, $4, $5, $6)
+	`, uuid.NewString(), p.UserID, delta, newBalance, t, reason)
 	if err != nil {
 		return "", 0, 0, err
 	}

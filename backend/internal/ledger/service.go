@@ -264,8 +264,9 @@ func (s *Service) GetHistory(ctx context.Context, userID string, limit, offset i
 			l.amount,
 			l.balance_after,
 			l.created_at,
+			l.description,
 			g.game,
-			g.result,
+			COALESCE(g.result, l.description, ''),
 			g.bet,
 			g.payout
 		FROM ledger_entries l
@@ -290,6 +291,7 @@ func (s *Service) GetHistory(ctx context.Context, userID string, limit, offset i
 			&e.Amount,
 			&e.BalanceAfter,
 			&e.CreatedAt,
+			&e.Description,
 			&e.Game,
 			&e.Result,
 			&e.Bet,
@@ -1641,13 +1643,24 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 
 
 func (s *Service) GrantBalance(ctx context.Context, identifier string, amount int64, reason string) (string, int64, int64, error) {
+	return s.GrantBalanceWithType(ctx, identifier, amount, "grant", reason)
+}
+
+func (s *Service) GrantBalanceWithType(ctx context.Context, identifier string, amount int64, entryType, reason string) (string, int64, int64, error) {
 	if amount == 0 {
 		return "", 0, 0, fmt.Errorf("kwota musi być różna od 0")
+	}
+	if entryType == "" {
+		entryType = "grant"
 	}
 
 	trimmed := strings.TrimSpace(identifier)
 	if trimmed == "*" || strings.EqualFold(trimmed, "all") || strings.EqualFold(trimmed, "wszyscy") || strings.EqualFold(trimmed, "@everyone") {
-		count, totalTransferred, err := s.GrantBalanceAll(ctx, amount, reason)
+		allType := entryType
+		if allType == "grant" {
+			allType = "grant_all"
+		}
+		count, totalTransferred, err := s.GrantBalanceAllWithType(ctx, amount, allType, reason)
 		if err != nil {
 			return "", 0, 0, err
 		}
@@ -1688,9 +1701,9 @@ func (s *Service) GrantBalance(ctx context.Context, identifier string, amount in
 	_, _ = tx.Exec(ctx, `UPDATE players SET updated_at = $1 WHERE user_id = $2`, t, p.UserID)
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
-		VALUES ($1, $2, 'grant', $3, $4, $5)
-	`, uuid.NewString(), p.UserID, amount, newBal, t)
+		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, uuid.NewString(), p.UserID, entryType, amount, newBal, t, reason)
 	if err != nil {
 		return "", 0, 0, err
 	}
