@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from "react";
+import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef, useCallback } from "react";
 import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 
@@ -73,7 +73,7 @@ const PADDING_X = 36;
 const PADDING_TOP = 40;
 const PADDING_BOTTOM = 46;
 
-// Cubic Bezier calculation
+// Fast Cubic Bezier inline calculation
 function cubicBezier(t, p0, p1, p2, p3) {
   const u = 1 - t;
   const tt = t * t;
@@ -87,6 +87,16 @@ function cubicBezier(t, p0, p1, p2, p3) {
   };
 }
 
+// Helper to compute pin coordinates
+const getPinPos = (r, c, totalRows) => {
+  const lastRowPinCount = 3 + totalRows - 1;
+  const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
+  const rowY = PADDING_TOP + ((HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (totalRows - 1)) * r;
+  const rowPaddingX = PADDING_X + ((totalRows - 1 - r) * pinDistanceX) / 2;
+  const colX = rowPaddingX + c * pinDistanceX;
+  return { x: colX, y: rowY };
+};
+
 export const PlinkoTable = forwardRef(function PlinkoTable(
   { rows = 14, setRows, risk = "medium", setRisk, onBallFinish, loading, turbo = false },
   ref
@@ -96,6 +106,10 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const activeBallsRef = useRef([]);
   const pinHitsRef = useRef(new Map());
   const animFrameIdRef = useRef(null);
+  const isLoopRunningRef = useRef(false);
+
+  // Pre-rendered off-screen background & pins canvas cache (Zero per-frame gradient allocations)
+  const bgCanvasCacheRef = useRef(null);
 
   const onBallFinishRef = useRef(onBallFinish);
   onBallFinishRef.current = onBallFinish;
@@ -107,20 +121,277 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const [bouncedBin, setBouncedBin] = useState(null);
   const [activeBallCount, setActiveBallCount] = useState(0);
   const [recentHits, setRecentHits] = useState([]);
-  // Tracks the rendered canvas rect so bins overlay aligns precisely
   const [canvasRect, setCanvasRect] = useState(null);
 
   const binColors = getBinColors(currentMults.length);
 
-  // Helper to compute pin coordinates
-  const getPinPos = (r, c, totalRows) => {
-    const lastRowPinCount = 3 + totalRows - 1;
-    const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
-    const rowY = PADDING_TOP + ((HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (totalRows - 1)) * r;
-    const rowPaddingX = PADDING_X + ((totalRows - 1 - r) * pinDistanceX) / 2;
-    const colX = rowPaddingX + c * pinDistanceX;
-    return { x: colX, y: rowY };
-  };
+  // 1. Pre-render static background and all 120+ metallic pins onto an offscreen canvas
+  useEffect(() => {
+    let offscreen = bgCanvasCacheRef.current;
+    if (!offscreen) {
+      offscreen = document.createElement("canvas");
+      offscreen.width = WIDTH;
+      offscreen.height = HEIGHT;
+      bgCanvasCacheRef.current = offscreen;
+    }
+    const ctx = offscreen.getContext("2d", { alpha: false });
+    if (!ctx) return;
+
+    // A. Dark background
+    ctx.fillStyle = "#0a0d14";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+    // B. Subtle grid
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x < WIDTH; x += 40) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, HEIGHT);
+    }
+    ctx.stroke();
+
+    // C. All metallic pins rendered ONCE
+    const pinRadius = Math.max(3.5, 6.0 - rows * 0.16);
+
+    for (let r = 0; r < rows; ++r) {
+      const cols = 3 + r;
+      for (let c = 0; c < cols; ++c) {
+        const pin = getPinPos(r, c, rows);
+
+        // Pin shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y + 2.5, pinRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Metallic pin gradient
+        const pinGrad = ctx.createRadialGradient(
+          pin.x - pinRadius * 0.35,
+          pin.y - pinRadius * 0.35,
+          pinRadius * 0.1,
+          pin.x,
+          pin.y,
+          pinRadius
+        );
+        pinGrad.addColorStop(0, "#ffffff");
+        pinGrad.addColorStop(0.6, "#cbd5e1");
+        pinGrad.addColorStop(1, "#475569");
+
+        ctx.fillStyle = pinGrad;
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y, pinRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Render single initial frame on main canvas
+    drawFrame(performance.now());
+  }, [rows]);
+
+  // Main high-speed rendering function
+  const drawFrame = useCallback((now, dt = 16) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // 1. Blit pre-rendered static background & pins in 1 native GPU call (~0.05ms)
+    if (bgCanvasCacheRef.current) {
+      ctx.drawImage(bgCanvasCacheRef.current, 0, 0);
+    } else {
+      ctx.fillStyle = "#0a0d14";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+
+    // 2. Draw only active pin hits / spring shockwaves (lightweight alpha arcs, NO heavy shadowBlur)
+    const pinRadius = Math.max(3.5, 6.0 - rows * 0.16);
+    if (pinHitsRef.current.size > 0) {
+      pinHitsRef.current.forEach((hitInfo, pinKey) => {
+        const elapsed = now - hitInfo.startTime;
+        if (elapsed < 200) {
+          const p = elapsed / 200;
+          const hitAlpha = 1 - p;
+          const currentRadius = pinRadius * (1 + (1 - p) * 0.6);
+          const hitColor = hitInfo.color || "#ffffff";
+          const [rStr, cStr] = pinKey.split("_");
+          const pin = getPinPos(parseInt(rStr, 10), parseInt(cStr, 10), rows);
+
+          // Fast concentric ripple (no GPU-stalling shadowBlur)
+          ctx.save();
+          ctx.strokeStyle = hitColor;
+          ctx.globalAlpha = hitAlpha * 0.85;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(pin.x, pin.y, pinRadius + p * 18, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Highlighted Pin Head
+          ctx.globalAlpha = hitAlpha;
+          ctx.fillStyle = hitColor;
+          ctx.beginPath();
+          ctx.arc(pin.x, pin.y, currentRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(pin.x, pin.y, currentRadius * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else {
+          pinHitsRef.current.delete(pinKey);
+        }
+      });
+    }
+
+    // 3. Update and Draw Active Balls
+    const aliveBalls = [];
+    const activeBalls = activeBallsRef.current;
+
+    for (let i = 0; i < activeBalls.length; i++) {
+      const b = activeBalls[i];
+      const seg = b.segments[b.curSegIndex];
+
+      if (!seg) continue;
+
+      b.segProgress += dt / b.stepDuration;
+
+      if (b.segProgress >= 1) {
+        b.curSegIndex += 1;
+        b.segProgress = 0;
+
+        // Pin hit trigger
+        if (seg.pin) {
+          sounds.playPegTick();
+          pinHitsRef.current.set(`${seg.pin.r}_${seg.pin.c}`, {
+            startTime: now,
+            color: b.color,
+          });
+        }
+
+        // Landing in multiplier bin
+        if (seg.isFinal || b.curSegIndex >= b.segments.length) {
+          const landedSlot = b.data?.slot ?? b.slot;
+          const finalMultiplier = b.data?.multiplier ?? (currentMultsRef.current[landedSlot] || 1.0);
+
+          setBouncedBin(landedSlot);
+          setTimeout(() => setBouncedBin(null), 250);
+          sounds.playWin(finalMultiplier);
+
+          if (finalMultiplier >= 10) {
+            sounds.playCoins();
+            confetti({
+              particleCount: finalMultiplier >= 50 ? 60 : 30,
+              spread: 60,
+              origin: { y: 0.8 },
+              colors: ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#fbbf24"],
+            });
+          }
+
+          setRecentHits((prev) => [
+            { id: b.id, mult: finalMultiplier, slot: landedSlot },
+            ...prev.slice(0, 5),
+          ]);
+
+          if (onBallFinishRef.current && b.data) {
+            onBallFinishRef.current({
+              ...b.data,
+              slot: landedSlot,
+              multiplier: finalMultiplier,
+            });
+          }
+          continue; // Ball completed
+        }
+      }
+
+      // Compute smooth cubic bezier position
+      const curSeg = b.segments[b.curSegIndex];
+      if (curSeg) {
+        const t = Math.min(1, Math.max(0, b.segProgress));
+        const pos = cubicBezier(t, curSeg.p0, curSeg.p1, curSeg.p2, curSeg.p3);
+        b.x = pos.x;
+        b.y = pos.y;
+
+        // Smooth 3D solid sphere ball rendering
+        ctx.save();
+        ctx.translate(b.x, b.y);
+
+        // Shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+        ctx.beginPath();
+        ctx.ellipse(0, b.radius * 0.9, b.radius * 0.7, b.radius * 0.28, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ball body with fast radial shading
+        const grad = ctx.createRadialGradient(
+          -b.radius * 0.35,
+          -b.radius * 0.35,
+          b.radius * 0.05,
+          0,
+          0,
+          b.radius
+        );
+        grad.addColorStop(0, "#ffffff");
+        grad.addColorStop(0.25, b.color);
+        grad.addColorStop(0.85, b.color);
+        grad.addColorStop(1, "#0f172a");
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rim
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Specular highlight
+        ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+        ctx.beginPath();
+        ctx.arc(-b.radius * 0.34, -b.radius * 0.34, b.radius * 0.24, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        aliveBalls.push(b);
+      }
+    }
+
+    activeBallsRef.current = aliveBalls;
+
+    // Only update React state when count status changes (avoids rendering thrash)
+    setActiveBallCount((prev) => (prev !== aliveBalls.length ? aliveBalls.length : prev));
+  }, [rows]);
+
+  // Self-managing RAF loop that idles automatically when no balls/hits are present
+  const startAnimationLoop = useCallback(() => {
+    if (isLoopRunningRef.current) return;
+    isLoopRunningRef.current = true;
+
+    let lastTime = performance.now();
+
+    const loop = (now) => {
+      const dt = Math.min(now - lastTime, 40);
+      lastTime = now;
+
+      drawFrame(now, dt);
+
+      // Keep running if there are active balls OR active pin ripples
+      if (activeBallsRef.current.length > 0 || pinHitsRef.current.size > 0) {
+        animFrameIdRef.current = requestAnimationFrame(loop);
+      } else {
+        // Idle: draw final clean static frame and sleep
+        drawFrame(now, 16);
+        isLoopRunningRef.current = false;
+        animFrameIdRef.current = null;
+      }
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(loop);
+  }, [drawFrame]);
 
   // Drop Ball imperative method triggered by parent
   useImperativeHandle(ref, () => ({
@@ -129,21 +400,19 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const numRows = rows;
       const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
-      // Prominent, solid, 3D balls and calibrated pins
       const pinRadius = Math.max(3.6, 6.0 - numRows * 0.15);
       const ballRadius = Math.max(11, 16.5 - numRows * 0.35);
       const collRadius = pinRadius + ballRadius;
 
       const segments = [];
 
-      // 1. Initial drop segment from top chute down to apex pin (0, 1)
+      // 1. Initial drop segment from chute to apex pin (0, 1)
       const apexPin = getPinPos(0, 1, numRows);
       const startX = apexPin.x + (Math.random() - 0.5) * 4;
       const startY = 6;
       const firstStep = path[0] ?? (Math.random() < 0.5 ? 0 : 1);
       const firstDir = firstStep === 1 ? 1 : -1;
 
-      // Contact point on apex pin (tangential contact, zero penetration)
       const apexAngle = -firstDir * 0.52;
       const apexContact = {
         x: apexPin.x + Math.sin(apexAngle) * collRadius,
@@ -159,7 +428,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         isApex: true,
       });
 
-      // 2. Peg to Peg Parabolic Bounces with Realistic Gravity
+      // 2. Peg to Peg Parabolic Bounces
       let curCol = 1;
       let prevContact = apexContact;
 
@@ -176,17 +445,13 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         }
 
         if (r < numRows - 1) {
-          // Next pin in row r + 1
           const nextPin = getPinPos(r + 1, curCol, numRows);
-
-          // Tangential strike point on next pin based on approach direction
           const strikeAngle = -dir * 0.55;
           const nextContact = {
             x: nextPin.x + Math.sin(strikeAngle) * collRadius,
             y: nextPin.y - Math.cos(strikeAngle) * collRadius,
           };
 
-          // Parabolic bounce upwards & outwards over peg flank with gravity curve
           const bounceApex = {
             x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.22),
             y: currentPin.y - collRadius * 0.55 - rowHeight * 0.35,
@@ -206,47 +471,46 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           prevContact = nextContact;
         } else {
-          // 3. Final Drop directly into center of Multiplier Bin
-          const finalSlot = ballData.slot ?? (curCol - 1);
-          const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistX;
+          // 3. Final drop segment into multiplier bin
+          const landedSlot = curCol;
+          const lastRowPinPad = PADDING_X;
+          const binCenterX = lastRowPinPad + (landedSlot + 0.5) * pinDistX;
+          const binCenterY = HEIGHT - PADDING_BOTTOM + 22;
 
-          const binContact = {
-            x: slotCenterX,
-            y: HEIGHT - 20,
+          const exitApex = {
+            x: currentPin.x + dir * (collRadius * 0.75),
+            y: currentPin.y - collRadius * 0.35 - rowHeight * 0.25,
           };
-
-          const finalApex = {
-            x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.2),
-            y: currentPin.y - collRadius * 0.5 - rowHeight * 0.3,
-          };
-          const binDescent = {
-            x: slotCenterX,
-            y: HEIGHT - 46,
+          const binEntry = {
+            x: binCenterX,
+            y: binCenterY - 14,
           };
 
           segments.push({
             p0: prevContact,
-            p1: finalApex,
-            p2: binDescent,
-            p3: binContact,
+            p1: exitApex,
+            p2: binEntry,
+            p3: { x: binCenterX, y: binCenterY },
             isFinal: true,
-            slot: finalSlot,
+            slot: landedSlot,
           });
         }
       }
 
-      const colors = ["#ef4444", "#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#8b5cf6"];
-      const ballColor = colors[Math.floor(Math.random() * colors.length)];
+      const ballColors = ["#ef4444", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
+      const chosenColor = ballColors[Math.floor(Math.random() * ballColors.length)];
+
+      const stepDuration = turbo ? 70 : 130;
 
       const newBall = {
-        id: Math.random().toString(36).substring(2, 9),
-        data: ballData,
+        id: ballData.id || `ball_${Date.now()}_${Math.random()}`,
         segments,
         curSegIndex: 0,
         segProgress: 0,
-        stepDuration: turbo ? 70 : 250, // Smooth, realistic gravity bounce speed
-        color: ballColor,
+        stepDuration,
         radius: ballRadius,
+        color: chosenColor,
+        data: ballData,
         slot: ballData.slot ?? 0,
         x: startX,
         y: startY,
@@ -254,264 +518,23 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
       activeBallsRef.current.push(newBall);
       setActiveBallCount(activeBallsRef.current.length);
+
+      // Wake up animation loop immediately
+      startAnimationLoop();
     },
     getActiveCount: () => activeBallsRef.current.length,
   }));
 
-  // Canvas 60fps rendering & deterministic trajectory engine
+  // Clean up RAF on unmount
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-    let lastTime = performance.now();
-
-    const renderLoop = (now) => {
-      const dt = Math.min(now - lastTime, 40);
-      lastTime = now;
-
-      // 1. Clear canvas
-      ctx.fillStyle = "#0a0d14";
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      // Subtle background grid
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < WIDTH; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, HEIGHT);
-        ctx.stroke();
-      }
-
-      // 2. Draw all Pins & Hit Glows
-      const pinRadius = Math.max(3.5, 6.0 - rows * 0.16);
-      for (let r = 0; r < rows; ++r) {
-        const cols = 3 + r;
-        for (let c = 0; c < cols; ++c) {
-          const pin = getPinPos(r, c, rows);
-          const pinKey = `${r}_${c}`;
-          const hitInfo = pinHitsRef.current.get(pinKey);
-
-          let currentRadius = pinRadius;
-          let isHit = false;
-          let hitAlpha = 0;
-          let hitColor = "#ffffff";
-
-          if (hitInfo) {
-            const elapsed = now - hitInfo.startTime;
-            if (elapsed < 200) {
-              isHit = true;
-              const p = elapsed / 200;
-              hitAlpha = 1 - p;
-              currentRadius = pinRadius * (1 + (1 - p) * 0.6); // Spring pop scale!
-              hitColor = hitInfo.color || "#ffffff";
-
-              // Expanding shockwave ripple
-              ctx.save();
-              ctx.strokeStyle = hitColor;
-              ctx.globalAlpha = hitAlpha * 0.85;
-              ctx.lineWidth = 2.5;
-              ctx.shadowColor = hitColor;
-              ctx.shadowBlur = 12;
-              ctx.beginPath();
-              ctx.arc(pin.x, pin.y, pinRadius + p * 20, 0, Math.PI * 2);
-              ctx.stroke();
-              ctx.restore();
-            } else {
-              pinHitsRef.current.delete(pinKey);
-            }
-          }
-
-          // Pin base shadow
-          ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-          ctx.beginPath();
-          ctx.arc(pin.x, pin.y + 2.5, currentRadius, 0, Math.PI * 2);
-          ctx.fill();
-
-          if (isHit) {
-            // Bright Hit Glow on Pin
-            ctx.save();
-            ctx.shadowColor = hitColor;
-            ctx.shadowBlur = 14;
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath();
-            ctx.arc(pin.x, pin.y, currentRadius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-          } else {
-            // Normal Metallic Glossy Pin
-            const pinGrad = ctx.createRadialGradient(
-              pin.x - currentRadius * 0.35,
-              pin.y - currentRadius * 0.35,
-              currentRadius * 0.1,
-              pin.x,
-              pin.y,
-              currentRadius
-            );
-            pinGrad.addColorStop(0, "#ffffff");
-            pinGrad.addColorStop(0.6, "#cbd5e1");
-            pinGrad.addColorStop(1, "#475569");
-
-            ctx.fillStyle = pinGrad;
-            ctx.beginPath();
-            ctx.arc(pin.x, pin.y, currentRadius, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-      }
-
-      // 3. Update & Draw Active Balls
-      const aliveBalls = [];
-
-      for (let i = 0; i < activeBallsRef.current.length; i++) {
-        const b = activeBallsRef.current[i];
-        const seg = b.segments[b.curSegIndex];
-
-        if (!seg) {
-          continue;
-        }
-
-        b.segProgress += dt / b.stepDuration;
-
-        if (b.segProgress >= 1) {
-          // Reached end of current segment (Pin Hit or Landing)
-          b.curSegIndex += 1;
-          b.segProgress = 0;
-
-          // If hit a pin, trigger sound & pin reaction
-          if (seg.pin) {
-            sounds.playPegTick();
-            pinHitsRef.current.set(`${seg.pin.r}_${seg.pin.c}`, {
-              startTime: now,
-              color: b.color,
-            });
-          }
-
-          // If reached final multiplier bin
-          if (seg.isFinal || b.curSegIndex >= b.segments.length) {
-            const landedSlot = b.data?.slot ?? b.slot;
-            const finalMultiplier = b.data?.multiplier ?? (currentMultsRef.current[landedSlot] || 1.0);
-
-            setBouncedBin(landedSlot);
-            setTimeout(() => setBouncedBin(null), 300);
-            sounds.playWin(finalMultiplier);
-
-            if (finalMultiplier >= 10) {
-              sounds.playCoins();
-              confetti({
-                particleCount: finalMultiplier >= 50 ? 100 : 50,
-                spread: 70,
-                origin: { y: 0.8 },
-                colors: ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#fbbf24"],
-              });
-            }
-
-            // Push to recent hits
-            setRecentHits((prev) => [
-              { id: b.id, mult: finalMultiplier, slot: landedSlot },
-              ...prev.slice(0, 5),
-            ]);
-
-            if (onBallFinishRef.current && b.data) {
-              onBallFinishRef.current({
-                ...b.data,
-                slot: landedSlot,
-                multiplier: finalMultiplier,
-              });
-            }
-            continue; // Ball completed
-          }
-        }
-
-        // Compute smooth position using Cubic Bezier
-        const curSeg = b.segments[b.curSegIndex];
-        if (curSeg) {
-          const t = Math.min(1, Math.max(0, b.segProgress));
-          const pos = cubicBezier(t, curSeg.p0, curSeg.p1, curSeg.p2, curSeg.p3);
-          b.x = pos.x;
-          b.y = pos.y;
-
-          // Squash & Stretch calculation based on bounce phase
-          let scaleX = 1.0;
-          let scaleY = 1.0;
-
-          if (t < 0.15) {
-            // Subtle impact cushion against the pin
-            const squash = Math.sin((t / 0.15) * Math.PI);
-            scaleX = 1.0 + squash * 0.14;
-            scaleY = 1.0 - squash * 0.14;
-          } else if (t > 0.25 && t < 0.85) {
-            // Natural parabolic motion
-            scaleX = 0.96;
-            scaleY = 1.04;
-          }
-
-          // Draw Clean Solid Physical 3D Ball (No neon glow / no blur / no ghost trail)
-          ctx.save();
-          ctx.translate(b.x, b.y);
-          ctx.scale(scaleX, scaleY);
-
-          // 1. Subtle physical ambient shadow underneath
-          ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-          ctx.beginPath();
-          ctx.ellipse(0, b.radius * 0.9, b.radius * 0.7, b.radius * 0.28, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // 2. Realistic 3D Sphere Radial Gradient
-          const grad = ctx.createRadialGradient(
-            -b.radius * 0.35,
-            -b.radius * 0.35,
-            b.radius * 0.05,
-            0,
-            0,
-            b.radius
-          );
-          grad.addColorStop(0, "#ffffff");
-          grad.addColorStop(0.22, b.color);
-          grad.addColorStop(0.82, b.color);
-          grad.addColorStop(1, "#0f172a");
-
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
-          ctx.fill();
-
-          // 3. Crisp spherical rim contour
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // 4. Clean specular gloss highlight
-          ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-          ctx.beginPath();
-          ctx.arc(-b.radius * 0.34, -b.radius * 0.34, b.radius * 0.24, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.restore();
-
-          aliveBalls.push(b);
-        }
-      }
-
-      activeBallsRef.current = aliveBalls;
-      setActiveBallCount((prev) => (prev !== aliveBalls.length ? aliveBalls.length : prev));
-
-      animFrameIdRef.current = requestAnimationFrame(renderLoop);
-    };
-
-    animFrameIdRef.current = requestAnimationFrame(renderLoop);
-
     return () => {
       if (animFrameIdRef.current) {
         cancelAnimationFrame(animFrameIdRef.current);
       }
     };
-  }, [rows]);
+  }, []);
 
-  // ResizeObserver: track actual rendered canvas size to align bins
+  // ResizeObserver: track rendered canvas size to align bins smoothly
   useEffect(() => {
     const canvas = canvasRef.current;
     const viewport = viewportRef.current;
@@ -520,9 +543,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     const update = () => {
       const vRect = viewport.getBoundingClientRect();
       const cRect = canvas.getBoundingClientRect();
-      // Position of canvas bottom relative to viewport bottom
       const bottomOffset = vRect.bottom - cRect.bottom;
-      const scale = cRect.width / WIDTH; // CSS scale factor
+      const scale = cRect.width / WIDTH;
       setCanvasRect({ scale, bottomOffset, canvasWidth: cRect.width });
     };
 
@@ -539,10 +561,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const totalBinsWidth = (rows + 1) * pinDistanceX;
   const binsWidthPercent = (totalBinsWidth / WIDTH) * 100;
 
-  // Compute absolute bins position in pixels from canvas rect
   const binsStyle = canvasRect
     ? {
-        // bins in canvas coords: bottom of canvas is HEIGHT, bin top = HEIGHT - PADDING_BOTTOM
         bottom: canvasRect.bottomOffset,
         height: Math.max(18, PADDING_BOTTOM * canvasRect.scale),
         width: `${binsWidthPercent}%`,

@@ -47,7 +47,7 @@ export function getHistoryDetails(item) {
   if (item.type === "captcha_reward") {
     return {
       title: "Mini-gra Captcha",
-      subtitle: "Nagroda za rozwiązanie (+0,40 zł)",
+      subtitle: item.amount ? `Nagroda za rozwiązanie (+${item.amount} $FGT)` : "Nagroda za rozwiązanie (+80 $FGT)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

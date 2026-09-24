@@ -78,12 +78,21 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state := r.URL.Query().Get("state")
-	if stateCookie, err := r.Cookie("casino_oidc_state"); err == nil {
-		if stateCookie.Value != "" && state != "" && stateCookie.Value != state {
-			http.Error(w, "Nieprawidłowy parametr stanu OIDC (CSRF).", http.StatusForbidden)
-			return
-		}
+	stateCookie, err := r.Cookie("casino_oidc_state")
+	if err != nil || stateCookie.Value == "" || state == "" || stateCookie.Value != state {
+		http.Error(w, "Nieprawidłowy parametr stanu OIDC (CSRF).", http.StatusForbidden)
+		return
 	}
+	// Clear CSRF state cookie after consumption
+	http.SetCookie(w, &http.Cookie{
+		Name:     "casino_oidc_state",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   strings.HasPrefix(h.cfg.AppURL, "https"),
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	redirectURI := fmt.Sprintf("%s/api/auth/callback", strings.TrimRight(h.cfg.AppURL, "/"))
 	tokenResp, err := h.oidc.ExchangeCodeForTokens(r.Context(), code, redirectURI)

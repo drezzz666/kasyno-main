@@ -26,7 +26,7 @@ export function ProfileModal({
             </div>
             <div>
               <h3>Konto gracza</h3>
-              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +25 $FGT)</p>
+              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 $FGT)</p>
             </div>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij">

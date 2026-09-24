@@ -271,7 +271,12 @@ export function TosPage({ onBack, onAccept, accepted }) {
                 <div className="tos-game-row">
                   <span className="tos-game-cell-name">Crash</span>
                   <span className="tos-game-cell-rtp">RTP 99.0%</span>
-                  <span className="tos-game-cell-desc">Mnożnik rosnący w czasie rzeczywistym z punktem rozbicia.</span>
+                  <span className="tos-game-cell-desc">Mnożnik rosnący w czasie rzeczywistym z punktem rozbicia (start 0.80×).</span>
+                </div>
+                <div className="tos-game-row">
+                  <span className="tos-game-cell-name">Chicken Cross</span>
+                  <span className="tos-game-cell-rtp">RTP 95.0%</span>
+                  <span className="tos-game-cell-desc">10 pasów ruchu, 4 poziomy trudności (do ×4000).</span>
                 </div>
               </div>
             </div>
