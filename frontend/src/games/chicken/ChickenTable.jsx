@@ -8,7 +8,204 @@ export const CHICKEN_MULTIPLIERS = [
   9.31, 13.30, 19.95, 31.92, 55.86, 111.72, 279.30, 1117.20,
 ];
 
-// SVG Sewer Grate (Kratka ściekowa / Właz kanalizacyjny)
+// SVG Cute Chubby White Chicken (matching user's uploaded images)
+export function ChickenSprite({ isDead = false, isJumping = false }) {
+  return (
+    <div
+      className={`relative flex items-center justify-center transition-transform duration-200 select-none ${
+        isJumping ? "animate-chicken-jump" : ""
+      }`}
+    >
+      <svg
+        viewBox="0 0 60 52"
+        className="w-10 h-9 sm:w-13 sm:h-11 md:w-15 md:h-13 drop-shadow-xl"
+        fill="none"
+      >
+        {/* Soft Drop Shadow under body */}
+        <ellipse cx="30" cy="46" rx="18" ry="5.5" fill="#000000" fillOpacity="0.45" />
+
+        {/* Little Yellow/Orange Feet */}
+        <ellipse cx="26" cy="44" rx="4" ry="2.5" fill={isDead ? "#78350f" : "#f59e0b"} />
+        <ellipse cx="34" cy="44" rx="4" ry="2.5" fill={isDead ? "#78350f" : "#f59e0b"} />
+
+        {/* Plump White Chicken Body with chubby cheeks and upturned tail */}
+        <path
+          d="M12 24 C10 18 14 10 22 8 C30 6 42 10 46 18 C50 26 48 38 40 43 C32 47 18 46 12 38 C9 34 8 28 12 24 Z"
+          fill={isDead ? "#94a3b8" : "#ffffff"}
+          stroke={isDead ? "#475569" : "#e2e8f0"}
+          strokeWidth="1.5"
+        />
+
+        {/* Subtle Body Underbelly Shading */}
+        <path
+          d="M14 34 C18 43 32 45 40 40 C43 37 45 32 44 28 C38 34 26 37 14 34 Z"
+          fill={isDead ? "#64748b" : "#e2e8f0"}
+          fillOpacity="0.75"
+        />
+
+        {/* Red Crown / Comb on Head */}
+        <path
+          d="M24 7 C23 3 26 1 29 2 C32 1 35 3 34 7 Z"
+          fill={isDead ? "#475569" : "#ef4444"}
+        />
+        <path
+          d="M21 9 C20 6 22 4 25 5 C27 4 28 6 27 9 Z"
+          fill={isDead ? "#475569" : "#f87171"}
+        />
+
+        {/* Soft Feather Wing on Side */}
+        <path
+          d="M16 26 C15 22 22 20 28 24 C30 26 28 32 24 33 C19 34 16 30 16 26 Z"
+          fill={isDead ? "#64748b" : "#f8fafc"}
+          stroke={isDead ? "#475569" : "#cbd5e1"}
+          strokeWidth="1.2"
+        />
+
+        {/* Cute Yellow / Orange Triangular Beak */}
+        <polygon
+          points="41,23 49,27 41,31"
+          fill={isDead ? "#64748b" : "#f59e0b"}
+          stroke={isDead ? "#475569" : "#d97706"}
+          strokeWidth="1"
+        />
+
+        {/* Eyes */}
+        {isDead ? (
+          <g stroke="#334155" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="33" y1="18" x2="39" y2="24" />
+            <line x1="39" y1="18" x2="33" y2="24" />
+          </g>
+        ) : (
+          <g>
+            {/* Round Glossy Black Bead Eye */}
+            <circle cx="36" cy="20" r="3.2" fill="#0f172a" />
+            {/* White Specular Glint */}
+            <circle cx="37" cy="19" r="1.1" fill="#ffffff" />
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+// SVG Concrete Road Blockade / Barrier (matching user's image 2 [ | | | | | ])
+export function RoadBlockade() {
+  return (
+    <div className="chicken-blockade animate-blockade-drop relative flex items-center justify-center pointer-events-none">
+      <svg
+        viewBox="0 0 54 22"
+        className="w-10 sm:w-12 md:w-14 h-4 sm:h-5 drop-shadow-md"
+        fill="none"
+      >
+        {/* Drop shadow */}
+        <rect x="2" y="3" width="50" height="18" rx="4" fill="#000000" fillOpacity="0.45" />
+        {/* Main Barrier Concrete Body */}
+        <rect
+          x="3"
+          y="2"
+          width="48"
+          height="16"
+          rx="3.5"
+          fill="#475569"
+          stroke="#64748b"
+          strokeWidth="1.5"
+        />
+        {/* Inset Inner Plate */}
+        <rect
+          x="6"
+          y="4"
+          width="42"
+          height="12"
+          rx="2"
+          fill="#334155"
+        />
+        {/* Vertical Ribs / Slits [ | | | | | ] */}
+        <g stroke="#1e293b" strokeWidth="2" strokeLinecap="round">
+          <line x1="12" y1="6" x2="12" y2="14" />
+          <line x1="18" y1="6" x2="18" y2="14" />
+          <line x1="24" y1="6" x2="24" y2="14" />
+          <line x1="30" y1="6" x2="30" y2="14" />
+          <line x1="36" y1="6" x2="36" y2="14" />
+          <line x1="42" y1="6" x2="42" y2="14" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+// SVG Golden Chicken Coin (matching user's image 3 for passed floor tiles)
+export function ChickenGoldCoin() {
+  return (
+    <div className="chicken-gold-coin animate-coin-glow relative flex items-center justify-center pointer-events-none">
+      <svg
+        viewBox="0 0 52 52"
+        className="w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 drop-shadow-lg"
+        fill="none"
+      >
+        {/* Drop shadow */}
+        <circle cx="26" cy="27" r="23" fill="#000000" fillOpacity="0.45" />
+
+        {/* Outer Golden Coin Edge Rim */}
+        <circle
+          cx="26"
+          cy="26"
+          r="23"
+          fill="url(#coinOuterGrad)"
+          stroke="#78350f"
+          strokeWidth="1.5"
+        />
+
+        {/* Concentric Engraved Ring */}
+        <circle
+          cx="26"
+          cy="26"
+          r="19"
+          fill="url(#coinInnerGrad)"
+          stroke="#b45309"
+          strokeWidth="1.2"
+        />
+
+        {/* Dashed Golden Edge Markings */}
+        <circle
+          cx="26"
+          cy="26"
+          r="16.5"
+          stroke="#d97706"
+          strokeWidth="1.2"
+          strokeDasharray="3 3.5"
+          fill="none"
+        />
+
+        {/* Center Golden Chicken Silhouette Stamp */}
+        <path
+          d="M20 28 C18 24 20 19 25 18 C28 17 32 19 33 22 C35 24 33 27 30 28 C28 29 25 29 23 31 C21 32 19 31 20 28 Z"
+          fill="#b45309"
+          stroke="#78350f"
+          strokeWidth="0.8"
+        />
+        <polygon points="32,21 36,23 32,25" fill="#92400e" />
+        <circle cx="26" cy="17" r="1.5" fill="#92400e" />
+
+        <defs>
+          <radialGradient id="coinOuterGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="35%" stopColor="#fbbf24" />
+            <stop offset="70%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#d97706" />
+          </radialGradient>
+          <radialGradient id="coinInnerGrad" cx="35%" cy="35%" r="65%">
+            <stop offset="0%" stopColor="#fef3c7" />
+            <stop offset="40%" stopColor="#fde047" />
+            <stop offset="75%" stopColor="#eab308" />
+            <stop offset="100%" stopColor="#ca8a04" />
+          </radialGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+}
+
+// SVG Sewer Grate (Kratka ściekowa)
 export function SewerGrate({ isCurrent, isPassed, isCrash, isNext }) {
   return (
     <svg viewBox="0 0 64 42" className="w-8 sm:w-11 md:w-14 h-6 sm:h-8 md:h-9 drop-shadow-md max-w-full" fill="none">
@@ -44,102 +241,89 @@ export function SewerGrate({ isCurrent, isPassed, isCrash, isNext }) {
   );
 }
 
-// SVG Police Cruiser Top-Down (Radiowóz)
+// Top-down Ambient Moving Vehicles (Cars/Trucks driving everywhere)
+export function AmbientVehicle({ carIndex = 0 }) {
+  const models = [
+    { type: "purple_van", chassis: "#7c3aed", roof: "#a855f7" },
+    { type: "red_car", chassis: "#dc2626", roof: "#ef4444" },
+    { type: "yellow_taxi", chassis: "#eab308", roof: "#fde047" },
+    { type: "blue_sports", chassis: "#2563eb", roof: "#60a5fa" },
+    { type: "emerald_sedan", chassis: "#059669", roof: "#34d399" },
+  ];
+  const model = models[carIndex % models.length];
+
+  return (
+    <svg viewBox="0 0 46 76" className="w-8 h-14 sm:w-10 sm:h-18 md:w-11 md:h-20 drop-shadow-2xl" fill="none">
+      {/* Shadow */}
+      <ellipse cx="23" cy="38" rx="20" ry="34" fill="#000000" fillOpacity="0.5" />
+      {/* Main Chassis */}
+      <rect x="5" y="4" width="36" height="68" rx="8" fill={model.chassis} stroke="#0f172a" strokeWidth="1.5" />
+      {/* Front Windshield */}
+      <polygon points="9,22 37,22 34,12 12,12" fill="#0f172a" stroke="#1e293b" strokeWidth="1" />
+      {/* Rear Window */}
+      <polygon points="10,54 36,54 34,60 12,60" fill="#0f172a" />
+      {/* Roof */}
+      <rect x="8" y="23" width="30" height="30" rx="4" fill={model.roof} />
+      {/* Headlights */}
+      <circle cx="10" cy="6" r="2.5" fill="#fef08a" />
+      <circle cx="36" cy="6" r="2.5" fill="#fef08a" />
+      {/* Taillights */}
+      <rect x="8" y="68" width="6" height="2.5" rx="1" fill="#ef4444" />
+      <rect x="32" y="68" width="6" height="2.5" rx="1" fill="#ef4444" />
+      {/* Taxi top sign */}
+      {model.type === "yellow_taxi" && (
+        <rect x="18" y="34" width="10" height="5" rx="1.5" fill="#ffffff" stroke="#000000" strokeWidth="0.5" />
+      )}
+    </svg>
+  );
+}
+
+// SVG Police Cruiser Top-Down (Radiowóz do zderzenia)
 export function PoliceCarTopDown({ isAnimating = true }) {
   return (
     <div className={`relative flex flex-col items-center justify-center ${isAnimating ? "animate-car-crash" : ""}`}>
-      {/* Tire skid marks behind car */}
+      {/* Tire skid marks */}
       <div className="absolute -top-10 flex justify-between w-6 sm:w-8 h-10 opacity-70 pointer-events-none">
         <div className="w-1 sm:w-1.5 h-full bg-slate-950/80 rounded-full" />
         <div className="w-1 sm:w-1.5 h-full bg-slate-950/80 rounded-full" />
       </div>
 
       <svg viewBox="0 0 54 86" className="w-9 h-16 sm:w-12 sm:h-20 md:w-14 md:h-22 drop-shadow-2xl z-20">
-        {/* Car Shadow */}
         <ellipse cx="27" cy="44" rx="24" ry="40" fill="#000000" fillOpacity="0.6" />
-        {/* Main Chassis */}
         <rect x="7" y="4" width="40" height="76" rx="9" fill="#0f172a" stroke="#1e293b" strokeWidth="2" />
-        {/* White Police Roof & Doors */}
         <rect x="10" y="24" width="34" height="34" rx="4" fill="#f8fafc" />
-        {/* Windshield Front */}
         <polygon points="12,23 42,23 39,13 15,13" fill="#1e293b" stroke="#0f172a" strokeWidth="1" />
-        {/* Rear Window */}
         <polygon points="14,59 40,59 38,66 16,66" fill="#1e293b" />
-        {/* Hood Black */}
         <path d="M12 12C12 7 17 5 27 5C37 5 42 7 42 12L42 22L12 22Z" fill="#090d16" />
-        {/* Emergency Lightbar Red/Blue Flasher */}
         <rect x="17" y="38" width="20" height="6" rx="2" fill="#090d16" />
         <rect x="18" y="39" width="8" height="4" rx="1" fill="#ef4444" className="animate-pulse" />
         <rect x="28" y="39" width="8" height="4" rx="1" fill="#3b82f6" className="animate-pulse" />
-        {/* Headlights */}
         <circle cx="13" cy="6" r="2.5" fill="#fef08a" />
         <circle cx="41" cy="6" r="2.5" fill="#fef08a" />
-        {/* License Plate */}
         <rect x="23" y="77" width="8" height="3" rx="1" fill="#ffffff" />
       </svg>
     </div>
   );
 }
 
-// SVG Chicken (Kurczak)
-export function ChickenSprite({ isDead = false, isJumping = false }) {
-  return (
-    <div className={`relative flex items-center justify-center transition-transform duration-200 ${isJumping ? "animate-chicken-jump" : ""}`}>
-      <svg viewBox="0 0 40 40" className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 drop-shadow-lg">
-        {/* Shadow */}
-        <ellipse cx="20" cy="35" rx="9" ry="3.5" fill="#000000" fillOpacity="0.4" />
-        {/* Comb / Grzebień */}
-        <path d="M17 5C17 3.5 19 2 21 2C23 2 24 3.5 24 5C25 5 27 6.5 27 8C27 9.5 25 11 24 11L17 11C15 11 14 9.5 14 8C14 6.5 15 5 17 5Z" fill={isDead ? "#475569" : "#ef4444"} />
-        {/* Body */}
-        <circle cx="20" cy="20" r="13" fill={isDead ? "#78350f" : "#fbbf24"} stroke={isDead ? "#451a03" : "#d97706"} strokeWidth="1.5" />
-        {/* Wing */}
-        <ellipse cx="14" cy="22" rx="6" ry="7" transform={isJumping ? "rotate(-35 14 22)" : "rotate(-15 14 22)"} fill={isDead ? "#92400e" : "#f59e0b"} className="transition-transform" />
-        {/* Beak */}
-        <polygon points="30,17 38,20 30,23" fill={isDead ? "#94a3b8" : "#f97316"} />
-        {/* Wattle */}
-        <ellipse cx="30" cy="24" rx="2" ry="3" fill={isDead ? "#475569" : "#dc2626"} />
-        {/* Eyes */}
-        {isDead ? (
-          <g stroke="#ffffff" strokeWidth="2" strokeLinecap="round">
-            <line x1="23" y1="13" x2="29" y2="19" />
-            <line x1="29" y1="13" x2="23" y2="19" />
-          </g>
-        ) : (
-          <g>
-            <circle cx="26" cy="15" r="3.5" fill="#ffffff" />
-            <circle cx="27.5" cy="15" r="1.8" fill="#0f172a" />
-            <circle cx="28.2" cy="14.2" r="0.7" fill="#ffffff" />
-          </g>
-        )}
-      </svg>
-    </div>
-  );
-}
-
-// SVG Traffic Light (Semafor drogowy)
+// SVG Traffic Light Pole
 export function TrafficLightPole() {
   return (
     <svg viewBox="0 0 42 90" className="w-6 h-14 sm:w-8 sm:h-18 md:w-10 md:h-22 drop-shadow-md">
-      {/* Base Footing */}
       <ellipse cx="21" cy="85" rx="14" ry="5" fill="#0f172a" stroke="#334155" strokeWidth="1.5" />
       <ellipse cx="21" cy="83" rx="10" ry="3.5" fill="#1e293b" />
-      {/* Pole */}
       <rect x="18.5" y="36" width="5" height="48" fill="#334155" stroke="#1e293b" strokeWidth="1" />
-      {/* Light Box */}
       <rect x="6" y="4" width="30" height="34" rx="6" fill="#1e293b" stroke="#0f172a" strokeWidth="2" />
-      {/* Visors */}
       <path d="M12 9 C12 6 18 6 18 9" stroke="#0f172a" strokeWidth="2" fill="none" />
       <path d="M24 9 C24 6 30 6 30 9" stroke="#0f172a" strokeWidth="2" fill="none" />
-      {/* Left Light (Flashing Yellow) */}
       <circle cx="15" cy="21" r="6" fill="#fbbf24" stroke="#d97706" strokeWidth="1.5" className="animate-pulse" />
       <circle cx="14" cy="19" r="2" fill="#ffffff" fillOpacity="0.8" />
-      {/* Right Light (Dark / Off) */}
       <circle cx="27" cy="21" r="6" fill="#090d16" stroke="#1e293b" strokeWidth="1.5" />
     </svg>
   );
 }
 
-// SVG Roadside Shrub / Rock
+// SVG Roadside Shrub
 export function RoadsideShrub() {
   return (
     <svg viewBox="0 0 52 40" className="w-7 h-5 sm:w-9 sm:h-7 md:w-12 md:h-9 drop-shadow-md">
@@ -191,10 +375,7 @@ export function ChickenTable({
   const currentProfit = Math.floor(currentBet * currentMult);
   const isLoss = (isSettled && last?.payout === 0) || Boolean(crashAnim);
 
-  // EXACTLY ONE single active lane for the chicken:
-  // If crash/loss: -1 (rendered inside crash scene on hazardLane)
-  // If jumping: jumpLane
-  // Otherwise: currentLane
+  // Active chicken lane
   const activeChickenLane = isLoss ? -1 : (jumping && jumpLane !== null ? jumpLane : currentLane);
 
   // Cleanup timeout on unmount
@@ -225,7 +406,7 @@ export function ChickenTable({
     }
   }, [activeRound?.id, animatingRef, onBusyChange]);
 
-  // Smooth Camera Panning Effect (tracks chicken across all 17 lanes & slides back to start on reset)
+  // Smooth Camera Panning Effect
   useEffect(() => {
     const updateCamera = () => {
       if (!viewportRef.current) return;
@@ -278,12 +459,11 @@ export function ChickenTable({
         if (onBusyChange) onBusyChange(true);
 
         if (res.round.payout === 0) {
-          // LOSS: Trigger car crash animation on nextTarget!
+          // LOSS: Trigger car crash animation on nextTarget
           const hazType = res.round.payload?.hazardType || "police_car";
           setCrashAnim({ active: true, lane: nextTarget, type: hazType });
           sounds.playExplosion();
 
-          // Delay outcome popup by 0.5s so user sees the car run over chicken first!
           const delay = turbo ? 100 : 500;
           if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
           outcomeTimeoutRef.current = setTimeout(() => {
@@ -292,7 +472,7 @@ export function ChickenTable({
             if (triggerOutcome) triggerOutcome(res.round, 0);
           }, delay);
         } else {
-          // WIN / FINISH (Lane 17 reached!)
+          // WIN / FINISH
           sounds.playGemReveal(1.8);
           const delay = turbo ? 100 : 500;
           if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
@@ -388,9 +568,21 @@ export function ChickenTable({
               const laneNum = idx + 1;
               const isCompleted = currentLane >= laneNum;
               const isCurrent = currentLane === laneNum;
+              const isPassed = currentLane > laneNum;
               const isNext = currentLane === laneNum - 1 && activeRound;
               const isCrashedLane = hazardLane === laneNum;
               const hasChicken = activeChickenLane === laneNum;
+
+              // Has blockade if lane has been reached (laneNum <= currentLane)
+              const hasBlockade = isCompleted;
+
+              // Cars drive on lanes that are NOT yet blocked and not crashed
+              const isTrafficActive = !hasBlockade && !isCrashedLane;
+
+              // Animation speed & delay for traffic
+              const animSpeed = laneNum % 2 === 0 ? "trafficDriveDownFast" : "trafficDriveDownSlow";
+              const animDuration = `${1.8 + (laneNum % 3) * 0.45}s`;
+              const animDelay = `${(laneNum * 0.35) % 1.5}s`;
 
               return (
                 <div
@@ -401,25 +593,40 @@ export function ChickenTable({
                       handleStep();
                     }
                   }}
-                  className={`chicken-road-lane relative w-20 sm:w-24 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/50 transition-colors duration-200 ${
+                  className={`chicken-road-lane relative w-20 sm:w-24 flex-shrink-0 h-full flex flex-col items-center justify-between py-3.5 sm:py-4 border-r border-dashed border-slate-700/50 transition-colors duration-200 ${
                     isNext ? "cursor-pointer hover:bg-slate-800/40" : ""
                   }`}
                 >
-                  {/* Lane Top Number */}
-                  <div className="text-[11px] font-mono font-bold text-slate-500">
-                    {isCompleted && !isCrashedLane ? (
-                      <span className="text-emerald-400 font-bold">✓</span>
+                  {/* Top Road Section: Road Blockade (if reached) OR Continuous Traffic (if unreached) */}
+                  <div className="relative w-full h-12 flex flex-col items-center justify-center z-10">
+                    {hasBlockade ? (
+                      /* Concrete Road Blockade [ | | | | | ] protecting chicken and passed lane */
+                      <RoadBlockade />
                     ) : (
-                      `#${laneNum}`
+                      /* Lane Top Number */
+                      <div className="text-[11px] font-mono font-bold text-slate-500">
+                        #{laneNum}
+                      </div>
                     )}
                   </div>
 
-                  {/* Center Road Element: Sewer Grate / Single Chicken / Police Car Crash */}
+                  {/* Ambient Cars driving vertically across unblocked lanes */}
+                  {isTrafficActive && (
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
+                      style={{
+                        animation: `${animSpeed} ${animDuration} linear ${animDelay} infinite`,
+                      }}
+                    >
+                      <AmbientVehicle carIndex={idx} />
+                    </div>
+                  )}
+
+                  {/* Center Road Element: Golden Chicken Coin (on passed lanes) / Chicken / Sewer Grate / Crash */}
                   <div className="relative flex flex-col items-center justify-center my-auto w-full px-1">
                     {/* Police Car or Fire Hazard on Crash */}
                     {isCrashedLane && (
                       <div className="absolute z-30 flex flex-col items-center justify-center pointer-events-none">
-                        {/* Shockwave burst effect */}
                         <div className="absolute w-16 h-16 rounded-full bg-rose-500/40 animate-impact-shockwave pointer-events-none" />
 
                         {hazardType === "police_car" || hazardType === "car" || hazardType === "truck" ? (
@@ -435,36 +642,43 @@ export function ChickenTable({
                       </div>
                     )}
 
-                    {/* Chicken ONLY on activeChickenLane */}
+                    {/* Cute White Chicken ONLY on activeChickenLane */}
                     {hasChicken && !isCrashedLane && (
                       <div className={`absolute z-30 flex items-center justify-center ${jumping ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
                         <ChickenSprite isJumping={jumping} />
                       </div>
                     )}
 
-                    {/* Next Step GO Arrow Indicator (shown only when no chicken on this lane) */}
+                    {/* Next Step GO Arrow Indicator */}
                     {isNext && !isCrashedLane && !hasChicken && (
                       <div className="absolute -top-7 z-20 flex flex-col items-center animate-bounce">
-                        <span className="text-[9px] font-bold text-amber-400 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/40">
+                        <span className="text-[9px] font-bold text-amber-400 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/40 shadow-sm">
                           GO
                         </span>
                       </div>
                     )}
 
-                    {/* Sewer Grate Base */}
+                    {/* Ground Floor Element:
+                        - If lane is PASSED (lane < currentLane): Golden Chicken Coin!
+                        - Otherwise: Sewer Grate base
+                    */}
                     <div className={`transition-transform duration-200 ${isNext ? "scale-105" : ""}`}>
-                      <SewerGrate
-                        isCurrent={isCurrent}
-                        isPassed={isCompleted}
-                        isCrash={isCrashedLane}
-                        isNext={isNext}
-                      />
+                      {isPassed && !isCrashedLane ? (
+                        <ChickenGoldCoin />
+                      ) : (
+                        <SewerGrate
+                          isCurrent={isCurrent}
+                          isPassed={isCompleted}
+                          isCrash={isCrashedLane}
+                          isNext={isNext}
+                        />
+                      )}
                     </div>
                   </div>
 
                   {/* Bottom Multiplier Pill Badge */}
                   <div
-                    className={`px-1.5 sm:px-2 py-1 rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all shadow-md truncate max-w-[95%] text-center ${
+                    className={`px-1.5 sm:px-2 py-1 rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all shadow-md truncate max-w-[95%] text-center z-10 ${
                       isCrashedLane
                         ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
                         : isCurrent
