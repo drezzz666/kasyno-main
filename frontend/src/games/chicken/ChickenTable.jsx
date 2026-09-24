@@ -96,59 +96,80 @@ export function FlyingFeather({ className = "" }) {
 export function FlattenedDeadChickenSprite() {
   return (
     <div className="relative flex flex-col items-center justify-center select-none pointer-events-none animate-chicken-squish">
-      {/* Heavy black tire skid marks burned into asphalt */}
-      <div className="absolute -top-16 flex justify-between w-14 sm:w-16 h-28 opacity-90 pointer-events-none">
-        <div className="w-2.5 h-full bg-slate-950 rounded-full shadow-inner" />
-        <div className="w-2.5 h-full bg-slate-950 rounded-full shadow-inner" />
+      {/* Heavy black double tire skid marks burned into asphalt across the lane */}
+      <div className="absolute -top-24 flex justify-between w-20 sm:w-24 md:w-28 h-56 opacity-95 pointer-events-none">
+        <div className="w-3 sm:w-3.5 h-full bg-slate-950 rounded-full shadow-lg" />
+        <div className="w-3 sm:w-3.5 h-full bg-slate-950 rounded-full shadow-lg" />
       </div>
 
       <svg
-        viewBox="0 0 76 48"
-        className="w-18 h-12 sm:w-22 sm:h-14 md:w-26 md:h-16 drop-shadow-2xl z-10"
+        viewBox="0 0 84 56"
+        className="w-20 h-13 sm:w-24 sm:h-16 md:w-28 md:h-18 drop-shadow-2xl z-10"
         fill="none"
       >
-        {/* Shadow & tire grease spot */}
-        <ellipse cx="38" cy="26" rx="34" ry="18" fill="#06090e" fillOpacity="0.85" />
+        {/* Soft dark grease/roadkill shadow */}
+        <ellipse cx="42" cy="30" rx="38" ry="20" fill="#05080e" fillOpacity="0.88" />
 
-        {/* Flattened Squashed Chicken Body */}
+        {/* Splayed Limp Orange Feet sticking out at bottom */}
+        <ellipse cx="33" cy="46" rx="5.5" ry="3.5" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
+        <ellipse cx="51" cy="46" rx="5.5" ry="3.5" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
+
+        {/* Squashed Flat White Plumage Body */}
         <ellipse
-          cx="38"
-          cy="24"
-          rx="30"
-          ry="14"
-          fill="#cbd5e1"
-          stroke="#475569"
-          strokeWidth="1.5"
+          cx="42"
+          cy="28"
+          rx="34"
+          ry="17"
+          fill="#ffffff"
+          stroke="#cbd5e1"
+          strokeWidth="1.8"
         />
 
-        {/* Flat Outstretched Wings */}
-        <ellipse cx="15" cy="24" rx="12" ry="8" fill="#94a3b8" stroke="#475569" strokeWidth="1" />
-        <ellipse cx="61" cy="24" rx="12" ry="8" fill="#94a3b8" stroke="#475569" strokeWidth="1" />
+        {/* Flattened Underbelly Soft Shading */}
+        <ellipse cx="42" cy="31" rx="28" ry="12" fill="#f1f5f9" />
 
-        {/* Tire Tread Mark printed right across chicken body */}
-        <path
-          d="M20 12 L56 34 M28 10 L64 32 M14 14 L50 36"
-          stroke="#0f172a"
-          strokeWidth="3"
-          strokeDasharray="2.5 3.5"
-          strokeLinecap="round"
-        />
+        {/* Flapped Outstretched Wings to Left and Right */}
+        <ellipse cx="14" cy="27" rx="13" ry="9" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
+        <ellipse cx="70" cy="27" rx="13" ry="9" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
+        <path d="M7 26 C12 24 16 28 12 33" stroke="#94a3b8" strokeWidth="1" />
+        <path d="M77 26 C72 24 68 28 72 33" stroke="#94a3b8" strokeWidth="1" />
 
-        {/* Squashed Beak */}
-        <polygon points="64,24 73,27 64,30" fill="#d97706" />
-
-        {/* Flattened Comb */}
-        <ellipse cx="42" cy="11" rx="7" ry="3.5" fill="#dc2626" />
-
-        {/* "X X" Knocked-Out Eyes */}
-        <g stroke="#1e293b" strokeWidth="2.8" strokeLinecap="round">
-          <line x1="48" y1="17" x2="55" y2="24" />
-          <line x1="55" y1="17" x2="48" y2="24" />
+        {/* Tire Tread Imprint Track stamped cleanly across chicken belly */}
+        <g stroke="#0f172a" strokeWidth="3.2" strokeLinecap="round">
+          <line x1="28" y1="12" x2="36" y2="44" strokeDasharray="3 4" />
+          <line x1="48" y1="12" x2="56" y2="44" strokeDasharray="3 4" />
         </g>
 
-        {/* Feathers on asphalt */}
-        <circle cx="30" cy="9" r="1.8" fill="#f8fafc" />
-        <circle cx="20" cy="32" r="2.2" fill="#f8fafc" />
+        {/* Flopped Red Comb drooping to the top-left */}
+        <path
+          d="M26 14 C22 10 24 6 28 8 C31 7 33 10 32 14 Z"
+          fill="#ef4444"
+          stroke="#b91c1c"
+          strokeWidth="1"
+        />
+
+        {/* Squashed Orange Beak on right */}
+        <polygon
+          points="68,27 78,31 68,35"
+          fill="#f59e0b"
+          stroke="#d97706"
+          strokeWidth="1.2"
+        />
+
+        {/* "X X" Thick Cartoon Dead Eyes */}
+        <g stroke="#0f172a" strokeWidth="3" strokeLinecap="round">
+          {/* Left Eye X */}
+          <line x1="48" y1="21" x2="56" y2="29" />
+          <line x1="56" y1="21" x2="48" y2="29" />
+          {/* Right Eye X */}
+          <line x1="59" y1="20" x2="66" y2="27" />
+          <line x1="66" y1="20" x2="59" y2="27" />
+        </g>
+
+        {/* Scattered loose feathers around roadkill */}
+        <circle cx="20" cy="12" r="2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
+        <circle cx="64" cy="45" r="2.2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
+        <circle cx="24" cy="42" r="1.8" fill="#f8fafc" />
       </svg>
     </div>
   );
@@ -237,32 +258,36 @@ export function ChickenGoldCoin() {
         className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 drop-shadow-xl"
         fill="none"
       >
-        <circle cx="26" cy="27" r="23" fill="#000000" fillOpacity="0.45" />
+        <circle cx="26" cy="27" r="23" fill="#000000" fillOpacity="0.5" />
+        {/* Outer Gold Ring */}
         <circle
           cx="26"
           cy="26"
           r="23"
-          fill="url(#coinOuterGrad)"
+          fill="#f59e0b"
           stroke="#78350f"
-          strokeWidth="1.5"
+          strokeWidth="1.8"
         />
+        {/* Inner Gold Disc */}
         <circle
           cx="26"
           cy="26"
           r="19"
-          fill="url(#coinInnerGrad)"
+          fill="#fbbf24"
           stroke="#b45309"
           strokeWidth="1.2"
         />
+        {/* Dashed Inscription Ring */}
         <circle
           cx="26"
           cy="26"
           r="16.5"
           stroke="#d97706"
-          strokeWidth="1.2"
+          strokeWidth="1.4"
           strokeDasharray="3 3.5"
           fill="none"
         />
+        {/* Chicken Silhouette Stamp in Center */}
         <path
           d="M20 28 C18 24 20 19 25 18 C28 17 32 19 33 22 C35 24 33 27 30 28 C28 29 25 29 23 31 C21 32 19 31 20 28 Z"
           fill="#b45309"
@@ -271,21 +296,6 @@ export function ChickenGoldCoin() {
         />
         <polygon points="32,21 36,23 32,25" fill="#92400e" />
         <circle cx="26" cy="17" r="1.5" fill="#92400e" />
-
-        <defs>
-          <radialGradient id="coinOuterGrad" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#fef08a" />
-            <stop offset="35%" stopColor="#fbbf24" />
-            <stop offset="70%" stopColor="#f59e0b" />
-            <stop offset="100%" stopColor="#d97706" />
-          </radialGradient>
-          <radialGradient id="coinInnerGrad" cx="35%" cy="35%" r="65%">
-            <stop offset="0%" stopColor="#fef3c7" />
-            <stop offset="40%" stopColor="#fde047" />
-            <stop offset="75%" stopColor="#eab308" />
-            <stop offset="100%" stopColor="#ca8a04" />
-          </radialGradient>
-        </defs>
       </svg>
     </div>
   );
@@ -722,12 +732,25 @@ export function ChickenTable({
             const laneNum = idx + 1;
             const isCompleted = currentLane >= laneNum;
             const isCurrent = currentLane === laneNum;
-            const isPassed = currentLane > laneNum;
             const isNext = currentLane === laneNum - 1 && activeRound;
             const isCrashedLane = hazardLane === laneNum;
             const hasChicken = activeChickenLane === laneNum;
 
-            const hasBlockade = isCompleted;
+            // Determines if this lane has been successfully passed/cleared:
+            const isChickenPastThisLane = activeChickenLane > laneNum;
+            const isCompletedPastThisLane = currentLane > laneNum;
+            const isSafelyClearedBeforeCrash = isLoss && hazardLane > 0 && laneNum < hazardLane;
+            const isSettledWin = isSettled && !isLoss && currentLane >= laneNum;
+
+            const shouldShowCoin = !isCrashedLane && (
+              isSafelyClearedBeforeCrash ||
+              isSettledWin ||
+              (activeRound && (isChickenPastThisLane || isCompletedPastThisLane))
+            );
+
+            const isChickenStandingHere = hasChicken && !isCrashedLane;
+
+            const hasBlockade = isCompleted || (isLoss && hazardLane >= laneNum) || (jumping && jumpLane !== null && jumpLane >= laneNum);
             const laneCars = activeTrafficCars.filter((c) => c.lane === laneNum && !hasBlockade && !isCrashedLane);
 
             return (
@@ -774,7 +797,7 @@ export function ChickenTable({
                   )}
 
                   {/* Cute White Chicken ONLY on activeChickenLane */}
-                  {hasChicken && !isCrashedLane && (
+                  {isChickenStandingHere && (
                     <div className={`absolute z-30 flex items-center justify-center ${jumping ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
                       <ChickenSprite isJumping={jumping} />
                     </div>
@@ -790,14 +813,14 @@ export function ChickenTable({
                   )}
 
                   {/* Ground Floor Element:
-                      - If lane is PASSED: Golden Chicken Coin!
-                      - If lane is CURRENT: Clean asphalt under chicken
-                      - If unreached: Sewer Grate base
+                      - If lane is PASSED / CLEARED: Golden Chicken Coin!
+                      - If lane is CURRENT (chicken standing here): Clean asphalt under chicken
+                      - If unreached / ahead: Sewer Grate base
                   */}
                   <div className={`transition-transform duration-200 ${isNext ? "scale-105" : ""}`}>
-                    {isPassed && !isCrashedLane ? (
+                    {shouldShowCoin ? (
                       <ChickenGoldCoin />
-                    ) : isCurrent || isCrashedLane ? null : (
+                    ) : isChickenStandingHere || isCrashedLane ? null : (
                       <SewerGrate
                         isCurrent={false}
                         isPassed={false}
