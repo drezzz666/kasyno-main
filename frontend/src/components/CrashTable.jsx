@@ -20,22 +20,34 @@ export function CrashTable({
   graphPoints = [],
   last,
 }) {
-  const canvasRef = useRef(null);
+  const dimRef = useRef({ width: 640, height: 360, dpr: typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1 });
+
+  // Handle canvas sizing on mount / window resize only (avoids layout thrashing)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const updateSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(320, rect.width || 640);
+      const height = Math.max(180, rect.height || 360);
+      dimRef.current = { width, height, dpr };
+      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+      }
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
 
   // 60FPS Canvas Graph Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = Math.max(320, rect.width || 640);
-    const height = Math.max(180, rect.height || 360);
-
-    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-    }
+    const { width, height, dpr } = dimRef.current;
 
     const ctx = canvas.getContext("2d");
     ctx.resetTransform?.();

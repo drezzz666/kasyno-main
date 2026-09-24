@@ -33,23 +33,28 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
       setIsWinHighlighted(false);
       setStoppedReels([false, false, false, false, false]);
 
-      const intervalSpeed = turbo ? 20 : 45;
+      const intervalSpeed = turbo ? 25 : 45;
+      const stoppedMask = [false, false, false, false, false];
 
-      // Start rapid rolling shuffle for all reels
-      const newIntervals = [0, 1, 2, 3, 4].map((reelIdx) => {
-        return setInterval(() => {
-          setDisplayedReels((prev) => {
-            const next = [...prev];
-            next[reelIdx] = [
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-            ];
-            return next;
-          });
-        }, intervalSpeed);
-      });
-      spinIntervalsRef.current = newIntervals;
+      // Single synchronized rolling loop for active reels (eliminates 80% re-renders)
+      const rollInterval = setInterval(() => {
+        setDisplayedReels((prev) => {
+          let changed = false;
+          const next = [...prev];
+          for (let i = 0; i < 5; i++) {
+            if (!stoppedMask[i]) {
+              changed = true;
+              next[i] = [
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+              ];
+            }
+          }
+          return changed ? next : prev;
+        });
+      }, intervalSpeed);
+      spinIntervalsRef.current = [rollInterval];
 
       // Staggered reel landings (lightning fast in turbo)
       const stopDelays = turbo
@@ -58,11 +63,7 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
 
       const newStopTimers = stopDelays.map((delay, reelIdx) => {
         return setTimeout(() => {
-          // Stop this reel's rapid roll
-          if (spinIntervalsRef.current[reelIdx]) {
-            clearInterval(spinIntervalsRef.current[reelIdx]);
-            spinIntervalsRef.current[reelIdx] = null;
-          }
+          stoppedMask[reelIdx] = true;
 
           // Lock in the final symbols for this reel from current backend round
           const targetReels = lastRef.current?.payload?.reels || currentReels;
@@ -86,8 +87,9 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
           // Play lock sound
           sounds.playPegTick();
 
-          // If last reel locked, check for win animation
+          // If last reel locked, stop roll timer and check for win animation
           if (reelIdx === 4) {
+            clearInterval(rollInterval);
             const round = lastRef.current;
             const hasWon = Boolean(round?.payload?.winning || (round?.payout && round.payout > 0));
             if (hasWon) {
@@ -102,7 +104,7 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
       stopTimersRef.current = newStopTimers;
 
       return () => {
-        spinIntervalsRef.current.forEach((id) => id && clearInterval(id));
+        clearInterval(rollInterval);
         stopTimersRef.current.forEach((id) => id && clearTimeout(id));
       };
     } else {

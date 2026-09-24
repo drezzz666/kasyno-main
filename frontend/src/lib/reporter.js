@@ -52,6 +52,7 @@ export function reportClientError({
       lower.includes("brak aktywnej gry") ||
       lower.includes("masz już aktywną grę") ||
       lower.includes("nieprawidłowa stawka") ||
+      lower.includes("aktywna runda nie istnieje") ||
       lower.includes("wybierz stronę") ||
       lower.includes("wybierz swój gest") ||
       lower.includes("postaw żetony")

@@ -920,7 +920,36 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	move, _ := body["move"].(string)
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
-	if err != nil || activeRound == nil || activeRound.ID != roundID {
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd bazy danych")
+		return
+	}
+	if activeRound == nil || activeRound.ID != roundID {
+		if roundID != "" {
+			settledRound, sErr := h.ledger.GetRoundByID(r.Context(), roundID, p.UserID)
+			if sErr == nil && settledRound != nil && settledRound.State == "settled" {
+				player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+				bal := p.Balance
+				xp := p.XP
+				lvl := p.Level
+				if player != nil {
+					bal = player.Balance
+					xp = player.XP
+					lvl = player.Level
+				}
+				roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
+				JSON(w, http.StatusOK, map[string]interface{}{
+					"ok":             true,
+					"round":          ToPublicRound(settledRound),
+					"balance":        bal,
+					"xp":             xp,
+					"level":          lvl,
+					"roundsToday":    roundsToday,
+					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+				})
+				return
+			}
+		}
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -1099,7 +1128,36 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	move, _ := body["move"].(string)
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
-	if err != nil || activeRound == nil || activeRound.ID != roundID {
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd bazy danych")
+		return
+	}
+	if activeRound == nil || activeRound.ID != roundID {
+		if roundID != "" {
+			settledRound, sErr := h.ledger.GetRoundByID(r.Context(), roundID, p.UserID)
+			if sErr == nil && settledRound != nil && settledRound.State == "settled" {
+				player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+				bal := p.Balance
+				xp := p.XP
+				lvl := p.Level
+				if player != nil {
+					bal = player.Balance
+					xp = player.XP
+					lvl = player.Level
+				}
+				roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
+				JSON(w, http.StatusOK, map[string]interface{}{
+					"ok":             true,
+					"round":          ToPublicRound(settledRound),
+					"balance":        bal,
+					"xp":             xp,
+					"level":          lvl,
+					"roundsToday":    roundsToday,
+					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+				})
+				return
+			}
+		}
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}

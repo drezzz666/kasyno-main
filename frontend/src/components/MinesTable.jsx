@@ -3,15 +3,9 @@ import { money, format } from "../lib/formatters";
 import { Flame, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
 import { sounds } from "../lib/sounds";
 
-// Gem SVG with crisp faceted cuts
-export function GemIcon({ className = "w-7 h-7" }) {
+export function SharedMinesDefs() {
   return (
-    <svg
-      viewBox="0 0 36 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
+    <svg className="sr-only" width="0" height="0" aria-hidden="true">
       <defs>
         <linearGradient id="gem-top" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#6ee7b7" />
@@ -25,7 +19,30 @@ export function GemIcon({ className = "w-7 h-7" }) {
           <stop offset="0%" stopColor="#34d399" />
           <stop offset="100%" stopColor="#059669" />
         </linearGradient>
+        <radialGradient id="mine-sphere" cx="40%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="#475569" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </radialGradient>
+        <radialGradient id="mine-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fca5a5" />
+          <stop offset="40%" stopColor="#ef4444" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
       </defs>
+    </svg>
+  );
+}
+
+// Gem SVG with crisp faceted cuts
+export function GemIcon({ className = "w-7 h-7" }) {
+  return (
+    <svg
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
       {/* Top Facet */}
       <polygon points="12,5 24,5 31,13 5,13" fill="url(#gem-top)" />
       {/* Center Main Facet */}
@@ -51,18 +68,6 @@ export function MineIcon({ className = "w-7 h-7" }) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <defs>
-        <radialGradient id="mine-sphere" cx="40%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="#475569" />
-          <stop offset="50%" stopColor="#1e293b" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </radialGradient>
-        <radialGradient id="mine-core" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fca5a5" />
-          <stop offset="40%" stopColor="#ef4444" />
-          <stop offset="100%" stopColor="#991b1b" />
-        </radialGradient>
-      </defs>
       {/* Spikes / Horns */}
       <rect x="16.5" y="2" width="3" height="6" rx="1.5" fill="#334155" />
       <rect x="16.5" y="28" width="3" height="6" rx="1.5" fill="#334155" />
@@ -226,6 +231,7 @@ export function MinesTable({
 
   return (
     <div className="mines-craft-container">
+      <SharedMinesDefs />
       {/* Authentic Mines HUD Bar */}
       <div className="mines-hud">
         <div className="hud-metric">

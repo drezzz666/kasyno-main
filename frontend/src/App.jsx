@@ -296,7 +296,7 @@ export default function App() {
       setLoading(true);
     }
     try {
-      const j = await postCasinoAction(body);
+      const j = await postCasinoAction(body, opts);
       if (!j) {
         if (!isSilent) setLoading(false);
         return null;
