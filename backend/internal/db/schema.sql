@@ -98,3 +98,20 @@ CREATE TABLE IF NOT EXISTS login_logs (
 CREATE INDEX IF NOT EXISTS idx_login_logs_user_id ON login_logs (user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_login_logs_created_at ON login_logs (created_at);
 
+CREATE TABLE IF NOT EXISTS scheduled_grants (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_users TEXT NOT NULL,
+    amount BIGINT NOT NULL,
+    reason TEXT NOT NULL,
+    cron_expr TEXT NOT NULL,
+    human_schedule TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at BIGINT NOT NULL,
+    last_run_at BIGINT,
+    next_run_at BIGINT,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scheduled_grants_enabled ON scheduled_grants (enabled);
+

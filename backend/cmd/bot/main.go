@@ -14,6 +14,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/db"
 	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
 func connectDB(ctx context.Context, cfg *config.Config) (*db.DB, error) {
@@ -54,9 +55,17 @@ func main() {
 	}
 	defer database.Close()
 
-	ledgerSvc := ledger.NewService(database)
+	// Apply database migrations if needed
+	_ = database.Migrate(ctx)
 
-	bot, err := discordbot.New(cfg, ledgerSvc)
+	ledgerSvc := ledger.NewService(database)
+	schedulerSvc := scheduler.New(cfg, database, ledgerSvc)
+	if err := schedulerSvc.Start(context.Background()); err != nil {
+		log.Printf("⚠️ [Bot] Błąd uruchamiania harmonogramu: %v", err)
+	}
+	defer schedulerSvc.Stop()
+
+	bot, err := discordbot.New(cfg, ledgerSvc, schedulerSvc)
 	if err != nil {
 		log.Fatalf("❌ Błąd inicjalizacji bota Discord: %v", err)
 	}
