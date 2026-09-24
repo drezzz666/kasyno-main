@@ -675,13 +675,34 @@ func parseRevertTimestamp(input string) (time.Time, error) {
 	}
 
 	now := time.Now()
+	inputLower := strings.ToLower(input)
+
+	// Handle keywords with time, e.g. "today 15:30:00", "dzisiaj 14:00:00", "yesterday 20:00:00", "wczoraj 18:30:00"
+	for _, prefix := range []string{"today ", "dzisiaj ", "now "} {
+		if strings.HasPrefix(inputLower, prefix) {
+			timePart := strings.TrimSpace(input[len(prefix):])
+			t, err := parseTimeOnly(timePart, now)
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
+	for _, prefix := range []string{"yesterday ", "wczoraj "} {
+		if strings.HasPrefix(inputLower, prefix) {
+			timePart := strings.TrimSpace(input[len(prefix):])
+			t, err := parseTimeOnly(timePart, now.AddDate(0, 0, -1))
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
 
 	// Relative formats: 10m, 1h, 24h, 2d, 30s, 1d
 	if d, err := time.ParseDuration(input); err == nil {
 		return now.Add(-d), nil
 	}
-	if strings.HasSuffix(strings.ToLower(input), "d") {
-		daysStr := strings.TrimSuffix(strings.ToLower(input), "d")
+	if strings.HasSuffix(inputLower, "d") {
+		daysStr := strings.TrimSuffix(inputLower, "d")
 		if days, err := strconv.Atoi(daysStr); err == nil && days > 0 {
 			return now.AddDate(0, 0, -days), nil
 		}
@@ -713,6 +734,8 @@ func parseRevertTimestamp(input string) (time.Time, error) {
 		"02.01.2006 15:04",
 		"02/01/2006 15:04:05",
 		"02/01/2006 15:04",
+		"2006/01/02 15:04:05",
+		"2006/01/02 15:04",
 		"2006-01-02",
 		"02.01.2006",
 		"02/01/2006",
@@ -724,7 +747,20 @@ func parseRevertTimestamp(input string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("nieobsługiwany format daty. Przykłady: '15:30', '2026-09-24 14:00', '24.09.2026 14:00', '1h', '30m', '1d'")
+	return time.Time{}, fmt.Errorf("nieobsługiwany format daty. Przykłady: '2026-09-24 15:30:00', '24.09.2026 15:30:00', '15:30:00'")
+}
+
+func parseTimeOnly(input string, baseDate time.Time) (time.Time, error) {
+	input = strings.TrimSpace(input)
+	layout := "15:04"
+	if strings.Count(input, ":") >= 2 {
+		layout = "15:04:05"
+	}
+	t, err := time.ParseInLocation(layout, input, time.Local)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local), nil
 }
 
 func (b *Bot) executeRevertMoney(ctx context.Context, identifier string, untilStr string, reason string) *discordgo.MessageEmbed {

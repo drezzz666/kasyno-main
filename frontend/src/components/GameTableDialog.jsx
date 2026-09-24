@@ -139,6 +139,7 @@ export function GameTableDialog({
   const crashAnimRef = useRef(null);
   // Chicken states
   const [chickenDifficulty, setChickenDifficulty] = useState("easy");
+  const [chickenBusy, setChickenBusy] = useState(false);
 
   // Unified Round Outcome Modal (Win, Push, Loss)
   const [outcomeData, setOutcomeData] = useState(null);
@@ -170,6 +171,8 @@ export function GameTableDialog({
       isShootingRPS ||
       limboAnimating ||
       crashPlaying ||
+      chickenBusy ||
+      outcomeData ||
       animatingRef?.current
   );
 
@@ -314,6 +317,10 @@ export function GameTableDialog({
   };
 
   const start = async () => {
+    if (isBusy || outcomeData || chickenBusy) {
+      return;
+    }
+
     const now = Date.now();
     const cooldown = game === "plinko" ? 250 : 1000;
     if (now - lastActionTimeRef.current < cooldown) {
@@ -746,6 +753,8 @@ export function GameTableDialog({
                   setDifficulty={setChickenDifficulty}
                   turbo={turbo}
                   triggerOutcome={triggerOutcome}
+                  animatingRef={animatingRef}
+                  onBusyChange={setChickenBusy}
                 />
               )}
 
@@ -948,6 +957,8 @@ export function GameTableDialog({
 
                   const getPlayButtonText = () => {
                     if (!tosAccepted) return "Zaakceptuj regulamin, aby zagrać";
+                    if (outcomeData) return "Wynik rundy…";
+                    if (chickenBusy) return "Koniec rundy…";
                     if (spinning) return "Koło się kręci…";
                     if (slotsSpinning) return "Bębny w ruchu…";
                     if (isFlipping) return "Moneta w locie…";

@@ -100,7 +100,7 @@ var slashCommands = []*discordgo.ApplicationCommand{
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "revert",
-				Description: "Rollback player balances and delete transactions back to a date & time",
+				Description: "Rollback player balances and delete records back to a date and time with seconds",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
 						Type:         discordgo.ApplicationCommandOptionString,
@@ -111,8 +111,14 @@ var slashCommands = []*discordgo.ApplicationCommand{
 					},
 					{
 						Type:        discordgo.ApplicationCommandOptionString,
-						Name:        "until",
-						Description: "Target time to rollback to (e.g. '15:30', '2026-09-24 14:00', '1h', '30m')",
+						Name:        "date",
+						Description: "Date to rollback to (e.g. 2026-09-24, 24.09.2026, or 'today')",
+						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "time",
+						Description: "Time with seconds (e.g. 15:30:00, 14:05:30, or 12:00:00)",
 						Required:    true,
 					},
 					{
@@ -495,14 +501,18 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		b.respondInteraction(s, i, b.buildHelpEmbed(true))
 
 	case "money":
-		var gracz, until, powod string
+		var gracz, dateStr, timeStr, until, powod string
 		var kwota int64
 		for _, opt := range options {
 			if opt.Name == "player" || opt.Name == "gracz" {
 				gracz = opt.StringValue()
 			} else if opt.Name == "amount" || opt.Name == "kwota" {
 				kwota = opt.IntValue()
-			} else if opt.Name == "until" || opt.Name == "do" || opt.Name == "data" {
+			} else if opt.Name == "date" || opt.Name == "data" {
+				dateStr = opt.StringValue()
+			} else if opt.Name == "time" || opt.Name == "godzina" || opt.Name == "czas" {
+				timeStr = opt.StringValue()
+			} else if opt.Name == "until" || opt.Name == "do" {
 				until = opt.StringValue()
 			} else if opt.Name == "reason" || opt.Name == "powod" {
 				powod = opt.StringValue()
@@ -525,21 +535,41 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 			}
 			b.respondInteraction(s, i, b.executeSetMoney(ctx, gracz, kwota, powod))
 		case "revert":
-			b.respondInteraction(s, i, b.executeRevertMoney(ctx, gracz, until, powod))
+			targetTimeInput := until
+			if dateStr != "" && timeStr != "" {
+				targetTimeInput = dateStr + " " + timeStr
+			} else if dateStr != "" {
+				targetTimeInput = dateStr
+			} else if timeStr != "" {
+				targetTimeInput = timeStr
+			}
+			b.respondInteraction(s, i, b.executeRevertMoney(ctx, gracz, targetTimeInput, powod))
 		}
 
 	case "money-revert", "revert":
-		var gracz, until, powod string
+		var gracz, dateStr, timeStr, until, powod string
 		for _, opt := range options {
 			if opt.Name == "player" || opt.Name == "gracz" {
 				gracz = opt.StringValue()
-			} else if opt.Name == "until" || opt.Name == "do" || opt.Name == "data" {
+			} else if opt.Name == "date" || opt.Name == "data" {
+				dateStr = opt.StringValue()
+			} else if opt.Name == "time" || opt.Name == "godzina" || opt.Name == "czas" {
+				timeStr = opt.StringValue()
+			} else if opt.Name == "until" || opt.Name == "do" {
 				until = opt.StringValue()
 			} else if opt.Name == "reason" || opt.Name == "powod" {
 				powod = opt.StringValue()
 			}
 		}
-		b.respondInteraction(s, i, b.executeRevertMoney(ctx, gracz, until, powod))
+		targetTimeInput := until
+		if dateStr != "" && timeStr != "" {
+			targetTimeInput = dateStr + " " + timeStr
+		} else if dateStr != "" {
+			targetTimeInput = dateStr
+		} else if timeStr != "" {
+			targetTimeInput = timeStr
+		}
+		b.respondInteraction(s, i, b.executeRevertMoney(ctx, gracz, targetTimeInput, powod))
 
 	case "money-add", "dodaj-kase", "casino-money-add":
 		var gracz, powod string

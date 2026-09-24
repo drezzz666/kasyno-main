@@ -167,12 +167,15 @@ export function ChickenTable({
   setDifficulty,
   turbo,
   triggerOutcome,
+  animatingRef,
+  onBusyChange,
 }) {
   const [jumping, setJumping] = useState(false);
   const [jumpLane, setJumpLane] = useState(null);
   const [cashingOut, setCashingOut] = useState(false);
   const [crashAnim, setCrashAnim] = useState(null); // { active: bool, lane: int, type: string }
   const roadContainerRef = useRef(null);
+  const outcomeTimeoutRef = useRef(null);
 
   const activeRound = round?.game === "chicken" ? round : null;
   const isSettled = !activeRound && last?.game === "chicken" && last?.state === "settled";
@@ -200,6 +203,17 @@ export function ChickenTable({
   // Track active round id to detect when a brand new game starts
   const prevRoundIdRef = useRef(null);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (outcomeTimeoutRef.current) {
+        clearTimeout(outcomeTimeoutRef.current);
+      }
+      if (animatingRef) animatingRef.current = false;
+      if (onBusyChange) onBusyChange(false);
+    };
+  }, []);
+
   // Auto-scroll logic: Only scroll LEFT on a brand new game start.
   // During active play follow chicken, and on loss/crash STAY on the crash lane!
   useEffect(() => {
@@ -208,6 +222,12 @@ export function ChickenTable({
     const isNewGameStarting = activeRound && activeRound.id !== prevRoundIdRef.current;
     if (isNewGameStarting) {
       prevRoundIdRef.current = activeRound.id;
+      if (outcomeTimeoutRef.current) {
+        clearTimeout(outcomeTimeoutRef.current);
+        outcomeTimeoutRef.current = null;
+      }
+      if (animatingRef) animatingRef.current = false;
+      if (onBusyChange) onBusyChange(false);
       setCrashAnim(null);
       setJumping(false);
       setJumpLane(null);
@@ -242,6 +262,9 @@ export function ChickenTable({
     try {
       const res = await post({ action: "chicken", roundId: activeRound.id, move: "step", lane: nextTarget });
       if (res?.round?.state === "settled") {
+        if (animatingRef) animatingRef.current = true;
+        if (onBusyChange) onBusyChange(true);
+
         if (res.round.payout === 0) {
           // LOSS: Trigger car crash animation on nextTarget!
           const hazType = res.round.payload?.hazardType || "police_car";
@@ -258,14 +281,20 @@ export function ChickenTable({
 
           // Delay the outcome popup so user sees the car run over the chicken first!
           const delay = turbo ? 800 : 1400;
-          setTimeout(() => {
+          if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
+          outcomeTimeoutRef.current = setTimeout(() => {
+            if (animatingRef) animatingRef.current = false;
+            if (onBusyChange) onBusyChange(false);
             if (triggerOutcome) triggerOutcome(res.round);
           }, delay);
         } else {
           // WIN / FINISH
           sounds.playGemReveal(1.8);
           const delay = turbo ? 300 : 600;
-          setTimeout(() => {
+          if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
+          outcomeTimeoutRef.current = setTimeout(() => {
+            if (animatingRef) animatingRef.current = false;
+            if (onBusyChange) onBusyChange(false);
             if (triggerOutcome) triggerOutcome(res.round);
           }, delay);
         }
@@ -290,8 +319,13 @@ export function ChickenTable({
     try {
       const res = await post({ action: "chicken", roundId: activeRound.id, move: "cashout" });
       if (res?.round) {
+        if (animatingRef) animatingRef.current = true;
+        if (onBusyChange) onBusyChange(true);
         const delay = turbo ? 200 : 400;
-        setTimeout(() => {
+        if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
+        outcomeTimeoutRef.current = setTimeout(() => {
+          if (animatingRef) animatingRef.current = false;
+          if (onBusyChange) onBusyChange(false);
           if (triggerOutcome) triggerOutcome(res.round);
         }, delay);
       }
