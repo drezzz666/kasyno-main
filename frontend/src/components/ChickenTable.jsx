@@ -191,6 +191,12 @@ export function ChickenTable({
   const currentProfit = Math.floor(currentBet * currentMult);
   const isLoss = (isSettled && last?.payout === 0) || Boolean(crashAnim);
 
+  // EXACTLY ONE single active lane for the chicken:
+  // If crash/loss: -1 (rendered inside crash scene on hazardLane)
+  // If jumping: jumpLane
+  // Otherwise: currentLane
+  const activeChickenLane = isLoss ? -1 : (jumping && jumpLane !== null ? jumpLane : currentLane);
+
   // Auto-scroll logic: on new game/start line scroll immediately to LEFT (0), else follow chicken smoothly
   useEffect(() => {
     if (roadContainerRef.current) {
@@ -229,7 +235,7 @@ export function ChickenTable({
       const res = await post({ action: "chicken", roundId: activeRound.id, move: "step", lane: nextTarget });
       if (res?.round?.state === "settled") {
         if (res.round.payout === 0) {
-          // LOSS: Trigger car crash animation first!
+          // LOSS: Trigger car crash animation on nextTarget!
           const hazType = res.round.payload?.hazardType || "police_car";
           setCrashAnim({ active: true, lane: nextTarget, type: hazType });
           sounds.playExplosion();
@@ -307,9 +313,9 @@ export function ChickenTable({
             ))}
           </div>
 
-          {/* Chicken at Start Line */}
-          {currentLane === 0 && !isSettled && (
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-bounce">
+          {/* Chicken on Sidewalk ONLY if activeChickenLane === 0 */}
+          {activeChickenLane === 0 && !isLoss && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-chicken-hop">
               <ChickenSprite isJumping={jumping} />
             </div>
           )}
@@ -328,7 +334,7 @@ export function ChickenTable({
             const isCurrent = currentLane === laneNum;
             const isNext = currentLane === laneNum - 1 && activeRound;
             const isCrashedLane = hazardLane === laneNum;
-            const isJumpTarget = jumping && jumpLane === laneNum;
+            const hasChicken = activeChickenLane === laneNum;
 
             return (
               <div
@@ -352,7 +358,7 @@ export function ChickenTable({
                   )}
                 </div>
 
-                {/* Center Road Element: Sewer Grate / Chicken / Police Car Crash */}
+                {/* Center Road Element: Sewer Grate / Single Chicken / Police Car Crash */}
                 <div className="relative flex flex-col items-center justify-center my-auto w-full">
                   {/* Police Car or Fire Hazard on Crash */}
                   {isCrashedLane && (
@@ -373,15 +379,15 @@ export function ChickenTable({
                     </div>
                   )}
 
-                  {/* Chicken standing or jumping onto lane */}
-                  {(isCurrent || isJumpTarget) && !isCrashedLane && (
-                    <div className={`absolute z-30 flex items-center justify-center ${isJumpTarget ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
-                      <ChickenSprite isJumping={isJumpTarget} />
+                  {/* Chicken ONLY on activeChickenLane */}
+                  {hasChicken && !isCrashedLane && (
+                    <div className={`absolute z-30 flex items-center justify-center ${jumping ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
+                      <ChickenSprite isJumping={jumping} />
                     </div>
                   )}
 
-                  {/* Next Step GO Arrow Indicator */}
-                  {isNext && !isCrashedLane && !isJumpTarget && (
+                  {/* Next Step GO Arrow Indicator (shown only when no chicken on this lane) */}
+                  {isNext && !isCrashedLane && !hasChicken && (
                     <div className="absolute -top-7 z-20 flex flex-col items-center animate-bounce">
                       <span className="text-[9px] font-bold text-amber-400 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/40">
                         GO
@@ -400,7 +406,7 @@ export function ChickenTable({
                   </div>
                 </div>
 
-                {/* Bottom Multiplier Pill Badge (Matching Stake style with sub-1.0x indicator) */}
+                {/* Bottom Multiplier Pill Badge */}
                 <div
                   className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition-all shadow-md ${
                     isCrashedLane
@@ -438,7 +444,7 @@ export function ChickenTable({
             <span className="text-base font-bold font-mono text-emerald-400">
               {money(currentProfit)}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+            <span className={`text-xs px-2 py-0.5 rounded font-bold border ${currentMult < 1.00 ? "bg-orange-500/20 text-orange-300 border-orange-500/40" : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"}`}>
               ×{currentMult.toFixed(2)}
             </span>
           </div>
