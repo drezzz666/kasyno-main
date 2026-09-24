@@ -157,7 +157,7 @@ export function RoundOutcomeModal({
           <span className={`win-counter-number font-mono font-black ${isLoss ? "text-rose-400" : isPush ? "text-sky-400" : "text-amber-400"}`}>
             {isWin ? `+${format(displayAmount)}` : isPush ? `${format(payout)}` : `-${format(bet)}`}
           </span>
-          <span className="win-counter-currency font-display">$FGT</span>
+          <span className="win-counter-currency font-display">zł</span>
         </div>
 
         {/* Result description */}

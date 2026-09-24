@@ -50,7 +50,7 @@ export function TosAcceptModal({ open, onAccept, onReadMore }) {
             </div>
             <div>
               <span className="tos-highlight-title">0 PLN Wartości</span>
-              <p className="tos-highlight-desc">Żetony $FGT są w 100% wirtualne i nie podlegają wypłatom.</p>
+              <p className="tos-highlight-desc">Środki w grze są w 100% wirtualne i nie podlegają wypłatom.</p>
             </div>
           </div>
 
@@ -74,7 +74,7 @@ export function TosAcceptModal({ open, onAccept, onReadMore }) {
               className="tos-check-input"
             />
             <span className="tos-check-label">
-              Rozumiem, że gry mają charakter <strong>czysto rozrywkowy</strong>, a żetony $FGT nie mają wartości pieniężnej.
+              Rozumiem, że gry mają charakter <strong>czysto rozrywkowy</strong>, a wirtualne środki (zł) nie mają realnej wartości pieniężnej.
             </span>
           </label>
 

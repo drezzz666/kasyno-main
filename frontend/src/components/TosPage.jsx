@@ -51,7 +51,7 @@ export function TosPage({ onBack, onAccept, accepted }) {
         <h1 className="tos-hero-title">Regulamin Kasyna Klubowego 2FGT</h1>
         <p className="tos-hero-desc">
           Zasady korzystania z platformy rozrywkowej, mechanizmy Provably Fair, polityka antybotowa
-          oraz warunki posługiwania się wirtualnymi żetonami $FGT.
+          oraz warunki posługiwania się wirtualnymi środkami (zł).
         </p>
       </header>
 
@@ -81,7 +81,7 @@ export function TosPage({ onBack, onAccept, accepted }) {
                 className={`tos-toc-link ${activeSection === "currency" ? "active" : ""}`}
                 onClick={() => scrollTo("currency")}
               >
-                3. Wirtualna Waluta $FGT
+                3. Wirtualna Waluta (zł)
               </button>
               <button
                 type="button"
@@ -182,20 +182,20 @@ export function TosPage({ onBack, onAccept, accepted }) {
             <div className="tos-section-header">
               <div className="tos-section-num">03</div>
               <div>
-                <h2>Status Wirtualnej Waluty $FGT</h2>
+                <h2>Status Wirtualnej Waluty Kasyna (zł)</h2>
                 <p className="tos-section-lead">Brak wartości materialnej i reguły dystrybucji</p>
               </div>
             </div>
             <div className="tos-section-text">
               <p>
-                Waluta <strong>$FGT (Fidget Tokens)</strong> jest wewnętrznym punktem symulacyjnym, generowanym
+                Wirtualne środki <strong>(zł)</strong> są wyłącznie punktami symulacyjnymi, generowanymi
                 automatycznie przez serwer.
               </p>
               <div className="tos-key-facts-grid">
                 <div className="tos-fact-box">
                   <Coins size={20} className="text-amber-400" />
                   <b>0 PLN wartości</b>
-                  <span>Tokeny nie mogą być sprzedawane, wymieniane ani spieniężane.</span>
+                  <span>Punkty nie mogą być sprzedawane, wymieniane ani spieniężane.</span>
                 </div>
                 <div className="tos-fact-box">
                   <Flame size={20} className="text-rose-400" />
@@ -273,6 +273,11 @@ export function TosPage({ onBack, onAccept, accepted }) {
                   <span className="tos-game-cell-rtp">RTP 99.0%</span>
                   <span className="tos-game-cell-desc">Mnożnik rosnący w czasie rzeczywistym z punktem rozbicia.</span>
                 </div>
+                <div className="tos-game-row">
+                  <span className="tos-game-cell-name">Chicken Cross</span>
+                  <span className="tos-game-cell-rtp">RTP 95.0%</span>
+                  <span className="tos-game-cell-desc">10 pasów ruchu, 4 poziomy trudności (do ×4000).</span>
+                </div>
               </div>
             </div>
           </section>
@@ -326,12 +331,12 @@ export function TosPage({ onBack, onAccept, accepted }) {
                   zadań na każde okno czasowe (00:00, 06:00, 12:00, 18:00 UTC).
                 </li>
                 <li>
-                  <strong>Nagrody za misje:</strong> Ukończenie zadania zasila konto żetonami $FGT oraz punktami
+                  <strong>Nagrody za misje:</strong> Ukończenie zadania zasila konto wirtualnymi złotymi oraz punktami
                   doświadczenia XP.
                 </li>
                 <li>
-                  <strong>Bonus dzienny (Streak):</strong> Logowanie dzień po dniu zwiększa mnożnik bonusu
-                  dziennego aż do 1,000 $FGT.
+                  <strong>Bonus dzienny (Streak):</strong> Logowanie dzień po dniu zwiększa kwotę bonusu
+                  dziennego aż do 20,00 zł.
                 </li>
               </ul>
             </div>
