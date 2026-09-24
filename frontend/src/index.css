@@ -3759,11 +3759,16 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, #94a3b8 50%, #475569 90%, #334155 100%);
-  border: 2px solid #cbd5e1;
+  background: radial-gradient(circle, #cbd5e1 40%, #64748b 80%, #334155 100%);
+  border: 1px solid #94a3b8;
   pointer-events: none;
   opacity: 0.95;
 }
+
+.coin-edge-1 { transform: translateZ(-2px); }
+.coin-edge-2 { transform: translateZ(-1px); }
+.coin-edge-3 { transform: translateZ(1px); }
+.coin-edge-4 { transform: translateZ(2px); }
 
 .coin-face-polish {
   position: absolute;
@@ -3782,11 +3787,11 @@ body {
 }
 
 .coin-face-polish.coin-front {
-  transform: rotateY(0deg) translateZ(4px);
+  transform: rotateY(0deg) translateZ(3px);
 }
 
 .coin-face-polish.coin-back {
-  transform: rotateY(180deg) translateZ(4px);
+  transform: rotateY(180deg) translateZ(3px);
 }
 
 .coin-metallic-sheen {
