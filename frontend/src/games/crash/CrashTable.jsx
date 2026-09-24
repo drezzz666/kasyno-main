@@ -1,15 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Rocket, Zap, Target } from "lucide-react";
+import React, { useEffect, useRef } from "react";
 import { money } from "../../lib/formatters";
-
-const CRASH_PRESETS = [
-  { label: "1.2×", val: 1.2 },
-  { label: "1.5×", val: 1.5 },
-  { label: "2.0×", val: 2.0 },
-  { label: "3.0×", val: 3.0 },
-  { label: "5.0×", val: 5.0 },
-  { label: "10.0×", val: 10.0 },
-];
 
 export function CrashTable({
   bet,

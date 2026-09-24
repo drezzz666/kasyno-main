@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Trash2, Flame } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 export const wheelOrder = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
@@ -106,11 +106,6 @@ export function RouletteWheelVisual({
     </div>
   );
 }
-
-// 3 rows of European roulette numbers
-const ROW_3 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
-const ROW_2 = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35];
-const ROW_1 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
 
 export function RouletteBets({
   selectedBets = new Set(),

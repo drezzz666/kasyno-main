@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ShieldCheck, RefreshCw, Sparkles, CheckCircle, AlertCircle, Coins, Lock } from "lucide-react";
+import { RefreshCw, Sparkles, CheckCircle, AlertCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
-import { format } from "../lib/formatters";
 import { toast } from "sonner";
 import { postCasinoAction } from "../lib/api";
 

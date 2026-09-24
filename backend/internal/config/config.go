@@ -117,18 +117,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func getEnvBool(key string, fallback bool) bool {
-	val := os.Getenv(key)
-	if val == "" {
-		return fallback
-	}
-	b, err := strconv.ParseBool(val)
-	if err != nil {
-		return fallback
-	}
-	return b
-}
-
 func getEnvInt(key string, fallback int) int {
 	val := os.Getenv(key)
 	if val == "" {

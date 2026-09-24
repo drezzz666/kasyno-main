@@ -1,6 +1,6 @@
 export { BlackjackTable } from "./blackjack/BlackjackTable";
 export { ChickenTable, CHICKEN_MULTIPLIERS } from "./chicken/ChickenTable";
-export { CoinflipTable, PolishEagleAwers, PolishZlotyRewers } from "./coinflip/CoinflipTable";
+export { CoinflipTable } from "./coinflip/CoinflipTable";
 export { CrashTable } from "./crash/CrashTable";
 export { LimboTable } from "./limbo/LimboTable";
 export { MinesTable, SharedMinesDefs } from "./mines/MinesTable";

@@ -1,5 +1,5 @@
 import React from "react";
-import { ShieldCheck, Zap, X, FileText, ChevronRight, Scale, Lock } from "lucide-react";
+import { ShieldCheck, Zap, X, ChevronRight, Scale, Lock } from "lucide-react";
 
 export function InfoModal({ open, onClose, onOpenTos }) {
   if (!open) return null;

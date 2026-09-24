@@ -113,15 +113,6 @@ export function GameTableDialog({
     });
   };
 
-  const handleRouletteSelectAll = () => {
-    setSpinResult(null);
-    const all = new Set();
-    for (let i = 0; i <= 36; i++) {
-      all.add(String(i));
-    }
-    setRouletteSelected(all);
-  };
-
   const handleRouletteClear = () => {
     setSpinResult(null);
     setRouletteSelected(new Set());

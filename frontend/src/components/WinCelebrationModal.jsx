@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import confetti from "canvas-confetti";
-import { format, money } from "../lib/formatters";
+import { format } from "../lib/formatters";
 import { sounds } from "../lib/sounds";
 import { Sparkles, Trophy, Flame, Zap, Check } from "lucide-react";
 

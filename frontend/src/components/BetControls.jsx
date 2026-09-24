@@ -26,7 +26,6 @@ const CHIP_PRESETS = [
 
 export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
   const userBalance = typeof maxBalance === "number" && !isNaN(maxBalance) ? Math.max(0, maxBalance) : 0;
-  const safeMax = userBalance > 0 ? userBalance : 1000000;
 
   const [inputVal, setInputVal] = React.useState(String(bet ?? 1));
 

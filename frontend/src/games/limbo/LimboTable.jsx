@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Zap, Target, HelpCircle, Flame } from "lucide-react";
+import { Target } from "lucide-react";
 
 const TARGET_PRESETS = [
   { label: "1.50×", val: 1.5 },

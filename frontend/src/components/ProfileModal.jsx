@@ -1,5 +1,5 @@
 import React from "react";
-import { History, LogOut, X, Trophy, TrendingUp, Sparkles, Coins } from "lucide-react";
+import { History, LogOut, X, Trophy } from "lucide-react";
 import { format, money } from "../lib/formatters";
 
 export function ProfileModal({

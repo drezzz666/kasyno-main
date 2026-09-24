@@ -1,4 +1,4 @@
-import { ShieldCheck, Sparkles, Gift, Dices } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { CaptchaMinigame } from "./CaptchaMinigame";
 
 /**

@@ -273,13 +273,6 @@ func (b *Bot) isAdmin(m *discordgo.Member, userID string) bool {
 	return false
 }
 
-func limitStr(s string, max int) string {
-	if len(s) > max {
-		return s[:max-3] + "..."
-	}
-	return s
-}
-
 func isValidHttpURL(raw string) bool {
 	if raw == "" {
 		return false
