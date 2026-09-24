@@ -3368,12 +3368,26 @@ body {
   overflow: hidden;
 }
 
-/* --- UPGRADER FULL-WIDTH EXPANSIVE LAYOUT --- */
+/* --- UPGRADER FULL-WIDTH EXPANSIVE LAYOUT (Desktop) --- */
 .game-dialog-box.is-upgrader-dialog {
   max-width: 1200px !important;
   width: 98vw !important;
   max-height: 96vh !important;
   overflow-y: auto !important;
+}
+
+/* On mobile: upgrader takes full screen like every other game */
+@media (max-width: 859px) {
+  .game-dialog-box.is-upgrader-dialog {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
 }
 
 .game-table-body.horizontal-layout.is-upgrader-layout {
@@ -3385,6 +3399,16 @@ body {
   min-height: 0 !important;
   padding: 0.5rem !important;
   overflow-y: auto !important;
+}
+
+/* On mobile: upgrader scrolls within remaining height after header */
+@media (max-width: 859px) {
+  .game-table-body.horizontal-layout.is-upgrader-layout {
+    height: calc(100dvh - 46px) !important;
+    max-height: calc(100dvh - 46px) !important;
+    overflow-y: auto !important;
+    padding: 0.35rem !important;
+  }
 }
 
 .is-upgrader-layout .game-visual-column {

@@ -118,134 +118,12 @@ export function UpgraderTable({
     rollType === "under" ? (winChance / 100) * 360 : ((100 - winChance) / 100) * 360;
 
   return (
-    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-2 sm:p-4 md:p-6 gap-2.5 sm:gap-6">
-      {/* Responsive Grid: On mobile stacks cleanly, on desktop expansive 3 columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 sm:gap-6 items-stretch">
+    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 gap-2 sm:gap-6">
+      {/* Responsive Grid: Stacks cleanly on mobile with button higher up, expansive 3 columns on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 items-stretch">
         
-        {/* Box 1: Left Inputs & Multipliers (Mobile Order 2, Desktop Order 1, 4 cols) */}
-        <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col justify-between p-3.5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3 sm:gap-5">
-          {/* Stawka Section */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
-                Stawka
-              </span>
-            </div>
-
-            {/* Bet Input */}
-            <div className="relative flex items-center mb-2 sm:mb-3">
-              <input
-                type="number"
-                min="1"
-                max={maxBalance || 1000000}
-                value={bet}
-                disabled={loading || spinning}
-                onChange={(e) => {
-                  const v = Math.max(1, parseInt(e.target.value) || 1);
-                  setBet(v);
-                }}
-                className="w-full px-3.5 py-2.5 sm:py-3.5 rounded-lg sm:rounded-xl bg-[#131d2e] border-2 border-slate-700/80 text-white font-mono font-black text-base sm:text-xl focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
-              />
-              <span className="absolute right-3.5 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
-                $FGT
-              </span>
-            </div>
-
-            {/* Quick Bet Buttons */}
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet(10)}
-                className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                Min
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
-                className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                ½
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() =>
-                  setBet((b) =>
-                    Math.min(maxBalance || 1000000, Math.floor(b * 2))
-                  )
-                }
-                className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                2×
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet(maxBalance || 100)}
-                className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                Max
-              </button>
-            </div>
-          </div>
-
-          {/* Multiplier Presets */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
-                Wybierz Mnożnik
-              </span>
-            </div>
-
-            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-              {MULTIPLIER_PRESETS.map((p) => {
-                const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
-                return (
-                  <button
-                    key={p.label}
-                    type="button"
-                    disabled={loading || spinning}
-                    onClick={() => setTarget(p.val)}
-                    className={`py-2 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-102 border-2 border-amber-300"
-                        : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Custom Multiplier Input */}
-            <div className="relative flex items-center">
-              <input
-                type="number"
-                step="0.05"
-                min="1.05"
-                max="10000"
-                value={target}
-                disabled={loading || spinning}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setTarget(isNaN(v) ? 2.0 : v);
-                }}
-                className="w-full px-3.5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border-2 border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
-                placeholder="Własny mnożnik..."
-              />
-              <span className="absolute right-3.5 text-xs font-black text-slate-400 pointer-events-none">
-                × cel
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Box 2: Center Grand Gauge Wheel + Integrated Roll Mode (Mobile Order 1, Desktop Order 2, 4 cols) */}
-        <div className="order-1 lg:order-2 lg:col-span-4 flex flex-col items-center justify-between p-3 sm:p-6 rounded-xl sm:rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[260px] sm:min-h-[420px] md:min-h-[460px] gap-2">
+        {/* Box 2 (Wheel): Mobile Order 1, Desktop Order 2, 4 cols */}
+        <div className="order-1 lg:order-2 lg:col-span-4 flex flex-col items-center justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden sm:min-h-[420px] md:min-h-[460px] gap-1.5 sm:gap-2">
           {/* Ambient Glow */}
           <div
             className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
@@ -260,12 +138,12 @@ export function UpgraderTable({
           />
 
           {/* Compact Roll Mode Selector at top of the wheel */}
-          <div className="z-20 flex items-center bg-[#131d2e] p-1 rounded-xl border border-slate-700/80 shadow-md">
+          <div className="z-20 flex items-center bg-[#131d2e] p-0.5 sm:p-1 rounded-xl border border-slate-700/80 shadow-md">
             <button
               type="button"
               disabled={loading || spinning}
               onClick={() => setRollType("under")}
-              className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                 rollType === "under"
                   ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
                   : "text-slate-400 hover:text-white"
@@ -278,7 +156,7 @@ export function UpgraderTable({
               type="button"
               disabled={loading || spinning}
               onClick={() => setRollType("over")}
-              className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                 rollType === "over"
                   ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
                   : "text-slate-400 hover:text-white"
@@ -289,8 +167,8 @@ export function UpgraderTable({
             </button>
           </div>
 
-          {/* Wheel Container (Compact on phone, huge on PC) */}
-          <div className="relative w-48 h-48 xs:w-56 xs:h-56 sm:w-80 sm:h-80 md:w-92 md:h-92 lg:w-[360px] lg:h-[360px] flex items-center justify-center my-auto">
+          {/* Wheel Container — responsive, fills available space on mobile */}
+          <div className="relative w-[min(54vw,220px)] h-[min(54vw,220px)] xs:w-[min(60vw,240px)] xs:h-[min(60vw,240px)] sm:w-80 sm:h-80 md:w-92 md:h-92 lg:w-[360px] lg:h-[360px] flex items-center justify-center">
             <svg
               viewBox="0 0 320 320"
               className="w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl"
@@ -379,7 +257,7 @@ export function UpgraderTable({
               </span>
 
               {/* Stake Badge */}
-              <div className="mt-1.5 sm:mt-3 px-3 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
+              <div className="mt-1 sm:mt-3 px-2.5 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
                 <span className="text-xs sm:text-sm font-mono font-black text-amber-400">
                   {money(bet)}
                 </span>
@@ -393,7 +271,7 @@ export function UpgraderTable({
           {/* Outcome Banner */}
           {lastOutcome && !spinning && (
             <div
-              className={`z-20 px-3 sm:px-5 py-1 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
+              className={`z-20 px-2.5 sm:px-5 py-1 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
                 lastOutcome.won
                   ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
                   : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
@@ -408,27 +286,34 @@ export function UpgraderTable({
           )}
         </div>
 
-        {/* Box 3: Potential Win & Big UPGRADE Button (Mobile Order 3, Desktop Order 3, 4 cols) */}
-        <div className="order-3 lg:order-3 lg:col-span-4 flex flex-col justify-between p-3.5 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3 sm:gap-5">
+        {/* Box 3 (Możliwa Wygrana + UPGRADE Action Button): Mobile Order 2 (HIGH UP), Desktop Order 3, 4 cols */}
+        <div className="order-2 lg:order-3 lg:col-span-4 flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-1.5 sm:gap-5">
           <div>
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Możliwa Wygrana
+              </span>
+              <span className="sm:hidden text-[11px] font-bold text-slate-400">
+                ×{clampedTarget.toFixed(2)}
               </span>
             </div>
 
-            {/* Target Display Card */}
-            <div className="p-4 sm:p-8 rounded-xl sm:rounded-2xl bg-[#131d2e] border-2 border-slate-700/80 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">
+            {/* Compact Potential Win Card */}
+            <div className="px-3 py-2 sm:p-8 rounded-lg sm:rounded-2xl bg-[#131d2e] border border-slate-700/80 sm:border-2 flex flex-row sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center shadow-inner">
+              <div className="sm:hidden flex flex-col">
+                <span className="text-xs text-slate-400 font-medium">Zysk:</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">+{money(Math.max(0, potentialPayout - bet))}</span>
+              </div>
+              <span className="text-xl xs:text-2xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">
                 {money(potentialPayout)}
               </span>
-              <span className="text-xs sm:text-sm font-bold text-slate-400 mt-1 sm:mt-2">
+              <span className="hidden sm:inline-block text-xs sm:text-sm font-bold text-slate-400 mt-1 sm:mt-2">
                 Mnożnik: <strong className="text-white">×{clampedTarget.toFixed(2)}</strong> • Zysk: +{money(Math.max(0, potentialPayout - bet))}
               </span>
             </div>
           </div>
 
-          {/* Large Glowing Gold UPGRADE Button */}
+          {/* Large Glowing Gold UPGRADE Button (Elevated on Mobile) */}
           <button
             type="button"
             disabled={loading || spinning || bet > maxBalance}
@@ -440,7 +325,7 @@ export function UpgraderTable({
                 });
               }
             }}
-            className={`w-full py-3.5 sm:py-5 rounded-xl sm:rounded-2xl font-black text-lg sm:text-2xl flex items-center justify-center gap-2.5 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
+            className={`w-full py-3 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
               loading || spinning || bet > maxBalance
                 ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                 : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-amber-500/40 border-2 border-amber-300 hover:shadow-amber-500/60"
@@ -448,18 +333,139 @@ export function UpgraderTable({
           >
             {spinning ? (
               <>
-                <RotateCw size={22} className="animate-spin sm:w-7 sm:h-7" />
+                <RotateCw size={20} className="animate-spin sm:w-7 sm:h-7" />
                 <span>UPGRADING...</span>
               </>
             ) : (
               <>
-                <Zap size={22} className="fill-slate-950 sm:w-7 sm:h-7" />
+                <Zap size={20} className="fill-slate-950 sm:w-7 sm:h-7" />
                 <span>UPGRADE</span>
               </>
             )}
           </button>
         </div>
 
+        {/* Box 1 (Stawka & Multipliers): Mobile Order 3 (Bottom), Desktop Order 1 (Left), 4 cols */}
+        <div className="order-3 lg:order-1 lg:col-span-4 flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-5">
+          {/* Stawka Section */}
+          <div>
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
+                Stawka
+              </span>
+            </div>
+
+            {/* Bet Input */}
+            <div className="relative flex items-center mb-1.5 sm:mb-3">
+              <input
+                type="number"
+                min="1"
+                max={maxBalance || 1000000}
+                value={bet}
+                disabled={loading || spinning}
+                onChange={(e) => {
+                  const v = Math.max(1, parseInt(e.target.value) || 1);
+                  setBet(v);
+                }}
+                className="w-full px-3 py-1.5 sm:py-3.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 sm:border-2 text-white font-mono font-black text-sm sm:text-xl focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+              />
+              <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
+                $FGT
+              </span>
+            </div>
+
+            {/* Quick Bet Buttons */}
+            <div className="grid grid-cols-4 gap-1 sm:gap-2">
+              <button
+                type="button"
+                disabled={loading || spinning}
+                onClick={() => setBet(10)}
+                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                Min
+              </button>
+              <button
+                type="button"
+                disabled={loading || spinning}
+                onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
+                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                ½
+              </button>
+              <button
+                type="button"
+                disabled={loading || spinning}
+                onClick={() =>
+                  setBet((b) =>
+                    Math.min(maxBalance || 1000000, Math.floor(b * 2))
+                  )
+                }
+                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                2×
+              </button>
+              <button
+                type="button"
+                disabled={loading || spinning}
+                onClick={() => setBet(maxBalance || 100)}
+                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                Max
+              </button>
+            </div>
+          </div>
+
+          {/* Multiplier Presets */}
+          <div>
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
+                Wybierz Mnożnik
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-1.5 sm:mb-3">
+              {MULTIPLIER_PRESETS.map((p) => {
+                const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    disabled={loading || spinning}
+                    onClick={() => setTarget(p.val)}
+                    className={`py-1.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-102 border-2 border-amber-300"
+                        : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Multiplier Input */}
+            <div className="relative flex items-center">
+              <input
+                type="number"
+                step="0.05"
+                min="1.05"
+                max="10000"
+                value={target}
+                disabled={loading || spinning}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  setTarget(isNaN(v) ? 2.0 : v);
+                }}
+                className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                placeholder="Własny mnożnik..."
+              />
+              <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">
+                × cel
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
