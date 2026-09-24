@@ -567,10 +567,6 @@ func ValidateBlackjackMove(move string, cardsLen int) error {
 }
 
 func ValidateChickenStart(difficulty string) error {
-	diff := strings.ToLower(strings.TrimSpace(difficulty))
-	if diff != "easy" && diff != "medium" && diff != "hard" && diff != "expert" {
-		return fmt.Errorf("%w: poziom trudności w Chicken musi być easy/medium/hard/expert", ErrInvalidGameParam)
-	}
 	return nil
 }
 
@@ -578,8 +574,8 @@ func ValidateChickenStep(targetLane int, currentLane int) error {
 	if targetLane != currentLane+1 {
 		return fmt.Errorf("%w: można przejść tylko na kolejny pas (%d -> %d)", ErrInvalidMove, currentLane, currentLane+1)
 	}
-	if targetLane < 1 || targetLane > 10 {
-		return fmt.Errorf("%w: pas poza zakresem (1-10): %d", ErrInvalidMove, targetLane)
+	if targetLane < 1 || targetLane > 17 {
+		return fmt.Errorf("%w: pas poza zakresem (1-17): %d", ErrInvalidMove, targetLane)
 	}
 	return nil
 }

@@ -1443,12 +1443,22 @@ func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request,
 	}
 
 	if err := anticheat.ValidateChickenStep(targetLane, payload.CurrentLane); err != nil {
+		h.reportBackendError("CHICKEN_INVALID_MOVE", err, map[string]interface{}{
+			"user_id":      p.UserID,
+			"round_id":     activeRound.ID,
+			"target_lane":  targetLane,
+			"current_lane": payload.CurrentLane,
+		})
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	settled, settleRes, err := chicken.Step(activeRound.Bet, payload)
 	if err != nil {
+		h.reportBackendError("CHICKEN_STEP_ERROR", err, map[string]interface{}{
+			"user_id":  p.UserID,
+			"round_id": activeRound.ID,
+		})
 		JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}

@@ -676,16 +676,17 @@ export function ChickenTable({
 
                     {/* Ground Floor Element:
                         - If lane is PASSED (lane < currentLane): Golden Chicken Coin!
-                        - Otherwise: Sewer Grate base
+                        - If lane is CURRENT (where chicken is currently standing): Nothing underneath chicken!
+                        - If unreached / upcoming: Sewer Grate base
                     */}
                     <div className={`transition-transform duration-200 ${isNext ? "scale-105" : ""}`}>
                       {isPassed && !isCrashedLane ? (
                         <ChickenGoldCoin />
-                      ) : (
+                      ) : isCurrent || isCrashedLane ? null : (
                         <SewerGrate
-                          isCurrent={isCurrent}
-                          isPassed={isCompleted}
-                          isCrash={isCrashedLane}
+                          isCurrent={false}
+                          isPassed={false}
+                          isCrash={false}
                         />
                       )}
                     </div>
