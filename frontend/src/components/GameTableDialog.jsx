@@ -157,7 +157,7 @@ export function GameTableDialog({
     setOutcomePending(true);
 
     // Provide a clear delay across all games so player can see the table result first
-    const delay = typeof explicitDelay === "number" ? explicitDelay : (turbo ? 150 : 950);
+    const delay = typeof explicitDelay === "number" ? explicitDelay : (turbo ? 150 : 700);
 
     outcomeTimerRef.current = setTimeout(() => {
       setOutcomePending(false);
@@ -179,21 +179,21 @@ export function GameTableDialog({
 
   const isBusy = Boolean(
     loading ||
-      round ||
-      spinning ||
-      slotsSpinning ||
-      rouletteWaiting ||
-      blackjackPreview ||
-      pendingTiles.size > 0 ||
-      pendingSpin ||
-      isFlipping ||
-      isShootingRPS ||
-      limboAnimating ||
-      crashPlaying ||
-      chickenBusy ||
-      outcomePending ||
-      outcomeData ||
-      animatingRef?.current
+    round ||
+    spinning ||
+    slotsSpinning ||
+    rouletteWaiting ||
+    blackjackPreview ||
+    pendingTiles.size > 0 ||
+    pendingSpin ||
+    isFlipping ||
+    isShootingRPS ||
+    limboAnimating ||
+    crashPlaying ||
+    chickenBusy ||
+    outcomePending ||
+    outcomeData ||
+    animatingRef?.current
   );
 
   // Modal Keyboard handler: Focus Trap for Tab, Escape to close, prevent key repeat on Enter/Space
