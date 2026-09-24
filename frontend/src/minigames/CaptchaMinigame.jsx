@@ -110,9 +110,9 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         }
 
         setSessionCount((prev) => prev + 1);
-        setSessionEarned((prev) => prev + (res.amount || 40));
+        setSessionEarned((prev) => prev + (res.amount || 80));
         setSuccessAnim(true);
-        toast.success(`+${res.amount || 40} $FGT za rozwiązanie Captcha!`);
+        toast.success(`+${res.amount || 80} $FGT za rozwiązanie Captcha!`);
 
         setTimeout(() => setSuccessAnim(false), 1200);
         await fetchCaptcha(false);

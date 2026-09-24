@@ -414,12 +414,12 @@ func (s *Service) ClaimDailyBonus(ctx context.Context, userID string) (int64, in
 		return 0, 0, 0, ErrAlreadyClaimed
 	}
 
-	// Streak calculation
+	// Streak calculation (increment only on consecutive days, otherwise reset to 1)
 	streak := 1
 	if p.LastBonusDay != nil && *p.LastBonusDay != "" {
 		prevDate, err := time.Parse("2006-01-02", *p.LastBonusDay)
 		todayDate, _ := time.Parse("2006-01-02", day)
-		if err == nil && todayDate.Sub(prevDate).Hours() <= 48 && todayDate.Sub(prevDate).Hours() >= 24 {
+		if err == nil && prevDate.AddDate(0, 0, 1).Equal(todayDate) {
 			streak = p.Streak + 1
 		}
 	}
@@ -892,6 +892,30 @@ var DailyMissionDefs = []MissionDef{
 		XPReward:    30,
 		StatKey:     "plinko_wins",
 	},
+
+	// 🐔 Chicken Cross
+	{
+		ID:          "chicken_3",
+		Title:       "Przeprawa Kurczaka",
+		Description: "Rozegraj 3 rundy w Chicken Cross (min. 10 $FGT)",
+		Category:    "Chicken",
+		Icon:        "chicken",
+		Target:      3,
+		Reward:      75,
+		XPReward:    20,
+		StatKey:     "chicken",
+	},
+	{
+		ID:          "chicken_win_3",
+		Title:       "Mistrz Szosy",
+		Description: "Wypłać wygraną w Chicken Cross 3 razy (min. 10 $FGT)",
+		Category:    "Chicken",
+		Icon:        "chicken",
+		Target:      3,
+		Reward:      120,
+		XPReward:    30,
+		StatKey:     "chicken_wins",
+	},
 }
 
 // GetMissionWindow returns the start timestamp (ms), next reset timestamp (ms), and period key for 6-hour cycles.
@@ -960,6 +984,7 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 	var coinflipRounds, coinflipWins int64
 	var rpsRounds, rpsWins int64
 	var plinkoRounds, plinkoWins int64
+	var chickenRounds, chickenWins int64
 
 	// Only count qualifying bets (min. 10 $FGT) towards daily missions to prevent 1 $FGT micro-bet exploits
 	err := s.db.Pool.QueryRow(ctx, `
@@ -980,7 +1005,9 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 			COUNT(*) FILTER (WHERE game = 'rps'),
 			COUNT(*) FILTER (WHERE game = 'rps' AND payout > bet),
 			COUNT(*) FILTER (WHERE game = 'plinko'),
-			COUNT(*) FILTER (WHERE game = 'plinko' AND payout > bet)
+			COUNT(*) FILTER (WHERE game = 'plinko' AND payout > bet),
+			COUNT(*) FILTER (WHERE game = 'chicken'),
+			COUNT(*) FILTER (WHERE game = 'chicken' AND payout > bet)
 		FROM game_rounds
 		WHERE user_id = $1 AND state = 'settled' AND bet >= 10
 		  AND (settled_at >= $2 OR (settled_at IS NULL AND created_at >= $2))
@@ -993,6 +1020,7 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 		&coinflipRounds, &coinflipWins,
 		&rpsRounds, &rpsWins,
 		&plinkoRounds, &plinkoWins,
+		&chickenRounds, &chickenWins,
 	)
 	if err != nil {
 		return nil, err
@@ -1016,6 +1044,8 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 		"rps_wins":       rpsWins,
 		"plinko":         plinkoRounds,
 		"plinko_wins":    plinkoWins,
+		"chicken":        chickenRounds,
+		"chicken_wins":   chickenWins,
 	}, nil
 }
 

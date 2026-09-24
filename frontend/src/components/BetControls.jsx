@@ -132,7 +132,7 @@ export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
             tabIndex={-1}
             className="casino-bet-quick-btn max-btn"
             onClick={() => setBet(userBalance > 0 ? userBalance : 10)}
-            title={`Maksymalna stawka (${money(userBalance)} $FGT)`}
+            title={`Maksymalna stawka (${money(userBalance)})`}
             aria-label="Ustaw maksymalną stawkę"
           >
             MAX

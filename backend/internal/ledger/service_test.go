@@ -25,6 +25,71 @@ func TestDailyBonusAmount(t *testing.T) {
 	}
 }
 
+func TestDailyBonusStreakDateMath(t *testing.T) {
+	tests := []struct {
+		name          string
+		lastBonusDay  string
+		today         string
+		initialStreak int
+		expectedStreak int
+	}{
+		{
+			name:           "Consecutive day standard",
+			lastBonusDay:   "2026-09-23",
+			today:          "2026-09-24",
+			initialStreak:  3,
+			expectedStreak: 4,
+		},
+		{
+			name:           "Month transition (30 -> 1)",
+			lastBonusDay:   "2026-09-30",
+			today:          "2026-10-01",
+			initialStreak:  5,
+			expectedStreak: 6,
+		},
+		{
+			name:           "Year transition (Dec 31 -> Jan 1)",
+			lastBonusDay:   "2026-12-31",
+			today:          "2027-01-01",
+			initialStreak:  10,
+			expectedStreak: 11,
+		},
+		{
+			name:           "Skipped 1 day (Broken streak)",
+			lastBonusDay:   "2026-09-21",
+			today:          "2026-09-23",
+			initialStreak:  5,
+			expectedStreak: 1,
+		},
+		{
+			name:           "Skipped many days",
+			lastBonusDay:   "2026-01-01",
+			today:          "2026-09-24",
+			initialStreak:  20,
+			expectedStreak: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prevDate, err1 := time.Parse("2006-01-02", tt.lastBonusDay)
+			todayDate, err2 := time.Parse("2006-01-02", tt.today)
+			if err1 != nil || err2 != nil {
+				t.Fatalf("date parse error: %v %v", err1, err2)
+			}
+
+			streak := 1
+			if prevDate.AddDate(0, 0, 1).Equal(todayDate) {
+				streak = tt.initialStreak + 1
+			}
+
+			if streak != tt.expectedStreak {
+				t.Errorf("expected streak %d, got %d", tt.expectedStreak, streak)
+			}
+		})
+	}
+}
+
 func TestGetMissionWindow(t *testing.T) {
 	// Fixed test time: 2026-09-22 14:30:00 UTC (slot 2: 12:00 -> 18:00)
 	fixedTime := time.Date(2026, 9, 22, 14, 30, 0, 0, time.UTC)
