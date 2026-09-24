@@ -26,18 +26,18 @@ func TestInitialStart(t *testing.T) {
 
 func TestDifficultyMultipliers(t *testing.T) {
 	easyMults := GetMultipliers("easy")
-	if easyMults[0] != 1.03 || easyMults[TotalLanes-1] != 6.20 {
+	if easyMults[0] != 0.90 || easyMults[TotalLanes-1] != 6.20 {
 		t.Errorf("easy multipliers mismatch: start %f, end %f", easyMults[0], easyMults[TotalLanes-1])
 	}
 
 	mediumMults := GetMultipliers("medium")
-	if mediumMults[0] != 1.15 || mediumMults[1] != 1.37 {
+	if mediumMults[0] != 0.75 || mediumMults[1] != 1.15 {
 		t.Errorf("medium multipliers mismatch: start %f, second %f", mediumMults[0], mediumMults[1])
 	}
 
 	expertMults := GetMultipliers("expert")
-	if expertMults[0] != 1.96 || expertMults[TotalLanes-1] != 2200.00 {
-		t.Errorf("expert multipliers mismatch: start %f, end %f", expertMults[0], expertMults[TotalLanes-1])
+	if expertMults[0] != 0.50 || expertMults[1] != 0.90 || expertMults[TotalLanes-1] != 4000.00 {
+		t.Errorf("expert multipliers mismatch: start %f, second %f, end %f", expertMults[0], expertMults[1], expertMults[TotalLanes-1])
 	}
 }
 
@@ -49,13 +49,13 @@ func TestCashoutValidation(t *testing.T) {
 	}
 
 	p.CurrentLane = 1
-	p.Multiplier = 1.15
+	p.Multiplier = 0.75
 	res, err := Cashout(100, p)
 	if err != nil {
 		t.Fatalf("unexpected error cashing out at lane 1: %v", err)
 	}
-	if res.Payout != 115 {
-		t.Errorf("expected payout 115, got %d", res.Payout)
+	if res.Payout != 75 {
+		t.Errorf("expected payout 75, got %d", res.Payout)
 	}
 }
 

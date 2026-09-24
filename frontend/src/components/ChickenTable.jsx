@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { money, format } from "../lib/formatters";
-import { ShieldCheck, AlertTriangle, ArrowRight, Flame } from "lucide-react";
+import { ShieldCheck, AlertTriangle, Flame } from "lucide-react";
 import { sounds } from "../lib/sounds";
 
 export const CHICKEN_MULTIPLIERS = {
-  easy: [1.03, 1.12, 1.25, 1.45, 1.75, 2.15, 2.70, 3.50, 4.60, 6.20],
-  medium: [1.15, 1.37, 1.65, 2.00, 2.46, 3.05, 3.82, 4.85, 6.25, 8.15],
-  hard: [1.31, 1.75, 2.40, 3.35, 4.80, 7.00, 10.50, 16.20, 26.00, 43.50],
-  expert: [1.96, 3.90, 8.00, 16.50, 35.00, 75.00, 165.00, 380.00, 900.00, 2200.00],
+  easy: [0.90, 1.10, 1.25, 1.45, 1.75, 2.15, 2.70, 3.50, 4.60, 6.20],
+  medium: [0.75, 1.15, 1.50, 2.00, 2.65, 3.60, 5.00, 7.00, 10.00, 15.00],
+  hard: [0.60, 1.10, 1.85, 3.10, 5.40, 9.80, 18.50, 36.00, 75.00, 160.00],
+  expert: [0.50, 0.90, 1.80, 4.50, 12.00, 35.00, 110.00, 380.00, 1200.00, 4000.00],
 };
 
 // SVG Sewer Grate (Kratka ściekowa / Właz kanalizacyjny)
@@ -47,10 +47,16 @@ export function SewerGrate({ isCurrent, isPassed, isCrash, isNext }) {
 }
 
 // SVG Police Cruiser Top-Down (Radiowóz ze zrzutu ekranu Stake)
-export function PoliceCarTopDown() {
+export function PoliceCarTopDown({ isAnimating = true }) {
   return (
-    <div className="relative flex flex-col items-center justify-center animate-car-crash">
-      <svg viewBox="0 0 54 86" className="w-14 h-22 drop-shadow-2xl">
+    <div className={`relative flex flex-col items-center justify-center ${isAnimating ? "animate-car-crash" : ""}`}>
+      {/* Tire skid marks behind car */}
+      <div className="absolute -top-12 flex justify-between w-8 h-12 opacity-70 pointer-events-none">
+        <div className="w-1.5 h-full bg-slate-950/80 rounded-full" />
+        <div className="w-1.5 h-full bg-slate-950/80 rounded-full" />
+      </div>
+
+      <svg viewBox="0 0 54 86" className="w-14 h-22 drop-shadow-2xl z-20">
         {/* Car Shadow */}
         <ellipse cx="27" cy="44" rx="24" ry="40" fill="#000000" fillOpacity="0.6" />
         {/* Main Chassis */}
@@ -80,7 +86,7 @@ export function PoliceCarTopDown() {
 // SVG Chicken (Kurczak ze zrzutu ekranu)
 export function ChickenSprite({ isDead = false, isJumping = false }) {
   return (
-    <div className={`relative flex items-center justify-center transition-transform duration-200 ${isJumping ? "-translate-y-2 scale-110" : ""}`}>
+    <div className={`relative flex items-center justify-center transition-transform duration-200 ${isJumping ? "animate-chicken-jump" : ""}`}>
       <svg viewBox="0 0 40 40" className="w-10 h-10 drop-shadow-lg">
         {/* Shadow */}
         <ellipse cx="20" cy="35" rx="9" ry="3.5" fill="#000000" fillOpacity="0.4" />
@@ -89,7 +95,7 @@ export function ChickenSprite({ isDead = false, isJumping = false }) {
         {/* Body */}
         <circle cx="20" cy="20" r="13" fill={isDead ? "#78350f" : "#fbbf24"} stroke={isDead ? "#451a03" : "#d97706"} strokeWidth="1.5" />
         {/* Wing */}
-        <ellipse cx="14" cy="22" rx="6" ry="7" transform="rotate(-15 14 22)" fill={isDead ? "#92400e" : "#f59e0b"} />
+        <ellipse cx="14" cy="22" rx="6" ry="7" transform={isJumping ? "rotate(-35 14 22)" : "rotate(-15 14 22)"} fill={isDead ? "#92400e" : "#f59e0b"} className="transition-transform" />
         {/* Beak */}
         <polygon points="30,17 38,20 30,23" fill={isDead ? "#94a3b8" : "#f97316"} />
         {/* Wattle */}
@@ -163,7 +169,9 @@ export function ChickenTable({
   triggerOutcome,
 }) {
   const [jumping, setJumping] = useState(false);
+  const [jumpLane, setJumpLane] = useState(null);
   const [cashingOut, setCashingOut] = useState(false);
+  const [crashAnim, setCrashAnim] = useState(null); // { active: bool, lane: int, type: string }
   const roadContainerRef = useRef(null);
 
   const activeRound = round?.game === "chicken" ? round : null;
@@ -174,60 +182,104 @@ export function ChickenTable({
   const currentDiff = p.difficulty || difficulty || "medium";
   const multipliers = p.multipliers || CHICKEN_MULTIPLIERS[currentDiff] || CHICKEN_MULTIPLIERS.medium;
   const currentLane = p.currentLane || 0;
-  const hazardLane = p.hazardLane || 0;
-  const hazardType = p.hazardType || "";
+  const hazardLane = crashAnim?.lane || p.hazardLane || 0;
+  const hazardType = crashAnim?.type || p.hazardType || "";
   const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
   const nextMult = currentLane < 10 ? multipliers[currentLane] : multipliers[9];
 
   const currentBet = r?.bet || 10;
   const currentProfit = Math.floor(currentBet * currentMult);
-  const isLoss = isSettled && last?.payout === 0;
-  const isWin = isSettled && last?.payout > 0;
+  const isLoss = (isSettled && last?.payout === 0) || Boolean(crashAnim);
 
-  // Auto-scroll road container to keep the chicken in view
+  // Auto-scroll logic: on new game/start line scroll immediately to LEFT (0), else follow chicken smoothly
   useEffect(() => {
     if (roadContainerRef.current) {
-      const laneEl = roadContainerRef.current.querySelector(`[data-lane="${currentLane}"]`);
-      if (laneEl) {
-        laneEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      if (!activeRound || currentLane === 0) {
+        roadContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        const laneEl = roadContainerRef.current.querySelector(`[data-lane="${currentLane}"]`);
+        if (laneEl) {
+          laneEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+        }
       }
     }
-  }, [currentLane]);
+  }, [activeRound?.id, currentLane]);
+
+  // Reset crash animation when new round starts
+  useEffect(() => {
+    if (activeRound) {
+      setCrashAnim(null);
+      setJumping(false);
+      setJumpLane(null);
+      if (roadContainerRef.current) {
+        roadContainerRef.current.scrollTo({ left: 0, behavior: "instant" });
+      }
+    }
+  }, [activeRound?.id]);
 
   // Handle jump step
   const handleStep = async () => {
-    if (!activeRound || loading || jumping || cashingOut) return;
+    if (!activeRound || loading || jumping || cashingOut || crashAnim) return;
+    const nextTarget = currentLane + 1;
     setJumping(true);
+    setJumpLane(nextTarget);
     sounds.playTileClick();
 
     try {
-      const nextTarget = currentLane + 1;
       const res = await post({ action: "chicken", roundId: activeRound.id, move: "step", lane: nextTarget });
       if (res?.round?.state === "settled") {
-        if (res.round.payout > 0) {
-          sounds.playGemReveal(1.8);
-        } else {
+        if (res.round.payout === 0) {
+          // LOSS: Trigger car crash animation first!
+          const hazType = res.round.payload?.hazardType || "police_car";
+          setCrashAnim({ active: true, lane: nextTarget, type: hazType });
           sounds.playExplosion();
+
+          // Scroll to crash lane
+          if (roadContainerRef.current) {
+            const crashEl = roadContainerRef.current.querySelector(`[data-lane="${nextTarget}"]`);
+            if (crashEl) {
+              crashEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            }
+          }
+
+          // Delay the outcome popup so user sees the car run over the chicken first!
+          const delay = turbo ? 800 : 1400;
+          setTimeout(() => {
+            if (triggerOutcome) triggerOutcome(res.round);
+          }, delay);
+        } else {
+          // WIN / FINISH
+          sounds.playGemReveal(1.8);
+          const delay = turbo ? 300 : 600;
+          setTimeout(() => {
+            if (triggerOutcome) triggerOutcome(res.round);
+          }, delay);
         }
-        if (triggerOutcome) triggerOutcome(res.round);
       } else {
+        // Safe step
         sounds.playGemReveal(1.0 + currentLane * 0.1);
       }
     } finally {
-      setJumping(false);
+      setTimeout(() => {
+        setJumping(false);
+        setJumpLane(null);
+      }, 350);
     }
   };
 
   // Handle cashout
   const handleCashout = async () => {
-    if (!activeRound || loading || currentLane < 1 || cashingOut) return;
+    if (!activeRound || loading || currentLane < 1 || cashingOut || crashAnim) return;
     setCashingOut(true);
     sounds.playCoins();
 
     try {
       const res = await post({ action: "chicken", roundId: activeRound.id, move: "cashout" });
-      if (res?.round && triggerOutcome) {
-        triggerOutcome(res.round);
+      if (res?.round) {
+        const delay = turbo ? 200 : 400;
+        setTimeout(() => {
+          if (triggerOutcome) triggerOutcome(res.round);
+        }, delay);
       }
     } finally {
       setCashingOut(false);
@@ -275,14 +327,15 @@ export function ChickenTable({
             const isCompleted = currentLane >= laneNum;
             const isCurrent = currentLane === laneNum;
             const isNext = currentLane === laneNum - 1 && activeRound;
-            const isCrashedLane = isLoss && hazardLane === laneNum;
+            const isCrashedLane = hazardLane === laneNum;
+            const isJumpTarget = jumping && jumpLane === laneNum;
 
             return (
               <div
                 key={laneNum}
                 data-lane={laneNum}
                 onClick={() => {
-                  if (isNext && !jumping && !cashingOut) {
+                  if (isNext && !jumping && !cashingOut && !crashAnim) {
                     handleStep();
                   }
                 }}
@@ -303,12 +356,15 @@ export function ChickenTable({
                 <div className="relative flex flex-col items-center justify-center my-auto w-full">
                   {/* Police Car or Fire Hazard on Crash */}
                   {isCrashedLane && (
-                    <div className="absolute z-30 flex flex-col items-center justify-center">
+                    <div className="absolute z-30 flex flex-col items-center justify-center pointer-events-none">
+                      {/* Shockwave burst effect */}
+                      <div className="absolute w-16 h-16 rounded-full bg-rose-500/40 animate-impact-shockwave pointer-events-none" />
+
                       {hazardType === "police_car" || hazardType === "car" || hazardType === "truck" ? (
-                        <PoliceCarTopDown />
+                        <PoliceCarTopDown isAnimating={true} />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-orange-600/30 border border-orange-500 flex items-center justify-center animate-pulse">
-                          <Flame size={26} className="text-orange-400 animate-bounce" />
+                        <div className="w-14 h-14 rounded-full bg-orange-600/40 border-2 border-orange-500 flex items-center justify-center animate-pulse">
+                          <Flame size={32} className="text-orange-400 animate-bounce" />
                         </div>
                       )}
                       <div className="mt-1">
@@ -317,15 +373,15 @@ export function ChickenTable({
                     </div>
                   )}
 
-                  {/* Chicken standing on active lane */}
-                  {isCurrent && !isCrashedLane && (
-                    <div className="absolute z-30 flex items-center justify-center animate-chicken-hop">
-                      <ChickenSprite isJumping={jumping} />
+                  {/* Chicken standing or jumping onto lane */}
+                  {(isCurrent || isJumpTarget) && !isCrashedLane && (
+                    <div className={`absolute z-30 flex items-center justify-center ${isJumpTarget ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
+                      <ChickenSprite isJumping={isJumpTarget} />
                     </div>
                   )}
 
-                  {/* Next Step Arrow Indicator */}
-                  {isNext && !isCrashedLane && (
+                  {/* Next Step GO Arrow Indicator */}
+                  {isNext && !isCrashedLane && !isJumpTarget && (
                     <div className="absolute -top-7 z-20 flex flex-col items-center animate-bounce">
                       <span className="text-[9px] font-bold text-amber-400 bg-amber-950/90 px-1.5 py-0.5 rounded border border-amber-500/40">
                         GO
@@ -344,17 +400,25 @@ export function ChickenTable({
                   </div>
                 </div>
 
-                {/* Bottom Multiplier Pill Badge (Matching Stake style) */}
+                {/* Bottom Multiplier Pill Badge (Matching Stake style with sub-1.0x indicator) */}
                 <div
                   className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold transition-all shadow-md ${
                     isCrashedLane
-                      ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50"
+                      ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
                       : isCurrent
-                      ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105"
+                      ? mult < 1.00
+                        ? "bg-orange-500 text-slate-950 shadow-orange-500/40 scale-105 font-black"
+                        : "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
                       : isCompleted
-                      ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
+                      ? mult < 1.00
+                        ? "bg-orange-950/60 text-orange-300 border border-orange-600/40"
+                        : "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
                       : isNext
-                      ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
+                      ? mult < 1.00
+                        ? "bg-slate-800 text-orange-300 border border-orange-400/60 animate-pulse"
+                        : "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
+                      : mult < 1.00
+                      ? "bg-[#1f1a24] text-slate-500 border border-slate-700/50"
                       : "bg-[#182330] text-slate-400 border border-slate-700/60"
                   }`}
                 >
@@ -382,7 +446,7 @@ export function ChickenTable({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={loading || jumping || cashingOut}
+              disabled={loading || jumping || cashingOut || Boolean(crashAnim)}
               onClick={handleStep}
               className="px-4 py-2 rounded-lg bg-[#00e701] hover:bg-[#00c801] active:scale-[0.98] text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all disabled:opacity-50"
             >
@@ -391,7 +455,7 @@ export function ChickenTable({
 
             <button
               type="button"
-              disabled={loading || jumping || cashingOut || currentLane < 1}
+              disabled={loading || jumping || cashingOut || currentLane < 1 || Boolean(crashAnim)}
               onClick={handleCashout}
               className={`px-4 py-2 rounded-lg font-bold text-xs shadow-md transition-all ${
                 currentLane >= 1

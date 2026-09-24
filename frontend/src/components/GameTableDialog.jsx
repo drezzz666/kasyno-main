@@ -917,9 +917,9 @@ export function GameTableDialog({
                     <div className="chicken-presets-row">
                       {[
                         { id: "easy", label: "Łatwy", max: "×6.20" },
-                        { id: "medium", label: "Średni", max: "×8.15" },
-                        { id: "hard", label: "Trudny", max: "×43.5" },
-                        { id: "expert", label: "Ekspert", max: "×2 200" },
+                        { id: "medium", label: "Średni", max: "×15.0" },
+                        { id: "hard", label: "Trudny", max: "×160" },
+                        { id: "expert", label: "Ekspert", max: "×4 000" },
                       ].map((item) => (
                         <button
                           key={item.id}
