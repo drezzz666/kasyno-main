@@ -537,7 +537,7 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 180 : 1200);
+        }, turbo ? 180 : 720);
       } else {
         setIsFlipping(false);
         if (animatingRef) animatingRef.current = false;
