@@ -595,229 +595,198 @@ export function ChickenTable({
   };
 
   return (
-    <div className="chicken-game-canvas flex flex-col w-full select-none">
-      {/* Top Street Viewport with Rich Stake-Style Surroundings */}
+    <div
+      ref={viewportRef}
+      className="chicken-street-surface relative w-full h-[400px] sm:h-[430px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
+    >
+      {/* Top Right Live Win & Multiplier Overlay */}
+      {activeRound && currentLane >= 1 && (
+        <div className="absolute top-3 right-3 z-30 flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-700/60 shadow-lg pointer-events-none">
+          <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+            Wygrana:
+          </span>
+          <span className="text-sm sm:text-base font-bold font-mono text-emerald-400">
+            {money(currentProfit)}
+          </span>
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            ×{currentMult.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      {/* Smooth Moving Camera Track */}
       <div
-        ref={viewportRef}
-        className="chicken-street-surface relative w-full h-[360px] sm:h-[400px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl"
+        className="chicken-camera-track flex items-stretch h-full"
+        style={{
+          transform: `translateX(-${cameraOffset}px)`,
+          transition: "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
+          width: "max-content",
+          minWidth: "100%",
+        }}
       >
-        {/* Smooth Moving Camera Track */}
-        <div
-          className="chicken-camera-track flex items-stretch h-full"
-          style={{
-            transform: `translateX(-${cameraOffset}px)`,
-            transition: "transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)",
-            width: "max-content",
-            minWidth: "100%",
-          }}
-        >
-          {/* Left Sidewalk with 3D Curb, Traffic Light, Diamond Sign & Zebra Crossing */}
-          <div className="chicken-left-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
-            {/* Top Traffic Light & Diamond Priority Sign */}
-            <div className="pt-2 flex items-center justify-center gap-2">
-              <TrafficLightPole />
-              <PriorityRoadSign />
-            </div>
-
-            {/* Zebra Crossing Lines with beveled road curb markings */}
-            <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-85">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="w-full h-3.5 bg-slate-300/40 rounded-sm shadow-inner" />
-              ))}
-            </div>
-
-            {/* Chicken on Sidewalk ONLY if activeChickenLane === 0 */}
-            {activeChickenLane === 0 && !isLoss && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-chicken-hop">
-                <ChickenSprite isJumping={jumping} />
-              </div>
-            )}
-
-            {/* Bottom Sidewalk Slate Rock & Shrub */}
-            <div className="pb-2">
-              <StakeSidewalkRock />
-            </div>
+        {/* Left Sidewalk with 3D Curb, Traffic Light, Diamond Sign & Zebra Crossing */}
+        <div className="chicken-left-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
+          {/* Top Traffic Light & Diamond Priority Sign */}
+          <div className="pt-2 flex items-center justify-center gap-2">
+            <TrafficLightPole />
+            <PriorityRoadSign />
           </div>
 
-          {/* 17 Vertical Lanes (Click on lane to step forward!) */}
-          <div className="flex items-stretch h-full flex-shrink-0">
-            {multipliers.map((mult, idx) => {
-              const laneNum = idx + 1;
-              const isCompleted = currentLane >= laneNum;
-              const isCurrent = currentLane === laneNum;
-              const isPassed = currentLane > laneNum;
-              const isNext = currentLane === laneNum - 1 && activeRound;
-              const isCrashedLane = hazardLane === laneNum;
-              const hasChicken = activeChickenLane === laneNum;
+          {/* Zebra Crossing Lines with beveled road curb markings */}
+          <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-85">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="w-full h-3.5 bg-slate-300/40 rounded-sm shadow-inner" />
+            ))}
+          </div>
 
-              const hasBlockade = isCompleted;
-              const laneCars = activeTrafficCars.filter((c) => c.lane === laneNum && !hasBlockade && !isCrashedLane);
+          {/* Chicken on Sidewalk ONLY if activeChickenLane === 0 */}
+          {activeChickenLane === 0 && !isLoss && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 animate-chicken-hop">
+              <ChickenSprite isJumping={jumping} />
+            </div>
+          )}
 
-              return (
-                <div
-                  key={laneNum}
-                  data-lane={laneNum}
-                  onClick={() => {
-                    if (isNext && !jumping && !cashingOut && !crashAnim) {
-                      handleStep();
-                    }
-                  }}
-                  className={`chicken-road-lane relative w-36 sm:w-40 md:w-44 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
-                    isNext ? "cursor-pointer hover:bg-slate-800/50" : ""
-                  }`}
-                >
-                  {/* Top Lane Empty Space (Numbers removed as requested) */}
-                  <div className="w-full h-6" />
+          {/* Bottom Sidewalk Slate Rock & Shrub */}
+          <div className="pb-2">
+            <StakeSidewalkRock />
+          </div>
+        </div>
 
-                  {/* Ambient Car driving down (1 car every ~5s on random lane) */}
-                  {laneCars.map((car) => (
-                    <div
-                      key={car.id}
-                      className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
-                      style={{
-                        animation: "trafficDriveDownSlow 2.0s linear forwards",
-                      }}
-                    >
-                      <AmbientVehicle carIndex={car.carIndex} />
-                    </div>
-                  ))}
+        {/* 17 Vertical Lanes (Click on lane to step forward!) */}
+        <div className="flex items-stretch h-full flex-shrink-0">
+          {multipliers.map((mult, idx) => {
+            const laneNum = idx + 1;
+            const isCompleted = currentLane >= laneNum;
+            const isCurrent = currentLane === laneNum;
+            const isPassed = currentLane > laneNum;
+            const isNext = currentLane === laneNum - 1 && activeRound;
+            const isCrashedLane = hazardLane === laneNum;
+            const hasChicken = activeChickenLane === laneNum;
 
-                  {/* Concrete Road Blockade [ | | | | | ] positioned closer to the center right above chicken */}
-                  {hasBlockade && (
-                    <div className="absolute top-[28%] left-1/2 -translate-x-1/2 z-20">
-                      <RoadBlockade />
+            const hasBlockade = isCompleted;
+            const laneCars = activeTrafficCars.filter((c) => c.lane === laneNum && !hasBlockade && !isCrashedLane);
+
+            return (
+              <div
+                key={laneNum}
+                data-lane={laneNum}
+                onClick={() => {
+                  if (isNext && !jumping && !cashingOut && !crashAnim) {
+                    handleStep();
+                  }
+                }}
+                className={`chicken-road-lane relative w-36 sm:w-40 md:w-44 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
+                  isNext ? "cursor-pointer hover:bg-slate-800/50" : ""
+                }`}
+              >
+                {/* Top Lane Empty Space */}
+                <div className="w-full h-6" />
+
+                {/* Ambient Car driving down (1 car every ~5s on random lane) */}
+                {laneCars.map((car) => (
+                  <div
+                    key={car.id}
+                    className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
+                    style={{
+                      animation: "trafficDriveDownSlow 2.0s linear forwards",
+                    }}
+                  >
+                    <AmbientVehicle carIndex={car.carIndex} />
+                  </div>
+                ))}
+
+                {/* Concrete Road Blockade [ | | | | | ] positioned closer to the center right above chicken */}
+                {hasBlockade && (
+                  <div className="absolute top-[28%] left-1/2 -translate-x-1/2 z-20">
+                    <RoadBlockade />
+                  </div>
+                )}
+
+                {/* Center Road Element: Rozjechany Kurczak (Crash) / Chicken / Gold Coin / Sewer Grate */}
+                <div className="relative flex flex-col items-center justify-center my-auto w-full px-2 pt-6">
+                  {/* Crash: Police car + Flattened Dead Chicken on asphalt */}
+                  {isCrashedLane && (
+                    <div className="absolute z-30 flex flex-col items-center justify-center pointer-events-none">
+                      <div className="mb-[-12px]">
+                        <PoliceCarTopDown isAnimating={true} />
+                      </div>
+                      <FlattenedDeadChickenSprite />
                     </div>
                   )}
 
-                  {/* Center Road Element: Rozjechany Kurczak (Crash) / Chicken / Gold Coin / Sewer Grate */}
-                  <div className="relative flex flex-col items-center justify-center my-auto w-full px-2 pt-6">
-                    {/* Crash: Police car + Flattened Dead Chicken on asphalt */}
-                    {isCrashedLane && (
-                      <div className="absolute z-30 flex flex-col items-center justify-center pointer-events-none">
-                        <div className="mb-[-12px]">
-                          <PoliceCarTopDown isAnimating={true} />
-                        </div>
-                        <FlattenedDeadChickenSprite />
-                      </div>
-                    )}
-
-                    {/* Cute White Chicken ONLY on activeChickenLane */}
-                    {hasChicken && !isCrashedLane && (
-                      <div className={`absolute z-30 flex items-center justify-center ${jumping ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
-                        <ChickenSprite isJumping={jumping} />
-                      </div>
-                    )}
-
-                    {/* Next Step GO Arrow Indicator (Click on board to jump!) */}
-                    {isNext && !isCrashedLane && !hasChicken && (
-                      <div className="absolute -top-8 z-20 flex flex-col items-center animate-bounce">
-                        <span className="text-[10px] font-bold text-amber-400 bg-amber-950/90 px-2.5 py-0.5 rounded border border-amber-500/50 shadow-md">
-                          SKOCZ
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Ground Floor Element:
-                        - If lane is PASSED: Golden Chicken Coin!
-                        - If lane is CURRENT: Clean asphalt under chicken
-                        - If unreached: Sewer Grate base
-                    */}
-                    <div className={`transition-transform duration-200 ${isNext ? "scale-105" : ""}`}>
-                      {isPassed && !isCrashedLane ? (
-                        <ChickenGoldCoin />
-                      ) : isCurrent || isCrashedLane ? null : (
-                        <SewerGrate
-                          isCurrent={false}
-                          isPassed={false}
-                          isCrash={false}
-                        />
-                      )}
+                  {/* Cute White Chicken ONLY on activeChickenLane */}
+                  {hasChicken && !isCrashedLane && (
+                    <div className={`absolute z-30 flex items-center justify-center ${jumping ? "animate-chicken-jump" : "animate-chicken-hop"}`}>
+                      <ChickenSprite isJumping={jumping} />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Bottom Multiplier Pill Badge */}
-                  <div
-                    className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-bold transition-all shadow-md truncate max-w-[90%] text-center z-10 ${
-                      isCrashedLane
-                        ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
-                        : isCurrent
-                        ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
-                        : isCompleted
-                        ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
-                        : isNext
-                        ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
-                        : "bg-[#141d28] text-slate-400 border border-slate-700/60"
-                    }`}
-                  >
-                    {mult.toFixed(2)}x
+                  {/* Next Step GO Arrow Indicator (Click on board to jump!) */}
+                  {isNext && !isCrashedLane && !hasChicken && (
+                    <div className="absolute -top-8 z-20 flex flex-col items-center animate-bounce">
+                      <span className="text-[10px] font-bold text-amber-400 bg-amber-950/90 px-2.5 py-0.5 rounded border border-amber-500/50 shadow-md">
+                        SKOCZ
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Ground Floor Element:
+                      - If lane is PASSED: Golden Chicken Coin!
+                      - If lane is CURRENT: Clean asphalt under chicken
+                      - If unreached: Sewer Grate base
+                  */}
+                  <div className={`transition-transform duration-200 ${isNext ? "scale-105" : ""}`}>
+                    {isPassed && !isCrashedLane ? (
+                      <ChickenGoldCoin />
+                    ) : isCurrent || isCrashedLane ? null : (
+                      <SewerGrate
+                        isCurrent={false}
+                        isPassed={false}
+                        isCrash={false}
+                      />
+                    )}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Bottom Multiplier Pill Badge */}
+                <div
+                  className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-bold transition-all shadow-md truncate max-w-[90%] text-center z-10 ${
+                    isCrashedLane
+                      ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
+                      : isCurrent
+                      ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
+                      : isCompleted
+                      ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
+                      : isNext
+                      ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
+                      : "bg-[#141d28] text-slate-400 border border-slate-700/60"
+                  }`}
+                >
+                  {mult.toFixed(2)}x
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right Finish Sidewalk / Goal Meta */}
+        <div className="chicken-right-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
+          <div className="text-xs font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-3 py-1 rounded border border-emerald-500/50 shadow-sm mt-1">
+            META
           </div>
 
-          {/* Right Finish Sidewalk / Goal Meta */}
-          <div className="chicken-right-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
-            <div className="text-xs font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-3 py-1 rounded border border-emerald-500/50 shadow-sm mt-1">
-              META
-            </div>
+          {/* Checkered / Finish Zebra Lines */}
+          <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-90">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="w-full h-3.5 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
+            ))}
+          </div>
 
-            {/* Checkered / Finish Zebra Lines */}
-            <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-90">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="w-full h-3.5 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
-              ))}
-            </div>
-
-            <div className="pb-2">
-              <StakeSidewalkRock />
-            </div>
+          <div className="pb-2">
+            <StakeSidewalkRock />
           </div>
         </div>
       </div>
-
-      {/* Active Controls Toolbar (Clean Stake layout: Win stats on left, Cashout button on right) */}
-      {activeRound && (
-        <div className="chicken-hud-bottom flex items-center justify-between gap-4 p-3.5 mt-3 rounded-xl bg-[#121c2a] border border-slate-700/70 shadow-xl">
-          {/* Left: Win Info */}
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col">
-              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-                Aktualna wygrana:
-              </span>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xl font-bold font-mono text-emerald-400">
-                  {money(currentProfit)}
-                </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                  ×{currentMult.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Cashout Button */}
-          <div className="flex items-center">
-            <button
-              type="button"
-              disabled={loading || jumping || cashingOut || currentLane < 1 || Boolean(crashAnim)}
-              onClick={handleCashout}
-              className={`px-6 py-2.5 rounded-lg font-bold text-sm shadow-md transition-all flex items-center gap-2 ${
-                currentLane >= 1
-                  ? "bg-[#00e701] hover:bg-[#00c801] active:scale-[0.98] text-slate-950 shadow-emerald-500/20 cursor-pointer font-black"
-                  : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-              }`}
-            >
-              <span>Wypłać {currentLane >= 1 ? money(currentProfit) : ""}</span>
-              {currentLane >= 1 && (
-                <span className="text-xs bg-slate-950/20 px-1.5 py-0.5 rounded font-mono font-black">
-                  ×{currentMult.toFixed(2)}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

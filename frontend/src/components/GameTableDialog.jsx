@@ -708,6 +708,20 @@ export function GameTableDialog({
     return res;
   };
 
+  const handleChickenCashout = async () => {
+    if (!round || loading) return;
+    const res = await post({ action: "chicken", roundId: round.id, move: "cashout" });
+    if (res?.round) {
+      if (animatingRef) animatingRef.current = true;
+      setChickenBusy(true);
+      setTimeout(() => {
+        if (animatingRef) animatingRef.current = false;
+        setChickenBusy(false);
+        triggerOutcome(res.round, 0);
+      }, turbo ? 100 : 500);
+    }
+  };
+
   const hasSettledSpin = Boolean(spinResult && !spinning && !rouletteWaiting);
   const rawWinningNumber = spinResult?.payload?.number ?? 0;
   const prize = Math.max(0, wheelOrder.indexOf(rawWinningNumber));
@@ -1044,6 +1058,36 @@ export function GameTableDialog({
                       >
                         <span className="btn-crash-cashout-main">WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
                         <span className="btn-crash-cashout-sub">Wypłata: {money(Math.floor(bet * crashMult))}</span>
+                      </button>
+                    );
+                  }
+
+                  if (game === "chicken" && round && !chickenBusy) {
+                    const p = round.payload || {};
+                    const currentLane = p.currentLane || 0;
+                    const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
+                    const currentProfit = Math.floor(bet * currentMult);
+
+                    return (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className={`btn-play-action ${
+                          currentLane >= 1
+                            ? "bg-[#00e701] hover:bg-[#00c801] text-slate-950 font-black shadow-lg shadow-emerald-500/25 cursor-pointer"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        }`}
+                        disabled={currentLane < 1 || loading}
+                        onClick={handleChickenCashout}
+                      >
+                        <div className="flex flex-col items-center">
+                          <span>WYPŁAĆ {currentLane >= 1 ? money(currentProfit) : ""}</span>
+                          {currentLane >= 1 && (
+                            <span className="text-[11px] opacity-90 font-mono font-bold">
+                              Mnożnik: ×{currentMult.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   }
