@@ -1062,7 +1062,7 @@ export function GameTableDialog({
                     );
                   }
 
-                  if (game === "chicken" && round && !chickenBusy) {
+                  if (game === "chicken" && round) {
                     const p = round.payload || {};
                     const currentLane = p.currentLane || 0;
                     const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
@@ -1073,11 +1073,11 @@ export function GameTableDialog({
                         type="button"
                         tabIndex={-1}
                         className={`btn-play-action ${
-                          currentLane >= 1
+                          currentLane >= 1 && !chickenBusy && !loading
                             ? "bg-[#00e701] hover:bg-[#00c801] text-slate-950 font-black shadow-lg shadow-emerald-500/25 cursor-pointer"
                             : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                         }`}
-                        disabled={currentLane < 1 || loading}
+                        disabled={currentLane < 1 || loading || chickenBusy}
                         onClick={handleChickenCashout}
                       >
                         <div className="flex flex-col items-center">
