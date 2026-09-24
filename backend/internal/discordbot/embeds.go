@@ -726,6 +726,11 @@ func parseRevertTimestamp(input string) (time.Time, error) {
 
 	// Supported explicit formats
 	formats := []string{
+		"02-01-2006 15:04:05",
+		"02-01-2006 15:04",
+		"02-01-2006T15:04:05",
+		"02-01-2006T15:04",
+		"02-01-2006",
 		"2006-01-02 15:04:05",
 		"2006-01-02 15:04",
 		"2006-01-02T15:04:05",
@@ -747,7 +752,7 @@ func parseRevertTimestamp(input string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("nieobsługiwany format daty. Przykłady: '2026-09-24 15:30:00', '24.09.2026 15:30:00', '15:30:00'")
+	return time.Time{}, fmt.Errorf("nieobsługiwany format daty. Przykłady: '24-09-2026 15:30:00', '2026-09-24 15:30:00', '24-09-2026'")
 }
 
 func parseTimeOnly(input string, baseDate time.Time) (time.Time, error) {

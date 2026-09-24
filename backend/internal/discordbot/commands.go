@@ -112,7 +112,7 @@ var slashCommands = []*discordgo.ApplicationCommand{
 					{
 						Type:        discordgo.ApplicationCommandOptionString,
 						Name:        "date",
-						Description: "Date to rollback to (e.g. 2026-09-24, 24.09.2026, or 'today')",
+						Description: "Date to rollback to (e.g. 24-09-2026, 2026-09-24, 24.09.2026, or 'today')",
 						Required:    true,
 					},
 					{
