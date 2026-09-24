@@ -945,17 +945,18 @@ export function GameTableDialog({
             </div>
           </div>
 
-          {/* Right Side: Betting Controls & Play Action */}
-          <div className="game-controls-column">
-            {(!round || round.game === "crash") && !blackjackPreview && (
-              <div className="table-controls-panel">
-                <BetControl
-                  bet={bet}
-                  setBet={setBet}
-                  maxBalance={data?.player?.balance ?? 0}
-                  turbo={turbo}
-                  setTurbo={setTurbo}
-                />
+          {/* Right Side: Betting Controls & Play Action (Hidden for upgrader since it has its own integrated dashboard) */}
+          {game !== "upgrader" && (
+            <div className="game-controls-column">
+              {(!round || round.game === "crash") && !blackjackPreview && (
+                <div className="table-controls-panel">
+                  <BetControl
+                    bet={bet}
+                    setBet={setBet}
+                    maxBalance={data?.player?.balance ?? 0}
+                    turbo={turbo}
+                    setTurbo={setTurbo}
+                  />
 
                 {game === "crash" && (
                   <div className="crash-auto-cashout-box">
@@ -1197,6 +1198,7 @@ export function GameTableDialog({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 

@@ -17,6 +17,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/roulette"
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
 	"github.com/drezzz666/kasyno/backend/internal/games/slots"
+	"github.com/drezzz666/kasyno/backend/internal/games/upgrader"
 )
 
 // 1. GAME: COINFLIP (HEADS / TAILS)
@@ -396,5 +397,85 @@ func TestProvablyFair_DeterminismAcrossRuns(t *testing.T) {
 	int2 := provablyfair.GenerateInt(serverSeed, clientSeed, nonce, 37)
 	if int1 != int2 || int1 < 0 || int1 >= 37 {
 		t.Fatalf("provably fair int non-deterministic or out of range [0, 37): %d", int1)
+	}
+}
+
+// 12. GAME: UPGRADER (FULL SECURITY & SERVER-SIDED VALIDATION)
+func TestUpgrader_SecurityAndServerSided(t *testing.T) {
+	// A. Valid multiplier ranges
+	resUnder, err := upgrader.PlayUpgrader(100, 2.00, "under")
+	if err != nil {
+		t.Fatalf("upgrader under: %v", err)
+	}
+	if resUnder.Payload.WinChance != 48.00 {
+		t.Fatalf("upgrader: expected 48.00 win chance, got %f", resUnder.Payload.WinChance)
+	}
+	if resUnder.Won {
+		if resUnder.Payout != 200 {
+			t.Fatalf("upgrader: win payout expected 200, got %d", resUnder.Payout)
+		}
+	} else {
+		if resUnder.Payout != 0 {
+			t.Fatalf("upgrader: loss payout expected 0, got %d", resUnder.Payout)
+		}
+	}
+
+	resOver, err := upgrader.PlayUpgrader(100, 5.00, "over")
+	if err != nil {
+		t.Fatalf("upgrader over: %v", err)
+	}
+	if resOver.Payload.WinChance != 19.20 {
+		t.Fatalf("upgrader: expected 19.20 win chance, got %f", resOver.Payload.WinChance)
+	}
+
+	// B. Invalid multiplier bounds must be rejected
+	if _, err := upgrader.PlayUpgrader(100, 1.01, "under"); err == nil {
+		t.Fatalf("upgrader: expected error on target multiplier < 1.05x")
+	}
+	if _, err := upgrader.PlayUpgrader(100, 20000.0, "under"); err == nil {
+		t.Fatalf("upgrader: expected error on target multiplier > 10000x")
+	}
+
+	// C. Provably Fair Determinism
+	pfRes1, err := upgrader.PlayUpgraderProvablyFair(100, 2.50, "under", "server_seed_abc", "client_seed_xyz", 1)
+	if err != nil {
+		t.Fatalf("upgrader PF: %v", err)
+	}
+	pfRes2, err := upgrader.PlayUpgraderProvablyFair(100, 2.50, "under", "server_seed_abc", "client_seed_xyz", 1)
+	if err != nil {
+		t.Fatalf("upgrader PF: %v", err)
+	}
+	if pfRes1.Payload.RolledNumber != pfRes2.Payload.RolledNumber || pfRes1.Won != pfRes2.Won {
+		t.Fatalf("upgrader PF: non-deterministic output for identical seeds and nonce!")
+	}
+}
+
+// 13. SECURITY VERIFICATION: ACTIVE MINES & CHICKEN STATE LEAK AUDIT
+func TestMinesAndChicken_NoDataLeakage(t *testing.T) {
+	// A. Mines: Active state must never reveal unhit mine positions
+	activeMines := mines.InitialStart(5)
+	if len(activeMines.Mines) != 5 {
+		t.Fatalf("mines initial start: expected 5 mines in internal state, got %d", len(activeMines.Mines))
+	}
+	maskedMines := mines.MaskMines(activeMines)
+	maskedJSON, _ := json.Marshal(maskedMines)
+	var parsedMines map[string]interface{}
+	_ = json.Unmarshal(maskedJSON, &parsedMines)
+
+	if minesList, found := parsedMines["mines"]; found {
+		if list, ok := minesList.([]interface{}); ok && len(list) > 0 {
+			t.Fatalf("CRITICAL SECURITY LEAK: active mines payload exposes mine positions to client: %v", list)
+		}
+	}
+
+	// B. Chicken: Active state must not expose future hazards
+	activeChicken := chicken.InitialStart("classic")
+	maskedChicken := chicken.MaskChicken(activeChicken)
+	maskedChickenJSON, _ := json.Marshal(maskedChicken)
+	var parsedChicken map[string]interface{}
+	_ = json.Unmarshal(maskedChickenJSON, &parsedChicken)
+
+	if hazardLane, found := parsedChicken["hazardLane"]; found && hazardLane != float64(0) {
+		t.Fatalf("CRITICAL SECURITY LEAK: active chicken payload exposes future hazard positions: %v", hazardLane)
 	}
 }
