@@ -261,6 +261,40 @@ export default function App() {
     return () => clearInterval(interval);
   }, [load]);
 
+  const prevConnectedRef = useRef(connected);
+  useEffect(() => {
+    if (!prevConnectedRef.current && connected) {
+      void load();
+    }
+    prevConnectedRef.current = connected;
+  }, [connected, load]);
+
+  useEffect(() => {
+    const handleSettled = (e) => {
+      const detail = e.detail;
+      if (detail) {
+        if (typeof detail.balance === "number") {
+          syncBalance(detail.balance);
+        }
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                active: null,
+                player: {
+                  ...prev.player,
+                  balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+                },
+              }
+            : prev
+        );
+        void load();
+      }
+    };
+    window.addEventListener("casino:round_settled", handleSettled);
+    return () => window.removeEventListener("casino:round_settled", handleSettled);
+  }, [syncBalance, load]);
+
   const loadMoreHistory = async () => {
     if (loadingMoreHistory || !data?.history?.length) return;
     setLoadingMoreHistory(true);

@@ -392,6 +392,8 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleCashoutCrash(w, r, p, body)
 	case "settle_crash", "crash_settle":
 		h.handleSettleCrash(w, r, p, body)
+	case "refund_active", "cancel_active":
+		h.handleRefundActive(w, r, p)
 	default:
 		h.handleInstantGame(w, r, p, body)
 	}
@@ -1577,21 +1579,41 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 		defer cancel()
 		active, err := h.ledger.GetActiveRound(ctx, userID)
 		if err == nil && active != nil && active.ID == roundID && active.Game == "crash" {
+			var won bool
+			var payout int64
+			var resultText string
+			var cashedAt float64
+			var finalMult float64
+
+			if autoCashout >= 0.80 && autoCashout <= crashPoint {
+				won = true
+				cashedAt = autoCashout
+				finalMult = autoCashout
+				payout = int64(math.Floor(float64(bet) * finalMult))
+				resultText = fmt.Sprintf("Wypłacono przy %.2fx (Rozbicie: %.2fx) - Wygrana ×%.2f!", finalMult, crashPoint, finalMult)
+			} else {
+				won = false
+				cashedAt = 0
+				finalMult = 0
+				payout = 0
+				resultText = fmt.Sprintf("Rakieta rozbiła się przy %.2fx - Przegrana", crashPoint)
+			}
+
 			finalPayload := crash.Payload{
 				CrashPoint: crashPoint,
-				CashedAt:   0,
-				Won:        false,
-				Multiplier: 0,
+				CashedAt:   cashedAt,
+				Won:        won,
+				Multiplier: finalMult,
 			}
 			b, _ := json.Marshal(finalPayload)
-			outcome, err := h.ledger.SettleActiveRound(ctx, roundID, userID, 0, fmt.Sprintf("Rakieta rozbiła się przy %.2fx - Przegrana", crashPoint), string(b))
+			outcome, err := h.ledger.SettleActiveRound(ctx, roundID, userID, payout, resultText, string(b))
 			if err == nil {
 				h.hub.SendToUser(userID, ws.Event{
 					Type: ws.EventRoundSettled,
 					Payload: map[string]interface{}{
 						"game":        "crash",
 						"round_id":    roundID,
-						"crashed":     true,
+						"crashed":     !won,
 						"crash_point": crashPoint,
 						"round":       ToPublicRound(outcome.Round),
 						"balance":     outcome.Balance,
@@ -1832,6 +1854,57 @@ func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request
 		"roundsToday":    outcome.RoundsToday,
 		"leveledUp":      outcome.LeveledUp,
 		"levelUpBonus":   outcome.LevelUpBonus,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
+
+// HandleUserDisconnect safely refunds any in-flight active round when a user loses WebSocket connection.
+func (h *CasinoHandler) HandleUserDisconnect(userID string) {
+	if userID == "" {
+		return
+	}
+	// 2.5 second grace period to distinguish between brief page refresh vs actual disconnect
+	time.AfterFunc(2500*time.Millisecond, func() {
+		if h.hub.IsUserConnected(userID) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		outcome, err := h.ledger.RefundActiveRound(ctx, userID, "Zwrot stawki (utrata połączenia)")
+		if err == nil && outcome != nil {
+			log.Printf("[Safe Disconnect Recovery] Refunded %d $FGT to user %s for interrupted round %s (%s)", outcome.Round.Bet, userID, outcome.Round.ID, outcome.Round.Game)
+			if h.telemetry != nil {
+				h.telemetry.RecordGameRound(outcome.Round.Game, "refund_disconnect", outcome.Round.Bet, outcome.Round.Bet, "Zwrot stawki", 1.0, 0)
+			}
+		}
+	})
+}
+
+func (h *CasinoHandler) handleRefundActive(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
+	outcome, err := h.ledger.RefundActiveRound(r.Context(), p.UserID, "Zwrot stawki (przerwanie gry)")
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd anulowania aktywnej gry")
+		return
+	}
+	if outcome == nil {
+		JSONError(w, http.StatusNotFound, "Brak aktywnej gry do anulowania.")
+		return
+	}
+
+	h.hub.SendToUser(p.UserID, ws.Event{
+		Type: ws.EventBalanceUpdate,
+		Payload: ws.BalanceUpdatePayload{
+			Balance: outcome.Balance,
+			XP:      p.XP,
+			Level:   p.Level,
+		},
+	})
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(outcome.Round),
+		"balance":        outcome.Balance,
 		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }

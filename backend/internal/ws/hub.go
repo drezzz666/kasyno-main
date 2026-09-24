@@ -50,15 +50,17 @@ func recordWSEvent(evType string) {
 }
 
 type MessageHandler func(client *Client, msg []byte)
+type DisconnectHandler func(userID string)
 
 type Hub struct {
-	clients        map[*Client]bool
-	userClients    map[string]map[*Client]bool
-	broadcast      chan []byte
-	register       chan *Client
-	unregister     chan *Client
-	messageHandler MessageHandler
-	mu             sync.RWMutex
+	clients          map[*Client]bool
+	userClients      map[string]map[*Client]bool
+	broadcast        chan []byte
+	register         chan *Client
+	unregister       chan *Client
+	messageHandler   MessageHandler
+	onUserDisconnect DisconnectHandler
+	mu               sync.RWMutex
 }
 
 func NewHub() *Hub {
@@ -82,6 +84,19 @@ func (h *Hub) GetMessageHandler() MessageHandler {
 	defer h.mu.RUnlock()
 	return h.messageHandler
 }
+
+func (h *Hub) SetOnUserDisconnect(handler DisconnectHandler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onUserDisconnect = handler
+}
+
+func (h *Hub) IsUserConnected(userID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.userClients[userID]) > 0
+}
+
 
 func (h *Hub) Run() {
 	for {
@@ -130,14 +145,20 @@ func (h *Hub) internalRemoveClient(client *Client) {
 	if _, ok := h.clients[client]; ok {
 		delete(h.clients, client)
 		close(client.send)
+		var userDisconnected string
 		if client.UserID != "" && h.userClients[client.UserID] != nil {
 			delete(h.userClients[client.UserID], client)
 			if len(h.userClients[client.UserID]) == 0 {
 				delete(h.userClients, client.UserID)
+				userDisconnected = client.UserID
 			}
 		}
 		recordWSDisconnect()
 		log.Printf("[WS Hub] Client disconnected: %s (Remaining: %d)", client.UserID, len(h.clients))
+		if userDisconnected != "" && h.onUserDisconnect != nil {
+			fn := h.onUserDisconnect
+			go fn(userDisconnected)
+		}
 	}
 }
 

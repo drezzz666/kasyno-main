@@ -25,12 +25,70 @@ const (
 	ColorDark    = 0x1E293B
 )
 
+type playerCacheItem struct {
+	Nick    string
+	UserID  string
+	Balance int64
+	Level   int
+}
+
 type Bot struct {
 	session   *discordgo.Session
 	cfg       *config.Config
 	ledger    *ledger.Service
 	scheduler *scheduler.Scheduler
 	appURL    string
+
+	playerCacheMu sync.RWMutex
+	playerCache   []playerCacheItem
+	playerCacheAt time.Time
+}
+
+func (b *Bot) invalidatePlayerCache() {
+	b.playerCacheMu.Lock()
+	defer b.playerCacheMu.Unlock()
+	b.playerCacheAt = time.Time{}
+}
+
+func (b *Bot) getCachedPlayers(ctx context.Context) []playerCacheItem {
+	b.playerCacheMu.RLock()
+	if len(b.playerCache) > 0 && time.Since(b.playerCacheAt) < 15*time.Second {
+		cached := make([]playerCacheItem, len(b.playerCache))
+		copy(cached, b.playerCache)
+		b.playerCacheMu.RUnlock()
+		return cached
+	}
+	b.playerCacheMu.RUnlock()
+
+	b.playerCacheMu.Lock()
+	defer b.playerCacheMu.Unlock()
+
+	if len(b.playerCache) > 0 && time.Since(b.playerCacheAt) < 15*time.Second {
+		cached := make([]playerCacheItem, len(b.playerCache))
+		copy(cached, b.playerCache)
+		return cached
+	}
+
+	players, _, err := b.ledger.AdminListUsers(ctx, "", 200, 0)
+	if err != nil {
+		return b.playerCache
+	}
+
+	var items []playerCacheItem
+	for _, p := range players {
+		items = append(items, playerCacheItem{
+			Nick:    p.Nick,
+			UserID:  p.UserID,
+			Balance: p.Balance,
+			Level:   p.Level,
+		})
+	}
+	b.playerCache = items
+	b.playerCacheAt = time.Now()
+
+	cached := make([]playerCacheItem, len(items))
+	copy(cached, items)
+	return cached
 }
 
 func New(cfg *config.Config, ledgerSvc *ledger.Service, schedulerSvc *scheduler.Scheduler) (*Bot, error) {
@@ -95,7 +153,7 @@ func (b *Bot) Start() error {
 	log.Printf("🤖 [Discord Bot] Pomyślnie połączono z Discordem jako: %s#%s", b.session.State.User.Username, b.session.State.User.Discriminator)
 
 	// Set presence - Admin Console
-	_ = b.session.UpdateGameStatus(0, "👑 2FGT Casino Admin Console")
+	_ = b.session.UpdateGameStatus(0, "2FGT Casino Console")
 
 	// Register slash commands
 	b.registerSlashCommands()

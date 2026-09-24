@@ -2118,6 +2118,74 @@ func (s *Service) RecoverInterruptedRoundsOnStartup(ctx context.Context) (int, e
 	return refundCount, nil
 }
 
+// RefundActiveRound refunds any currently active round for the given user, returning the full bet amount to balance.
+func (s *Service) RefundActiveRound(ctx context.Context, userID string, reason string) (*SettleOutcome, error) {
+	if reason == "" {
+		reason = "Zwrot stawki (utrata połączenia)"
+	}
+	t := NowMs()
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	var round GameRound
+	err = tx.QueryRow(ctx, `
+		SELECT id, user_id, game, state, bet, payout, result, payload, revision, created_at, settled_at
+		FROM game_rounds
+		WHERE user_id = $1 AND state = 'active'
+	`, userID).Scan(
+		&round.ID, &round.UserID, &round.Game, &round.State, &round.Bet, &round.Payout, &round.Result, &round.Payload, &round.Revision, &round.CreatedAt, &round.SettledAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil // No active round to refund
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active round: %w", err)
+	}
+
+	// Update game_round to settled with 100% bet refund payout
+	res, err := tx.Exec(ctx, `
+		UPDATE game_rounds
+		SET state = 'settled', payout = $1, result = $2, settled_at = $3
+		WHERE id = $4 AND user_id = $5 AND state = 'active'
+	`, round.Bet, reason, t, round.ID, userID)
+	if err != nil || res.RowsAffected() == 0 {
+		return nil, fmt.Errorf("failed to settle active round for refund: %w", err)
+	}
+
+	var curBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
+	newBal := curBal + round.Bet
+
+	// Record refund payout in ledger
+	_, err = tx.Exec(ctx, `
+		INSERT INTO ledger_entries (id, user_id, round_id, type, amount, balance_after, created_at)
+		VALUES ($1, $2, $3, 'payout', $4, $5, $6)
+	`, uuid.NewString(), userID, round.ID, round.Bet, newBal, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to record refund in ledger: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	round.State = "settled"
+	round.Payout = round.Bet
+	round.Result = reason
+	round.SettledAt = &t
+
+	return &SettleOutcome{
+		Round:   &round,
+		Balance: newBal,
+	}, nil
+}
+
 
 
 
