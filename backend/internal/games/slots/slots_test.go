@@ -5,7 +5,7 @@ import (
 )
 
 func TestSlotsEvaluation(t *testing.T) {
-	// 5 of a kind: ♛ on middle line (Jackpot 150x)
+	// 5 of a kind: ♛ on middle line (Jackpot 200x)
 	reels5 := [][]string{
 		{"2", "♛", "F"},
 		{"F", "♛", "G"},
@@ -14,11 +14,11 @@ func TestSlotsEvaluation(t *testing.T) {
 		{"2", "♛", "T"},
 	}
 	res5 := EvaluateReels(reels5, 100)
-	if !res5.Win || res5.Multiplier != 150.0 || res5.Payout != 15000 {
-		t.Errorf("expected 5 of a kind 150x payout 15000, got mult %.2f payout %d", res5.Multiplier, res5.Payout)
+	if !res5.Win || res5.Multiplier != 200.0 || res5.Payout != 20000 {
+		t.Errorf("expected 5 of a kind 200x payout 20000, got mult %.2f payout %d", res5.Multiplier, res5.Payout)
 	}
 
-	// 4 of a kind: "F" (6x)
+	// 4 of a kind: "F" (8x)
 	reels4 := [][]string{
 		{"2", "F", "F"},
 		{"F", "F", "G"},
@@ -27,11 +27,11 @@ func TestSlotsEvaluation(t *testing.T) {
 		{"2", "2", "T"},
 	}
 	res4 := EvaluateReels(reels4, 50)
-	if !res4.Win || res4.Multiplier != 6.0 || res4.Payout != 300 {
-		t.Errorf("expected 4 of a kind 6x payout 300, got mult %.2f payout %d", res4.Multiplier, res4.Payout)
+	if !res4.Win || res4.Multiplier != 8.0 || res4.Payout != 400 {
+		t.Errorf("expected 4 of a kind 8x payout 400, got mult %.2f payout %d", res4.Multiplier, res4.Payout)
 	}
 
-	// 3 of a kind: "G" (1.4x)
+	// 3 of a kind: "G" (1.5x)
 	reels3 := [][]string{
 		{"2", "G", "F"},
 		{"F", "G", "G"},
@@ -40,8 +40,8 @@ func TestSlotsEvaluation(t *testing.T) {
 		{"2", "T", "T"},
 	}
 	res3 := EvaluateReels(reels3, 10)
-	if !res3.Win || res3.Multiplier != 1.4 || res3.Payout != 14 {
-		t.Errorf("expected 3 of a kind 1.4x payout 14, got mult %.2f payout %d", res3.Multiplier, res3.Payout)
+	if !res3.Win || res3.Multiplier != 1.5 || res3.Payout != 15 {
+		t.Errorf("expected 3 of a kind 1.5x payout 15, got mult %.2f payout %d", res3.Multiplier, res3.Payout)
 	}
 
 	// Loss: all different symbols on middle line

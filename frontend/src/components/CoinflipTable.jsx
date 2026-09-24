@@ -33,8 +33,8 @@ export function CoinflipTable({
 
       {/* Choice Selector */}
       <div className="coinflip-controls">
-        <span className="text-xs uppercase tracking-wider font-bold text-slate-400 text-center">
-          Wybierz stronę monety przed rozpoczęciem:
+        <span className="text-xs sm:text-sm uppercase tracking-wider font-bold text-slate-400 text-center">
+          Wybierz stronę monety:
         </span>
         <div className="coin-choices-row">
           <button
@@ -43,10 +43,10 @@ export function CoinflipTable({
             className={`coin-choice-btn ${choice === "heads" ? "active" : ""}`}
             onClick={() => setChoice("heads")}
           >
-            <span className="text-xl">🦅</span>
+            <span className="text-2xl sm:text-3xl">🦅</span>
             <div className="flex flex-col text-left">
-              <strong className="text-sm">Orzeł (Heads)</strong>
-              <span className="text-[10px] text-amber-400 font-mono">Mnożnik ×1.98</span>
+              <strong className="text-sm sm:text-base font-bold">Orzeł (Heads)</strong>
+              <span className="text-[11px] sm:text-xs text-amber-400 font-mono font-semibold">Mnożnik ×1.98</span>
             </div>
           </button>
 
@@ -56,10 +56,10 @@ export function CoinflipTable({
             className={`coin-choice-btn ${choice === "tails" ? "active" : ""}`}
             onClick={() => setChoice("tails")}
           >
-            <span className="text-xl">👑</span>
+            <span className="text-2xl sm:text-3xl">👑</span>
             <div className="flex flex-col text-left">
-              <strong className="text-sm">Reszka (Tails)</strong>
-              <span className="text-[10px] text-amber-400 font-mono">Mnożnik ×1.98</span>
+              <strong className="text-sm sm:text-base font-bold">Reszka (Tails)</strong>
+              <span className="text-[11px] sm:text-xs text-amber-400 font-mono font-semibold">Mnożnik ×1.98</span>
             </div>
           </button>
         </div>

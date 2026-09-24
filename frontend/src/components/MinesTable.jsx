@@ -3,15 +3,9 @@ import { money, format } from "../lib/formatters";
 import { Flame, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
 import { sounds } from "../lib/sounds";
 
-// Gem SVG with crisp faceted cuts
-export function GemIcon({ className = "w-7 h-7" }) {
+export function SharedMinesDefs() {
   return (
-    <svg
-      viewBox="0 0 36 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
+    <svg className="sr-only" width="0" height="0" aria-hidden="true">
       <defs>
         <linearGradient id="gem-top" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#6ee7b7" />
@@ -25,7 +19,30 @@ export function GemIcon({ className = "w-7 h-7" }) {
           <stop offset="0%" stopColor="#34d399" />
           <stop offset="100%" stopColor="#059669" />
         </linearGradient>
+        <radialGradient id="mine-sphere" cx="40%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="#475569" />
+          <stop offset="50%" stopColor="#1e293b" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </radialGradient>
+        <radialGradient id="mine-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fca5a5" />
+          <stop offset="40%" stopColor="#ef4444" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
       </defs>
+    </svg>
+  );
+}
+
+// Gem SVG with crisp faceted cuts
+export function GemIcon({ className = "w-7 h-7" }) {
+  return (
+    <svg
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
       {/* Top Facet */}
       <polygon points="12,5 24,5 31,13 5,13" fill="url(#gem-top)" />
       {/* Center Main Facet */}
@@ -51,18 +68,6 @@ export function MineIcon({ className = "w-7 h-7" }) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <defs>
-        <radialGradient id="mine-sphere" cx="40%" cy="40%" r="60%">
-          <stop offset="0%" stopColor="#475569" />
-          <stop offset="50%" stopColor="#1e293b" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </radialGradient>
-        <radialGradient id="mine-core" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#fca5a5" />
-          <stop offset="40%" stopColor="#ef4444" />
-          <stop offset="100%" stopColor="#991b1b" />
-        </radialGradient>
-      </defs>
       {/* Spikes / Horns */}
       <rect x="16.5" y="2" width="3" height="6" rx="1.5" fill="#334155" />
       <rect x="16.5" y="28" width="3" height="6" rx="1.5" fill="#334155" />
@@ -87,13 +92,14 @@ export function MineIcon({ className = "w-7 h-7" }) {
 }
 
 export function calculateMultiplier(revealedCount, mineCount) {
-  if (revealedCount <= 0) return 1.0;
+  if (revealedCount <= 0) return 1.00;
   let chance = 1.0;
   for (let i = 0; i < revealedCount; i++) {
     chance *= (25 - mineCount - i) / (25 - i);
   }
-  const mult = Math.floor((0.97 / chance) * 100) / 100;
-  return Math.max(1.0, mult);
+  let raw = 0.97 / chance;
+  const mult = Math.floor(raw * 100) / 100;
+  return Math.max(1.00, mult);
 }
 
 export function MinesTable({
@@ -128,7 +134,7 @@ export function MinesTable({
   const totalGems = 25 - mineCount;
   const remainingGems = Math.max(0, totalGems - revealed.length);
 
-  const currentMultiplier = p.multiplier || 1.0;
+  const currentMultiplier = p.multiplier !== undefined ? p.multiplier : 1.00;
   const nextMultiplier = calculateMultiplier(revealed.length + 1, mineCount);
   const currentBet = round?.bet || last?.bet || 10;
   const currentProfit = Math.floor(currentBet * currentMultiplier);
@@ -200,6 +206,7 @@ export function MinesTable({
 
   return (
     <div className="mines-craft-container">
+      <SharedMinesDefs />
       {/* Authentic Mines HUD Bar */}
       <div className="mines-hud">
         <div className="hud-metric">
@@ -266,19 +273,19 @@ export function MinesTable({
             >
               {isRevealedGem ? (
                 <div className="tile-content flip-in">
-                  <GemIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <GemIcon className="w-full h-full p-1.5 sm:p-2" />
                 </div>
               ) : isExplodedMine ? (
                 <div className="tile-content explode-in">
-                  <MineIcon className="w-6 h-6 sm:w-8 sm:h-8" />
+                  <MineIcon className="w-full h-full p-1.5 sm:p-2" />
                 </div>
               ) : isUnrevealedSettledMine ? (
                 <div className="tile-content ghost-mine">
-                  <MineIcon className="w-5 h-5 sm:w-6 sm:h-6 opacity-60" />
+                  <MineIcon className="w-full h-full p-2 opacity-60" />
                 </div>
               ) : isUnrevealedSettledGem ? (
                 <div className="tile-content ghost-gem">
-                  <GemIcon className="w-5 h-5 sm:w-6 sm:h-6 opacity-35" />
+                  <GemIcon className="w-full h-full p-2 opacity-35" />
                 </div>
               ) : isPending ? (
                 <div className="tile-spinner" />

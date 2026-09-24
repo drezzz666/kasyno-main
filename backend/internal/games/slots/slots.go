@@ -74,50 +74,53 @@ func EvaluateReels(reels [][]string, bet int64) *SpinResult {
 	if len(fivers) > 0 {
 		sym := fivers[0]
 		if sym == "♛" {
-			multiplier = 150.0 // Jackpot
+			multiplier = 200.0 // Jackpot
 			comboName = "5x Korona ♛ (JACKPOT)"
 		} else if sym == "◆" {
-			multiplier = 60.0
+			multiplier = 75.0
 			comboName = "5x Diament ◆"
 		} else {
-			multiplier = 20.0
+			multiplier = 25.0
 			comboName = fmt.Sprintf("5x Symbol %s", sym)
 		}
 	} else if len(quads) > 0 {
 		sym := quads[0]
 		if sym == "♛" {
-			multiplier = 30.0
+			multiplier = 35.0
 			comboName = "4x Korona ♛"
 		} else if sym == "◆" {
-			multiplier = 15.0
+			multiplier = 18.0
 			comboName = "4x Diament ◆"
 		} else {
-			multiplier = 6.0
+			multiplier = 8.0
 			comboName = fmt.Sprintf("4x Symbol %s", sym)
 		}
 	} else if len(triples) > 0 && len(pairs) > 0 {
-		multiplier = 4.0
+		multiplier = 5.0
 		comboName = fmt.Sprintf("Full House (%s & %s)", triples[0], pairs[0])
 	} else if len(triples) > 0 {
 		sym := triples[0]
 		if sym == "♛" {
-			multiplier = 3.5
+			multiplier = 4.0
 			comboName = "3x Korona ♛"
 		} else if sym == "◆" {
-			multiplier = 2.2
+			multiplier = 2.5
 			comboName = "3x Diament ◆"
 		} else {
-			multiplier = 1.4
+			multiplier = 1.5
 			comboName = fmt.Sprintf("3x Symbol %s", sym)
 		}
 	} else if len(pairs) >= 2 {
-		multiplier = 0.8
+		multiplier = 1.20
 		comboName = fmt.Sprintf("Dwie Pary (%s & %s)", pairs[0], pairs[1])
 	} else if len(pairs) == 1 {
 		sym := pairs[0]
 		if sym == "♛" {
-			multiplier = 1.1
+			multiplier = 1.20
 			comboName = "Para Koron ♛"
+		} else if sym == "◆" {
+			multiplier = 1.10
+			comboName = "Para Diamentów ◆"
 		}
 	}
 

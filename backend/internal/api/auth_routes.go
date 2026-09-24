@@ -10,11 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/config"
-	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 )
 
@@ -169,22 +167,6 @@ func (h *AuthHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 
-	// Trigger Discord Bot Telemetry & Login Thread Sync
-	if bot := discordbot.GetGlobalBot(); bot != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_ = bot.LogUserLogin(ctx, player.UserID, player.Nick, ip, userAgent)
-			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
-				UserID:    player.UserID,
-				Nick:      player.Nick,
-				Email:     player.Email,
-				IP:        ip,
-				UserAgent: userAgent,
-			})
-		}()
-	}
-
 	// Clear CSRF state cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "casino_oidc_state",
@@ -294,68 +276,3 @@ func (h *AuthHandler) BackchannelLogout(w http.ResponseWriter, r *http.Request) 
 	_, _ = w.Write([]byte("OK"))
 }
 
-// DevLogin handles GET /api/auth/dev-login (enabled only if DEV_AUTH_ENABLED=true)
-func (h *AuthHandler) DevLogin(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.DevAuthEnabled {
-		http.Error(w, "Dev login is disabled in production", http.StatusForbidden)
-		return
-	}
-
-	nick := r.URL.Query().Get("nick")
-	if nick == "" {
-		nick = "Gracz_Dev"
-	}
-	userID := fmt.Sprintf("dev_%s", nick)
-	email := fmt.Sprintf("%s@dev.local", nick)
-	avatar := r.URL.Query().Get("avatar")
-
-	player, err := h.ledger.GetOrCreatePlayer(r.Context(), userID, email, nick, avatar, h.cfg.DefaultBalance)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var avatarPtr *string
-	if avatar != "" {
-		avatarPtr = &avatar
-	} else if player.Avatar != nil {
-		avatarPtr = player.Avatar
-	}
-
-	sessUser := auth.SessionUser{
-		UserID: player.UserID,
-		Email:  player.Email,
-		Nick:   player.Nick,
-		Avatar: avatarPtr,
-	}
-
-	signedToken, _ := auth.SignSession(sessUser, h.cfg.SessionSecret)
-	auth.SetSessionCookie(w, signedToken, false)
-
-	// Record login log
-	ip := GetClientIP(r)
-	userAgent := r.UserAgent()
-	if h.ledger != nil {
-		go func() {
-			_, _ = h.ledger.RecordLogin(context.Background(), player.UserID, player.Nick, ip, userAgent)
-		}()
-	}
-
-	// Trigger Discord Bot Telemetry & Login Thread Sync
-	if bot := discordbot.GetGlobalBot(); bot != nil {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_ = bot.LogUserLogin(ctx, player.UserID, player.Nick, ip, userAgent)
-			_ = bot.SyncUserTelemetry(ctx, &discordbot.UserTelemetryReport{
-				UserID:    player.UserID,
-				Nick:      player.Nick,
-				Email:     player.Email,
-				IP:        ip,
-				UserAgent: userAgent,
-			})
-		}()
-	}
-
-	http.Redirect(w, r, "/", http.StatusFound)
-}

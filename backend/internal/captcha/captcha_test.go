@@ -86,7 +86,7 @@ func TestCaptchaForgeryAndCrossUser(t *testing.T) {
 
 	// 3. Expired Challenge
 	c4 := Generate("user_test_security_4", secret)
-	c4.IssuedAt = time.Now().Unix() - 250 // 250s ago (>180s expiry)
+	c4.IssuedAt = time.Now().Unix() - 350 // 350s ago (>300s expiry)
 	c4.Signature = sign("user_test_security_4", secret, c4.ID, c4.Answer, c4.IssuedAt)
 	err = Verify("user_test_security_4", secret, c4.ID, c4.Answer, c4.Signature, c4.IssuedAt)
 	if err == nil {

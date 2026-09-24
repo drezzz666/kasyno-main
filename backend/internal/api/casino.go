@@ -1,12 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"sync"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/captcha"
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
+	"github.com/drezzz666/kasyno/backend/internal/games/chicken"
 	"github.com/drezzz666/kasyno/backend/internal/games/coinflip"
 	"github.com/drezzz666/kasyno/backend/internal/games/crash"
 	"github.com/drezzz666/kasyno/backend/internal/games/limbo"
@@ -34,6 +37,7 @@ type CasinoHandler struct {
 	hub           *ws.Hub
 	userLocks     *anticheat.UserLockManager
 	rateLimiter   *anticheat.RateLimiter
+	plinkoTracker *anticheat.PlinkoTracker
 	sessionSecret string
 	reporter      *reporter.Reporter
 	telemetry     *telemetry.Collector
@@ -49,6 +53,7 @@ func NewCasinoHandler(ledgerService *ledger.Service, wsHub *ws.Hub, rep *reporte
 		hub:           wsHub,
 		userLocks:     anticheat.NewUserLockManager(),
 		rateLimiter:   anticheat.NewRateLimiter(),
+		plinkoTracker: anticheat.NewPlinkoTracker(),
 		sessionSecret: sessionSecret,
 		reporter:      rep,
 		telemetry:     collector,
@@ -91,6 +96,11 @@ func MaskActivePayload(game, payloadJSON string) interface{} {
 		p, err := mines.ParsePayload(payloadJSON)
 		if err == nil {
 			return mines.MaskMines(*p)
+		}
+	} else if game == "chicken" {
+		p, err := chicken.ParsePayload(payloadJSON)
+		if err == nil {
+			return chicken.MaskChicken(*p)
 		}
 	} else if game == "crash" {
 		p, err := crash.ParsePayload(payloadJSON)
@@ -307,36 +317,40 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge
-	proofHeader := r.Header.Get("X-Browser-Proof")
-	if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
-		if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
-			h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
-		}
-		JSON(w, http.StatusForbidden, map[string]interface{}{
-			"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
-			"code":      "REQ_FAILED",
-			"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
-		})
-		return
-	}
-
-	// 1. Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
-	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
-
-	// Parse action and game early so we can log it precisely in rate limiter
-	var bodyPeek map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&bodyPeek); err != nil {
+	// 1. Decode request body early
+	var body map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		JSONError(w, http.StatusBadRequest, "Nieprawidłowy format JSON")
 		return
 	}
-	actionPeek, _ := bodyPeek["action"].(string)
-	if actionPeek == "" {
-		actionPeek = "play"
+	action, _ := body["action"].(string)
+	if action == "" {
+		action = "play"
 	}
-	gamePeek, _ := bodyPeek["game"].(string)
+	game, _ := body["game"].(string)
 
-	if !h.rateLimiter.AllowGameAction(p.UserID, actionPeek, gamePeek) {
+	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge for game actions
+	// Captcha actions (solve_captcha, claim_captcha, get_captcha) are self-verifying human challenges with HMAC signatures
+	isCaptchaAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha"
+	if !isCaptchaAction {
+		proofHeader := r.Header.Get("X-Browser-Proof")
+		if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
+			if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
+				h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
+			}
+			JSON(w, http.StatusForbidden, map[string]interface{}{
+				"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
+				"code":      "REQ_FAILED",
+				"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+			})
+			return
+		}
+	}
+
+	// Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
+	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
+
+	if !h.rateLimiter.AllowGameAction(p.UserID, action, game) {
 		JSONError(w, http.StatusTooManyRequests, "Wystąpił błąd podczas przetwarzania żądania.")
 		return
 	}
@@ -350,10 +364,6 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	if err == nil && freshPlayer != nil {
 		p = freshPlayer
 	}
-
-	// bodyPeek is already decoded above; reuse it as body
-	body := bodyPeek
-	action := actionPeek
 
 	switch action {
 	case "bonus":
@@ -372,6 +382,10 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleStartMines(w, r, p, body)
 	case "mines":
 		h.handleActMines(w, r, p, body)
+	case "start_chicken":
+		h.handleStartChicken(w, r, p, body)
+	case "chicken":
+		h.handleActChicken(w, r, p, body)
 	case "start_crash":
 		h.handleStartCrash(w, r, p, body)
 	case "cashout_crash", "crash_cashout":
@@ -415,7 +429,7 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	const rewardAmount int64 = 40
+	const rewardAmount int64 = 50
 	newBal, err := h.ledger.CreditCaptchaReward(r.Context(), p.UserID, rewardAmount)
 	if err != nil {
 		JSONError(w, http.StatusInternalServerError, "Błąd przyznawania nagrody")
@@ -719,6 +733,10 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			JSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		if err := h.plinkoTracker.ValidateAndRecordDrop(p.UserID, rows, risk); err != nil {
+			JSONError(w, http.StatusConflict, err.Error())
+			return
+		}
 		var res *plinko.Result
 		if hasPF {
 			res, err = plinko.PlayPlinkoProvablyFair(serverSeed, clientSeed, nonce, bet, rows, risk)
@@ -912,7 +930,36 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 	move, _ := body["move"].(string)
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
-	if err != nil || activeRound == nil || activeRound.ID != roundID {
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd bazy danych")
+		return
+	}
+	if activeRound == nil || activeRound.ID != roundID {
+		if roundID != "" {
+			settledRound, sErr := h.ledger.GetRoundByID(r.Context(), roundID, p.UserID)
+			if sErr == nil && settledRound != nil && settledRound.State == "settled" {
+				player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+				bal := p.Balance
+				xp := p.XP
+				lvl := p.Level
+				if player != nil {
+					bal = player.Balance
+					xp = player.XP
+					lvl = player.Level
+				}
+				roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
+				JSON(w, http.StatusOK, map[string]interface{}{
+					"ok":             true,
+					"round":          ToPublicRound(settledRound),
+					"balance":        bal,
+					"xp":             xp,
+					"level":          lvl,
+					"roundsToday":    roundsToday,
+					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+				})
+				return
+			}
+		}
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -1091,7 +1138,36 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	move, _ := body["move"].(string)
 
 	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
-	if err != nil || activeRound == nil || activeRound.ID != roundID {
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd bazy danych")
+		return
+	}
+	if activeRound == nil || activeRound.ID != roundID {
+		if roundID != "" {
+			settledRound, sErr := h.ledger.GetRoundByID(r.Context(), roundID, p.UserID)
+			if sErr == nil && settledRound != nil && settledRound.State == "settled" {
+				player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+				bal := p.Balance
+				xp := p.XP
+				lvl := p.Level
+				if player != nil {
+					bal = player.Balance
+					xp = player.XP
+					lvl = player.Level
+				}
+				roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
+				JSON(w, http.StatusOK, map[string]interface{}{
+					"ok":             true,
+					"round":          ToPublicRound(settledRound),
+					"balance":        bal,
+					"xp":             xp,
+					"level":          lvl,
+					"roundsToday":    roundsToday,
+					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+				})
+				return
+			}
+		}
 		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
 		return
 	}
@@ -1208,6 +1284,205 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 
 	// Safe tile, game continues
+	newPayloadBytes, _ := json.Marshal(payload)
+	err = h.ledger.UpdateActiveRoundPayload(r.Context(), activeRound.ID, p.UserID, activeRound.Revision, string(newPayloadBytes))
+	if errors.Is(err, ledger.ErrRevisionConflict) {
+		JSONError(w, http.StatusConflict, "Akcja została już przetworzona.")
+		return
+	}
+
+	activeRound.Payload = string(newPayloadBytes)
+	activeRound.Revision++
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(activeRound),
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
+
+func (h *CasinoHandler) handleStartChicken(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	betFloat, ok := body["bet"].(float64)
+	if !ok {
+		JSONError(w, http.StatusBadRequest, "Nieprawidłowa stawka.")
+		return
+	}
+	bet := int64(betFloat)
+	if err := anticheat.ValidateBet(bet, p.Balance); err != nil {
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	diff, _ := body["difficulty"].(string)
+	if diff == "" {
+		diff = "easy"
+	}
+	if err := anticheat.ValidateChickenStart(diff); err != nil {
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	chickenPayload := chicken.InitialStart(diff)
+	payloadBytes, _ := json.Marshal(chickenPayload)
+
+	round, balAfterBet, err := h.ledger.StartActiveRound(r.Context(), p.UserID, "chicken", bet, string(payloadBytes))
+	if errors.Is(err, ledger.ErrActiveRoundExists) {
+		JSONError(w, http.StatusConflict, "Najpierw dokończ aktywną rundę.")
+		return
+	}
+	if errors.Is(err, ledger.ErrInsufficientFunds) {
+		JSONError(w, http.StatusBadRequest, "Niewystarczające saldo żetonów.")
+		return
+	}
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd rozpoczynania gry Chicken Cross")
+		return
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"ok":             true,
+		"round":          ToPublicRound(round),
+		"balance":        balAfterBet,
+		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
+}
+
+func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	roundID, _ := body["roundId"].(string)
+	move, _ := body["move"].(string)
+
+	activeRound, err := h.ledger.GetActiveRound(r.Context(), p.UserID)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd bazy danych")
+		return
+	}
+	if activeRound == nil || (roundID != "" && activeRound.ID != roundID) {
+		if roundID != "" {
+			settledRound, sErr := h.ledger.GetRoundByID(r.Context(), roundID, p.UserID)
+			if sErr == nil && settledRound != nil && settledRound.State == "settled" {
+				player, _ := h.ledger.GetPlayer(r.Context(), p.UserID)
+				bal := p.Balance
+				xp := p.XP
+				lvl := p.Level
+				if player != nil {
+					bal = player.Balance
+					xp = player.XP
+					lvl = player.Level
+				}
+				roundsToday, _ := h.ledger.GetRoundsToday(r.Context(), p.UserID)
+				JSON(w, http.StatusOK, map[string]interface{}{
+					"ok":             true,
+					"round":          ToPublicRound(settledRound),
+					"balance":        bal,
+					"xp":             xp,
+					"level":          lvl,
+					"roundsToday":    roundsToday,
+					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+				})
+				return
+			}
+		}
+		JSONError(w, http.StatusNotFound, "Aktywna runda nie istnieje.")
+		return
+	}
+
+	payload, err := chicken.ParsePayload(activeRound.Payload)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd odczytu stanu gry Chicken")
+		return
+	}
+
+	if move == "cashout" {
+		if err := anticheat.ValidateChickenCashout(payload.CurrentLane); err != nil {
+			JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		settleRes, err := chicken.Cashout(activeRound.Bet, *payload)
+		if err != nil {
+			JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		finalPayloadBytes, _ := json.Marshal(settleRes.Payload)
+		outcome, err := h.ledger.SettleActiveRound(r.Context(), activeRound.ID, p.UserID, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
+		if err != nil {
+			JSONError(w, http.StatusInternalServerError, "Błąd wypłaty")
+			return
+		}
+
+		var mult float64
+		if activeRound.Bet > 0 {
+			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+		}
+		h.recordGameRound("chicken", "cashout", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+
+		if settleRes.Payout > 0 {
+			h.broadcastWin(outcome.Round.ID, p.Nick, "chicken", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+		}
+
+		JSON(w, http.StatusOK, map[string]interface{}{
+			"ok":             true,
+			"round":          ToPublicRound(outcome.Round),
+			"balance":        outcome.Balance,
+			"xp":             outcome.XP,
+			"level":          outcome.Level,
+			"roundsToday":    outcome.RoundsToday,
+			"leveledUp":      outcome.LeveledUp,
+			"levelUpBonus":   outcome.LevelUpBonus,
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		})
+		return
+	}
+
+	// move == "step"
+	targetLane := payload.CurrentLane + 1
+	if laneFloat, ok := body["lane"].(float64); ok {
+		targetLane = int(laneFloat)
+	}
+
+	if err := anticheat.ValidateChickenStep(targetLane, payload.CurrentLane); err != nil {
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	settled, settleRes, err := chicken.Step(activeRound.Bet, payload)
+	if err != nil {
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if settled {
+		finalPayloadBytes, _ := json.Marshal(settleRes.Payload)
+		outcome, err := h.ledger.SettleActiveRound(r.Context(), activeRound.ID, p.UserID, settleRes.Payout, settleRes.ResultText, string(finalPayloadBytes))
+		if err != nil {
+			JSONError(w, http.StatusInternalServerError, "Błąd rozliczania rundy Chicken")
+			return
+		}
+
+		var mult float64
+		if activeRound.Bet > 0 {
+			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+		}
+		h.recordGameRound("chicken", "step", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+
+		if settleRes.Payout > 0 {
+			h.broadcastWin(outcome.Round.ID, p.Nick, "chicken", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+		}
+
+		JSON(w, http.StatusOK, map[string]interface{}{
+			"ok":             true,
+			"round":          ToPublicRound(outcome.Round),
+			"balance":        outcome.Balance,
+			"xp":             outcome.XP,
+			"level":          outcome.Level,
+			"roundsToday":    outcome.RoundsToday,
+			"leveledUp":      outcome.LeveledUp,
+			"levelUpBonus":   outcome.LevelUpBonus,
+			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		})
+		return
+	}
+
+	// Safe step, game continues
 	newPayloadBytes, _ := json.Marshal(payload)
 	err = h.ledger.UpdateActiveRoundPayload(r.Context(), activeRound.ID, p.UserID, activeRound.Revision, string(newPayloadBytes))
 	if errors.Is(err, ledger.ErrRevisionConflict) {
@@ -1399,7 +1674,7 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 	if reqMult >= 0.80 && reqMult <= maxAllowedMult {
 		cashedMult = math.Floor(reqMult*100.0) / 100.0
 	}
-	if payload.AutoCashout >= 0.80 && cashedMult > payload.AutoCashout {
+	if payload.AutoCashout >= 1.00 && cashedMult > payload.AutoCashout {
 		cashedMult = payload.AutoCashout
 	}
 
@@ -1632,5 +1907,88 @@ func (h *CasinoHandler) RotateProvablyFairSeed(w http.ResponseWriter, r *http.Re
 	}
 
 	JSON(w, http.StatusOK, resp)
+}
+
+type WSClientRequest struct {
+	Type    string                 `json:"type"`
+	ID      string                 `json:"id"`
+	Proof   string                 `json:"proof,omitempty"`
+	Offset  int                    `json:"offset,omitempty"`
+	Limit   int                    `json:"limit,omitempty"`
+	Payload map[string]interface{} `json:"payload,omitempty"`
+}
+
+func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
+	var req WSClientRequest
+	if err := json.Unmarshal(rawMsg, &req); err != nil {
+		client.SendResponse("", http.StatusBadRequest, map[string]string{"error": "Nieprawidłowy format JSON"})
+		return
+	}
+
+	if req.Type == "ping" {
+		client.SendJSON(map[string]interface{}{"type": "pong", "id": req.ID})
+		return
+	}
+
+	if client.UserID == "" {
+		client.SendResponse(req.ID, http.StatusUnauthorized, map[string]string{"error": "Wymagane logowanie"})
+		return
+	}
+
+	ctx := context.Background()
+	player, err := h.ledger.GetPlayer(ctx, client.UserID)
+	if err != nil || player == nil {
+		client.SendResponse(req.ID, http.StatusUnauthorized, map[string]string{"error": "Nie znaleziono gracza"})
+		return
+	}
+	ctx = auth.WithPlayer(ctx, player)
+	ctx = auth.WithSession(ctx, &auth.SessionUser{UserID: client.UserID, Nick: player.Nick})
+
+	rec := httptest.NewRecorder()
+
+	switch req.Type {
+	case "get_state":
+		httpReq, _ := http.NewRequestWithContext(ctx, "GET", "/api/casino", nil)
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.GetState(rec, httpReq)
+
+	case "get_history":
+		url := fmt.Sprintf("/api/casino/history?offset=%d&limit=%d", req.Offset, req.Limit)
+		httpReq, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.GetHistory(rec, httpReq)
+
+	case "action":
+		bodyBytes, _ := json.Marshal(req.Payload)
+		httpReq, _ := http.NewRequestWithContext(ctx, "POST", "/api/casino", bytes.NewReader(bodyBytes))
+		httpReq.Header.Set("Content-Type", "application/json")
+		if req.Proof != "" {
+			httpReq.Header.Set("X-Browser-Proof", req.Proof)
+		}
+		if client.RemoteAddr != "" {
+			httpReq.RemoteAddr = client.RemoteAddr
+		}
+		h.PostAction(rec, httpReq)
+
+	case "get_challenge":
+		challenge := anticheat.GenerateBrowserChallenge(player.UserID, h.sessionSecret)
+		client.SendResponse(req.ID, http.StatusOK, challenge)
+		return
+
+	default:
+		client.SendResponse(req.ID, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Nieznany typ akcji: %s", req.Type)})
+		return
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
+		data = rec.Body.String()
+	}
+
+	client.SendResponse(req.ID, rec.Code, data)
 }
 

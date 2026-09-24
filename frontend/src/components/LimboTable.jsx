@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Zap, Target, HelpCircle, Flame } from "lucide-react";
 
 const TARGET_PRESETS = [
-  { label: "1.20×", val: 1.2 },
   { label: "1.50×", val: 1.5 },
   { label: "2.00×", val: 2.0 },
   { label: "3.00×", val: 3.0 },
@@ -24,7 +23,7 @@ export function LimboTable({
   animating,
   displayMult,
 }) {
-  const winChance = Math.min(82.5, (99.0 / Math.max(1.20, target))).toFixed(2);
+  const winChance = Math.min(64.0, (96.0 / Math.max(1.50, target))).toFixed(2);
   const outcome = last?.payload?.result_multiplier;
   const isSettled = Boolean(last && !animating);
   const isWin = isSettled && Boolean(last?.payload?.won);
@@ -32,14 +31,14 @@ export function LimboTable({
   const adjustTarget = (delta) => {
     setTarget((prev) => {
       const next = Math.round((prev + delta) * 10) / 10;
-      return Math.min(10000, Math.max(1.20, next));
+      return Math.min(10000, Math.max(1.50, next));
     });
   };
 
   const scaleTarget = (factor) => {
     setTarget((prev) => {
       const next = Math.round(prev * factor * 10) / 10;
-      return Math.min(10000, Math.max(1.20, next));
+      return Math.min(10000, Math.max(1.50, next));
     });
   };
 
@@ -94,14 +93,14 @@ export function LimboTable({
               <Target size={14} className="text-amber-400" />
               <span>Wybór Mnożnika Docelowego</span>
             </span>
-            <span className="limbo-config-sub">Min: 1.20× | Max: 10,000×</span>
+            <span className="limbo-config-sub">Min: 1.50× | Max: 10,000×</span>
           </div>
 
           {/* Stepper / Multiplier Display Bar */}
           <div className="limbo-stepper-row">
             <button
               type="button"
-              disabled={loading || animating || target <= 1.20}
+              disabled={loading || animating || target <= 1.50}
               className="limbo-step-btn"
               onClick={() => adjustTarget(-0.1)}
               title="-0.1x"
@@ -110,7 +109,7 @@ export function LimboTable({
             </button>
             <button
               type="button"
-              disabled={loading || animating || target <= 1.20}
+              disabled={loading || animating || target <= 1.50}
               className="limbo-step-btn"
               onClick={() => scaleTarget(0.5)}
               title="Połowa (½)"
@@ -172,7 +171,7 @@ export function LimboTable({
           <div className="limbo-stat-row">
             <span className="limbo-stat-label">RTP Gry:</span>
             <span className="limbo-stat-value text-slate-300 font-mono">
-              99.0% (Provably Fair)
+              96.0% (Provably Fair)
             </span>
           </div>
         </div>

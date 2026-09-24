@@ -25,7 +25,6 @@ import {
   Rocket,
   TrendingUp,
   Scale,
-  ShieldCheck,
   FileText,
   Award,
   Star,
@@ -42,10 +41,9 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { WinCelebrationModal } from "./components/WinCelebrationModal";
-import { CaptchaModal } from "./components/CaptchaModal";
+import { MinigamesModal, MINIGAMES } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
-import { sendClientTelemetry } from "./lib/telemetry";
 import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
 
@@ -54,17 +52,19 @@ export default function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeGame, setActiveGame] = useState(null);
+  const [selectedMinigameId, setSelectedMinigameId] = useState("captcha");
   const [rankingType, setRankingType] = useState("balance"); // "balance" | "level"
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== "undefined") {
       const p = window.location.pathname.toLowerCase();
       if (p === "/tos" || p === "/regulamin") return "tos";
+      if (p === "/minigry" || p === "/minigames") return "minigames";
       if (p === "/misje" || p === "/missions") return "missions";
       if (p === "/ranking") return "ranking";
       if (p === "/historia" || p === "/history") return "history";
     }
     return "games";
-  }); // "games" | "missions" | "ranking" | "history" | "tos"
+  }); // "games" | "minigames" | "missions" | "ranking" | "history" | "tos"
 
   // ToS Consent State
   const [tosAccepted, setTosAccepted] = useState(() => {
@@ -88,13 +88,13 @@ export default function App() {
   const handleAcceptTos = useCallback(() => {
     try {
       localStorage.setItem("kasyno_tos_accepted_v2", "true");
-    } catch {}
+    } catch { }
     setTosAccepted(true);
     setTosModalOpen(false);
     toast.success("Regulamin zaakceptowany. Witamy w grze!");
   }, []);
 
-  // Per-game bet memory with default 50 $FGT for every game
+  // Per-game bet memory with default 10 $FGT for every game
   const [gameBets, setGameBets] = useState(() => {
     try {
       const saved = localStorage.getItem("fgt_game_bets");
@@ -104,18 +104,18 @@ export default function App() {
     }
   });
 
-  const activeBet = activeGame ? (gameBets[activeGame] ?? 50) : 50;
+  const activeBet = activeGame ? (gameBets[activeGame] ?? 10) : 10;
 
   const setActiveBet = useCallback(
     (val) => {
       if (!activeGame) return;
       setGameBets((prev) => {
-        const prevBet = prev[activeGame] ?? 50;
+        const prevBet = prev[activeGame] ?? 10;
         const nextVal = typeof val === "function" ? val(prevBet) : val;
         const next = { ...prev, [activeGame]: nextVal };
         try {
           localStorage.setItem("fgt_game_bets", JSON.stringify(next));
-        } catch {}
+        } catch { }
         return next;
       });
     },
@@ -151,7 +151,7 @@ export default function App() {
       const next = typeof val === "function" ? val(prev) : val;
       try {
         localStorage.setItem("fgt_turbo_mode", String(next));
-      } catch {}
+      } catch { }
       return next;
     });
   }, []);
@@ -174,9 +174,9 @@ export default function App() {
     setData((prev) =>
       prev
         ? {
-            ...prev,
-            player: { ...prev.player, balance: newBal },
-          }
+          ...prev,
+          player: { ...prev.player, balance: newBal },
+        }
         : prev
     );
   }, []);
@@ -242,9 +242,6 @@ export default function App() {
         setHasMoreHistory(j.hasMoreHistory);
       }
       if (j.active) setActiveGame(j.active.game);
-      if (j.player) {
-        sendClientTelemetry(j.player);
-      }
     } catch (e) {
       if (!isPolling) {
         toast.error(e.message || "Błąd pobierania danych kasyna");
@@ -299,7 +296,7 @@ export default function App() {
       setLoading(true);
     }
     try {
-      const j = await postCasinoAction(body);
+      const j = await postCasinoAction(body, opts);
       if (!j) {
         if (!isSilent) setLoading(false);
         return null;
@@ -312,23 +309,23 @@ export default function App() {
         setData((prev) =>
           prev
             ? {
-                ...prev,
-                player: {
-                  ...prev.player,
-                  balance: opts?.deferBalance
-                    ? typeof opts.deductBet === "number"
-                      ? Math.max(0, prev.player.balance - opts.deductBet)
-                      : prev.player.balance
-                    : typeof j.balance === "number"
-                      ? j.balance
-                      : prev.player.balance,
-                },
-                roundsToday:
-                  typeof j.roundsToday === "number"
-                    ? j.roundsToday
-                    : prev.roundsToday,
-                active: j.round.state === "active" ? j.round : null,
-              }
+              ...prev,
+              player: {
+                ...prev.player,
+                balance: opts?.deferBalance
+                  ? typeof opts.deductBet === "number"
+                    ? Math.max(0, prev.player.balance - opts.deductBet)
+                    : prev.player.balance
+                  : typeof j.balance === "number"
+                    ? j.balance
+                    : prev.player.balance,
+              },
+              roundsToday:
+                typeof j.roundsToday === "number"
+                  ? j.roundsToday
+                  : prev.roundsToday,
+              active: j.round.state === "active" ? j.round : null,
+            }
             : prev
         );
         if (!isSilent) setLoading(false);
@@ -340,7 +337,7 @@ export default function App() {
               origin: { y: 0.6 },
               colors: ["#f59e0b", "#fbbf24", "#10b981", "#ffffff"],
             });
-          } catch {}
+          } catch { }
           toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
             description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
             duration: 6000,
@@ -402,6 +399,8 @@ export default function App() {
       case "pickaxe":
       case "mines":
         return <Pickaxe size={18} className="text-emerald-400" />;
+      case "chicken":
+        return <Flame size={18} className="text-amber-400" />;
       case "spade":
       case "blackjack":
         return <Spade size={18} className="text-purple-400" />;
@@ -438,6 +437,7 @@ export default function App() {
     if (m.id.includes("crash")) return "crash";
     if (m.id.includes("limbo")) return "limbo";
     if (m.id.includes("plinko")) return "plinko";
+    if (m.id.includes("chicken")) return "chicken";
     if (m.id.includes("roulette")) return "roulette";
     if (m.id.includes("mines")) return "mines";
     if (m.id.includes("blackjack")) return "blackjack";
@@ -448,6 +448,14 @@ export default function App() {
   };
 
   const gamesList = [
+    {
+      id: "chicken",
+      name: "Chicken Cross",
+      badge: "RTP 98%",
+      mult: "Do ×181 060",
+      desc: "Przeprowadź kurczaka przez ruchliwą trasę 10 pasów. 4 poziomy ryzyka.",
+      img: "/chicken-hero.webp",
+    },
     {
       id: "crash",
       name: "Crash",
@@ -601,17 +609,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="player-summary-right">
-                <button
-                  type="button"
-                  onClick={() => setCaptchaOpen(true)}
-                  className="captcha-faucet-btn"
-                  title="Rozwiąż Captcha i zdobądź +40 $FGT"
-                >
-                  <ShieldCheck size={14} className="text-emerald-400" />
-                  <span>Captcha (+40 $FGT)</span>
-                </button>
-
+              <div className="player-summary-right flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   disabled={!bonusAvailable || loading}
@@ -679,6 +677,59 @@ export default function App() {
               </section>
             )}
 
+            {/* View Tab: Minigames Grid */}
+            {activeTab === "minigames" && (
+              <section className="games-section">
+                <div className="games-grid">
+                  {MINIGAMES.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`game-card ${!g.active ? "opacity-60 cursor-not-allowed" : ""}`}
+                      aria-label={`Zagraj w ${g.name}`}
+                      onClick={() => {
+                        if (g.active) {
+                          setSelectedMinigameId(g.id);
+                          setCaptchaOpen(true);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (g.active) {
+                            setSelectedMinigameId(g.id);
+                            setCaptchaOpen(true);
+                          }
+                        }
+                      }}
+                    >
+                      <div className="game-card-media">
+                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
+                        <div className="game-card-gradient" />
+                        <span className="tag-badge gold">{g.badge}</span>
+                      </div>
+                      <div className="game-card-info">
+                        <div className="game-card-title-row">
+                          <h3 className="game-card-title">{g.name}</h3>
+                          <span className="game-card-mult text-emerald-400">{g.reward}</span>
+                        </div>
+                        <p className="game-card-desc">{g.desc}</p>
+                        <span className="btn-play-game" aria-hidden="true">
+                          {g.active ? (
+                            <>
+                              Zagraj <ChevronRight size={13} />
+                            </>
+                          ) : (
+                            "Wkrótce"
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* View Tab 2: Expanded Missions Hub */}
             {activeTab === "missions" && (
               <section className="tab-section">
@@ -738,9 +789,8 @@ export default function App() {
                         <div className="mission-progress-section">
                           <div className="mission-progress-bar-bg">
                             <div
-                              className={`mission-progress-bar-fill ${
-                                m.claimed ? "bg-slate-600" : m.ready ? "bg-emerald-500" : "bg-amber-500"
-                              }`}
+                              className={`mission-progress-bar-fill ${m.claimed ? "bg-slate-600" : m.ready ? "bg-emerald-500" : "bg-amber-500"
+                                }`}
                               style={{ width: `${progressPercent}%` }}
                             />
                           </div>
@@ -1048,6 +1098,15 @@ export default function App() {
         </button>
 
         <button
+          className={`mobile-tab-item ${activeTab === "minigames" ? "active" : ""}`}
+          onClick={() => { setActiveTab("minigames"); setActiveGame(null); }}
+          title="Minigry i darmowe żetony"
+        >
+          <Gamepad2 size={19} />
+          <span>Minigry</span>
+        </button>
+
+        <button
           className={`mobile-tab-item ${activeTab === "missions" ? "active" : ""}`}
           onClick={() => { setActiveTab("missions"); setActiveGame(null); }}
         >
@@ -1072,15 +1131,6 @@ export default function App() {
         >
           <History size={19} />
           <span>Historia</span>
-        </button>
-
-        <button
-          className="mobile-tab-item"
-          onClick={() => setCaptchaOpen(true)}
-          title="Minigry i darmowe żetony"
-        >
-          <Gamepad2 size={19} />
-          <span>Minigry</span>
         </button>
       </nav>
 
@@ -1153,9 +1203,10 @@ export default function App() {
         }}
       />
 
-      {/* Captcha Mini-Game Modal */}
-      <CaptchaModal
+      {/* Mini-Games Hub Modal */}
+      <MinigamesModal
         isOpen={captchaOpen}
+        initialGame={selectedMinigameId}
         onClose={() => setCaptchaOpen(false)}
         syncBalance={syncBalance}
         currentBalance={data?.player?.balance}

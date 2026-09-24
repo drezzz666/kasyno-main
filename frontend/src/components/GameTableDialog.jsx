@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Target } from "lucide-react";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
 import { BetControl } from "./BetControls";
@@ -12,6 +12,7 @@ import { RPSTable } from "./RPSTable";
 import { PlinkoTable } from "./PlinkoTable";
 import { LimboTable } from "./LimboTable";
 import { CrashTable } from "./CrashTable";
+import { ChickenTable } from "./ChickenTable";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";
@@ -136,7 +137,8 @@ export function GameTableDialog({
   const [crashCashedOut, setCrashCashedOut] = useState(false);
   const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 0.8 }]);
   const crashAnimRef = useRef(null);
-  const crashRoundRef = useRef(null);
+  // Chicken states
+  const [chickenDifficulty, setChickenDifficulty] = useState("easy");
 
   // Unified Round Outcome Modal (Win, Push, Loss)
   const [outcomeData, setOutcomeData] = useState(null);
@@ -261,6 +263,7 @@ export function GameTableDialog({
     );
     if (j?.round?.state === "settled") {
       setBlackjackPreview({ ...j.round, state: "settled" });
+      const delay = turbo ? 400 : 750;
       setTimeout(() => {
         setBlackjackPreview(null);
         setLast(j.round);
@@ -268,7 +271,7 @@ export function GameTableDialog({
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
-      }, 350);
+      }, delay);
     } else {
       if (animatingRef) animatingRef.current = false;
     }
@@ -564,19 +567,25 @@ export function GameTableDialog({
       const j = await post({ action: "deal_blackjack", bet });
       if (j?.round?.state === "settled") {
         setBlackjackPreview({ ...j.round, state: "settled" });
+        const delay = turbo ? 500 : 950;
         setTimeout(() => {
           setBlackjackPreview(null);
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           triggerOutcome(j.round);
           void load();
-        }, 350);
+        }, delay);
       }
       return;
     }
 
     if (game === "mines") {
       await post({ action: "start_mines", bet, mines: mineCount });
+      return;
+    }
+
+    if (game === "chicken") {
+      await post({ action: "start_chicken", bet, difficulty: chickenDifficulty });
       return;
     }
 
@@ -696,7 +705,6 @@ export function GameTableDialog({
                   <RouletteBets
                     selectedBets={rouletteSelected}
                     onToggleBet={handleRouletteToggle}
-                    onSelectAllNumbers={handleRouletteSelectAll}
                     onClearBets={handleRouletteClear}
                     winningNumber={hasSettledSpin ? rawWinningNumber : null}
                     disabled={spinning || rouletteWaiting}
@@ -725,6 +733,19 @@ export function GameTableDialog({
                   loading={loading}
                   pendingTiles={pendingTiles}
                   onPending={handleTilePending}
+                />
+              )}
+
+              {game === "chicken" && (
+                <ChickenTable
+                  round={round}
+                  last={last}
+                  post={post}
+                  loading={loading}
+                  difficulty={chickenDifficulty}
+                  setDifficulty={setChickenDifficulty}
+                  turbo={turbo}
+                  triggerOutcome={triggerOutcome}
                 />
               )}
 
@@ -775,34 +796,20 @@ export function GameTableDialog({
               {game === "crash" && (
                 <CrashTable
                   bet={bet}
-                  autoCashout={crashAutoCashout}
-                  setAutoCashout={setCrashAutoCashout}
                   isPlaying={crashPlaying}
                   currentMult={crashMult}
                   isCrashed={crashCrashed}
                   isCashedOut={crashCashedOut}
-                  onCashout={handleManualCrashCashout}
                   graphPoints={crashGraphPoints}
                   last={last}
-                  loading={loading}
                 />
               )}
             </div>
-
-            {/* Outcome notification if settled */}
-            {last && !shownRound && !blackjackPreview && !spinning && !slotsSpinning && !isFlipping && !isShootingRPS && !limboAnimating && !crashPlaying && (
-              <div className={`result-box ${last.payout && last.payout > last.bet ? "winner" : ""}`}>
-                <b>{last.result}</b>
-                {last.payout > 0 && (
-                  <span>Wypłata: {money(last.payout)}</span>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right Side: Betting Controls & Play Action */}
           <div className="game-controls-column">
-            {!round && !blackjackPreview && (
+            {(!round || round.game === "crash") && !blackjackPreview && (
               <div className="table-controls-panel">
                 <BetControl
                   bet={bet}
@@ -812,16 +819,59 @@ export function GameTableDialog({
                   setTurbo={setTurbo}
                 />
 
+                {game === "crash" && (
+                  <div className="crash-auto-cashout-box">
+                    <div className="crash-auto-header flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Target size={14} className="text-amber-400" />
+                        <span>Docelowy Cashout</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">Min: 0.80× | Max: 1,000×</span>
+                    </div>
+
+                    <div className="crash-auto-input-wrap">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0.8"
+                        max="1000"
+                        disabled={crashPlaying || loading}
+                        value={crashAutoCashout}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0.8 && v <= 1000) {
+                            setCrashAutoCashout(v);
+                          }
+                        }}
+                        className="crash-auto-input"
+                      />
+                      <span className="crash-auto-suffix">×</span>
+                    </div>
+
+                    <div className="crash-presets-row mt-2">
+                      {[1.1, 1.2, 1.5, 2.0, 3.0, 5.0].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          disabled={crashPlaying || loading}
+                          className={`crash-preset-btn ${crashAutoCashout === val ? "active" : ""}`}
+                          onClick={() => setCrashAutoCashout(val)}
+                        >
+                          {val}×
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {game === "roulette" && (
                   <div className="roulette-bet-summary-box">
                     <div className="flex items-center justify-between text-xs text-slate-300">
-                      <span>Wybrane pola:</span>
+                      <span>Wybrane zakłady:</span>
                       <strong className="text-amber-400 font-mono font-bold">
                         {rouletteSelected.size === 0
                           ? "Brak (wybierz na stole)"
-                          : rouletteSelected.size === 37
-                          ? "Całe koło (37 pól)"
-                          : `${rouletteSelected.size} ${rouletteSelected.size === 1 ? "pole" : "pól"}`}
+                          : `${rouletteSelected.size} ${rouletteSelected.size === 1 ? "zakład" : "zakłady"}`}
                       </strong>
                     </div>
                     {rouletteSelected.size > 1 && (
@@ -850,6 +900,35 @@ export function GameTableDialog({
                           onClick={() => setMineCount(count)}
                         >
                           {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {game === "chicken" && (
+                  <div className="chicken-diff-selector">
+                    <div className="chicken-diff-header">
+                      <span className="chicken-diff-title">Poziom trudności:</span>
+                      <span className="chicken-diff-current uppercase font-mono font-bold text-amber-400">
+                        {chickenDifficulty}
+                      </span>
+                    </div>
+                    <div className="chicken-presets-row">
+                      {[
+                        { id: "easy", label: "Łatwy", max: "×6.20" },
+                        { id: "medium", label: "Średni", max: "×15.0" },
+                        { id: "hard", label: "Trudny", max: "×160" },
+                        { id: "expert", label: "Ekspert", max: "×4 000" },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`chicken-preset-btn ${chickenDifficulty === item.id ? "active" : ""}`}
+                          onClick={() => setChickenDifficulty(item.id)}
+                        >
+                          <span className="font-semibold">{item.label}</span>
+                          <span className="text-[10px] opacity-75">{item.max}</span>
                         </button>
                       ))}
                     </div>

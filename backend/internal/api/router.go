@@ -79,6 +79,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	telCrypto, _ := telemetry.NewCryptoManager(cfg.SessionSecret)
 	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
+	wsHub.SetMessageHandler(casinoHandler.HandleWSMessage)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
 	errorHandler := NewErrorHandler(rep, telCrypto, tel)
 
@@ -94,9 +95,8 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
 	r.Get("/api/telemetry/key", errorHandler.GetPublicKey)
 
-	// Client Error & Telemetry Reporting endpoints
+	// Client Error Reporting endpoint
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
-	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/telemetry/client", errorHandler.ReportClientTelemetry)
 
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {
@@ -108,9 +108,6 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		r.Get("/verify", authHandler.Verify)
 		r.Head("/verify", authHandler.Verify)
 		r.Post("/backchannel-logout", authHandler.BackchannelLogout)
-		if cfg.DevAuthEnabled {
-			r.Get("/dev-login", authHandler.DevLogin)
-		}
 	})
 
 	// WebSocket endpoint

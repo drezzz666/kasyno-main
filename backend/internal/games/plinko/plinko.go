@@ -63,14 +63,12 @@ type Result struct {
 
 func PlayPlinko(bet int64, rows int, risk string) (*Result, error) {
 	if rows != 14 && rows != 16 {
-		if rows < 8 || rows > 16 {
-			rows = 14
-		}
+		return nil, fmt.Errorf("nieprawidłowa liczba rzędów w plinko: %d (dozwolone tylko 14 lub 16)", rows)
 	}
 
 	risk = strings.ToLower(strings.TrimSpace(risk))
 	if risk != "low" && risk != "medium" && risk != "high" {
-		risk = "medium"
+		return nil, fmt.Errorf("nieprawidłowy poziom ryzyka w plinko: %s (wymagane low, medium lub high)", risk)
 	}
 
 	multsRow, ok := Multipliers[risk][rows]
@@ -119,14 +117,12 @@ func PlayPlinko(bet int64, rows int, risk string) (*Result, error) {
 // PlayPlinkoProvablyFair executes a deterministic game of Plinko using player seeds and nonce
 func PlayPlinkoProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, rows int, risk string) (*Result, error) {
 	if rows != 14 && rows != 16 {
-		if rows < 8 || rows > 16 {
-			rows = 14
-		}
+		return nil, fmt.Errorf("nieprawidłowa liczba rzędów w plinko: %d (dozwolone tylko 14 lub 16)", rows)
 	}
 
 	risk = strings.ToLower(strings.TrimSpace(risk))
 	if risk != "low" && risk != "medium" && risk != "high" {
-		risk = "medium"
+		return nil, fmt.Errorf("nieprawidłowy poziom ryzyka w plinko: %s (wymagane low, medium lub high)", risk)
 	}
 
 	multsRow, ok := Multipliers[risk][rows]

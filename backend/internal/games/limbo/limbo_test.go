@@ -15,9 +15,9 @@ func TestGenerateLimboMultiplier(t *testing.T) {
 
 func TestPlayLimbo(t *testing.T) {
 	// 1. Invalid bounds
-	_, err := PlayLimbo(100, 1.15)
+	_, err := PlayLimbo(100, 1.45)
 	if err == nil {
-		t.Errorf("expected error for targetMultiplier < 1.20")
+		t.Errorf("expected error for targetMultiplier < 1.50")
 	}
 
 	_, err = PlayLimbo(100, 10001.00)

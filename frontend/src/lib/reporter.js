@@ -41,7 +41,7 @@ export function reportClientError({
     }
 
     const lower = `${errorMsg} ${context}`.toLowerCase();
-    // Ignore routine user balance, validation, captcha and race condition errors
+    // Ignore routine user balance, validation and race condition errors
     if (
       lower.includes("niewystarczające saldo") ||
       lower.includes("brak wystarczających środków") ||
@@ -52,16 +52,10 @@ export function reportClientError({
       lower.includes("brak aktywnej gry") ||
       lower.includes("masz już aktywną grę") ||
       lower.includes("nieprawidłowa stawka") ||
+      lower.includes("aktywna runda nie istnieje") ||
       lower.includes("wybierz stronę") ||
       lower.includes("wybierz swój gest") ||
-      lower.includes("postaw żetony") ||
-      lower.includes("nieprawidłowy kod captcha") ||
-      lower.includes("captcha wygasła") ||
-      lower.includes("kod captcha został już wykorzystany") ||
-      lower.includes("zbyt szybkie rozwiązywanie captcha") ||
-      lower.includes("niepoprawna odpowiedź") ||
-      lower.includes("solve_captcha") ||
-      lower.includes("captcha")
+      lower.includes("postaw żetony")
     ) {
       return;
     }

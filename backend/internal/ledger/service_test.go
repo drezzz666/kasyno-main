@@ -10,11 +10,11 @@ func TestDailyBonusAmount(t *testing.T) {
 		streak   int
 		expected int64
 	}{
-		{streak: 0, expected: 150},
-		{streak: 1, expected: 225},
-		{streak: 5, expected: 525},
-		{streak: 18, expected: 1500},
-		{streak: 50, expected: 1500}, // Max bonus cap is 1500
+		{streak: 0, expected: 200},
+		{streak: 1, expected: 300},
+		{streak: 5, expected: 700},
+		{streak: 18, expected: 2000},
+		{streak: 50, expected: 2000}, // Max bonus cap is 2000
 	}
 
 	for _, tt := range tests {

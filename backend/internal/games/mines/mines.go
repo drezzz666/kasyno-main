@@ -25,17 +25,22 @@ type SettleResult struct {
 	Payload    Payload `json:"payload"`
 }
 
-// CalculateMultiplier returns the fair multiplier for given revealed count and mine count (97% RTP)
+// CalculateMultiplier returns the multiplier for given revealed count and mine count (97% RTP).
 func CalculateMultiplier(revealedCount int, mineCount int) float64 {
 	if revealedCount <= 0 {
-		return 1.0
+		return 1.00
 	}
+
 	chance := 1.0
 	for i := 0; i < revealedCount; i++ {
 		chance *= float64(TotalTiles-mineCount-i) / float64(TotalTiles-i)
 	}
-	mult := math.Floor((0.97/chance)*100) / 100
-	return math.Max(1.0, mult)
+	raw := 0.97 / chance
+	mult := math.Floor(raw*100) / 100
+	if mult < 1.00 {
+		mult = 1.00
+	}
+	return mult
 }
 
 // GenerateMines randomly selects unique mine positions in [0, TotalTiles)
@@ -74,7 +79,7 @@ func InitialStart(mineCount int) Payload {
 		Mines:      mines,
 		Revealed:   []int{},
 		MineCount:  mineCount,
-		Multiplier: 1.0,
+		Multiplier: 1.00,
 	}
 }
 

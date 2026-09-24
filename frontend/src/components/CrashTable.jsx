@@ -3,71 +3,56 @@ import { Rocket, Zap, Target } from "lucide-react";
 import { money } from "../lib/formatters";
 
 const CRASH_PRESETS = [
-  { label: "0.9×", val: 0.9 },
-  { label: "1.1×", val: 1.1 },
   { label: "1.2×", val: 1.2 },
   { label: "1.5×", val: 1.5 },
   { label: "2.0×", val: 2.0 },
   { label: "3.0×", val: 3.0 },
+  { label: "5.0×", val: 5.0 },
+  { label: "10.0×", val: 10.0 },
 ];
 
 export function CrashTable({
   bet,
-  autoCashout,
-  setAutoCashout,
   isPlaying,
   currentMult = 0.8,
   isCrashed,
   isCashedOut,
-  onCashout,
   graphPoints = [],
   last,
-  loading,
 }) {
   const canvasRef = useRef(null);
-  const [cashoutStr, setCashoutStr] = useState(String(autoCashout ?? 2.0));
+  const dimRef = useRef({ width: 640, height: 360, dpr: typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1 });
 
+  // Handle canvas sizing on mount / window resize only (avoids layout thrashing)
   useEffect(() => {
-    setCashoutStr(String(autoCashout ?? 2.0));
-  }, [autoCashout]);
-
-  const handleCashoutChange = (raw) => {
-    if (raw === "") {
-      setCashoutStr("");
-      return;
-    }
-    setCashoutStr(raw);
-    const v = parseFloat(raw);
-    if (!isNaN(v) && v >= 0.8 && v <= 1000) {
-      setAutoCashout(v);
-    }
-  };
-
-  const handleCashoutBlur = () => {
-    const v = parseFloat(cashoutStr);
-    if (isNaN(v) || v < 0.8) {
-      setAutoCashout(0.8);
-      setCashoutStr("0.8");
-    } else if (v > 1000) {
-      setAutoCashout(1000);
-      setCashoutStr("1000");
-    } else {
-      setAutoCashout(v);
-      setCashoutStr(String(v));
-    }
-  };
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const updateSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(320, rect.width || 640);
+      const height = Math.max(180, rect.height || 360);
+      dimRef.current = { width, height, dpr };
+      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+      }
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
 
   // 60FPS Canvas Graph Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
-    const width = 420;
-    const height = 240;
-    canvas.width = width;
-    canvas.height = height;
+    const { width, height, dpr } = dimRef.current;
 
+    const ctx = canvas.getContext("2d");
+    ctx.resetTransform?.();
+    ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
     // 1. Draw Grid Lines
@@ -177,59 +162,6 @@ export function CrashTable({
               Wypłata: <strong>{money(livePayout)}</strong>
             </div>
           )}
-
-          {isPlaying && onCashout && (
-            <button
-              type="button"
-              className="btn-crash-cashout mt-3 px-6 py-2 pointer-events-auto"
-              onClick={onCashout}
-            >
-              <span className="btn-crash-cashout-main">WYPŁAĆ ({currentMult.toFixed(2)}×)</span>
-              <span className="btn-crash-cashout-sub">Wypłata: {money(livePayout)}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Interactive Controls & Auto-Cashout */}
-      <div className="crash-controls-row">
-        <div className="crash-auto-cashout-box w-full">
-          <div className="crash-auto-header flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Target size={14} className="text-amber-400" />
-              <span>Docelowy Cashout</span>
-            </div>
-            <span className="text-[11px] text-slate-400 font-mono">Min: 0.80× | Max: 1,000×</span>
-          </div>
-
-          <div className="crash-auto-input-wrap">
-            <input
-              type="number"
-              step="0.05"
-              min="0.8"
-              max="1000"
-              disabled={isPlaying || loading}
-              value={cashoutStr}
-              onChange={(e) => handleCashoutChange(e.target.value)}
-              onBlur={handleCashoutBlur}
-              className="crash-auto-input"
-            />
-            <span className="crash-auto-suffix">×</span>
-          </div>
-
-          <div className="limbo-presets-row mt-2">
-            {CRASH_PRESETS.map((p) => (
-              <button
-                key={p.val}
-                type="button"
-                disabled={isPlaying || loading}
-                className={`limbo-preset-btn ${autoCashout === p.val ? "active" : ""}`}
-                onClick={() => setAutoCashout(p.val)}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

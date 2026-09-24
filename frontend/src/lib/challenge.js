@@ -1,3 +1,5 @@
+import { wsClient } from "./wsClient.js";
+
 /**
  * Hidden Anti-Bot & Anti-Replay Browser Challenge Solver
  * Computes single-use cryptographic Proof-of-Work tokens for every request.
@@ -141,9 +143,21 @@ export async function ensureChallengeBuffer() {
   if (isRefilling || proofQueue.length >= 3) return;
   isRefilling = true;
   try {
-    const res = await fetch("/api/casino/challenge", { cache: "no-store" });
-    if (res.ok) {
-      const data = await res.json();
+    let data;
+    if (wsClient && wsClient.isReady()) {
+      try {
+        data = await wsClient.sendRequest("get_challenge", {}, "", 4000);
+      } catch {
+        data = null;
+      }
+    }
+    if (!data) {
+      const res = await fetch("/api/casino/challenge", { cache: "no-store" });
+      if (res.ok) {
+        data = await res.json();
+      }
+    }
+    if (data) {
       queueChallenge(data);
     }
   } catch {
@@ -155,31 +169,54 @@ export async function ensureChallengeBuffer() {
 
 /**
  * Retrieves a single-use browser proof.
- * Pops a pre-solved proof from the queue immediately (0ms delay),
- * and triggers background replenishment.
+ * Filters out any stale/expired tokens (older than 45s),
+ * pops a valid pre-solved proof immediately (0ms delay),
+ * or fetches a fresh challenge on demand.
  */
 export async function getBrowserProof() {
-  if (proofQueue.length > 0) {
-    const proof = proofQueue.shift();
-    if (proofQueue.length < 2) {
-      setTimeout(() => void ensureChallengeBuffer(), 0);
+  const now = Math.floor(Date.now() / 1000);
+
+  // Drain and discard any expired proofs from the queue
+  while (proofQueue.length > 0) {
+    const candidate = proofQueue.shift();
+    const parts = candidate.split(":");
+    const issuedAt = parseInt(parts[2], 10);
+    // Keep only non-expired proofs (younger than 45 seconds, not in future > 60s)
+    if (!isNaN(issuedAt) && (now - issuedAt) < 45 && (issuedAt - now) < 60) {
+      if (proofQueue.length < 2) {
+        setTimeout(() => void ensureChallengeBuffer(), 0);
+      }
+      return candidate;
     }
-    return proof;
   }
 
-  const res = await fetch("/api/casino/challenge", { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error("Nie udało się pobrać unikalnego wyzwania antybotowego");
+  // Queue is empty or had stale proofs: fetch a fresh challenge directly
+  let challengeData;
+  if (wsClient && wsClient.isReady()) {
+    try {
+      challengeData = await wsClient.sendRequest("get_challenge", {}, "", 5000);
+    } catch {
+      challengeData = null;
+    }
   }
-  const challengeData = await res.json();
+
+  if (!challengeData) {
+    const res = await fetch("/api/casino/challenge", { cache: "no-store" });
+    if (!res.ok) {
+      throw new Error("Nie udało się pobrać unikalnego wyzwania antybotowego");
+    }
+    challengeData = await res.json();
+  }
+
   const solved = solveChallenge(challengeData);
   setTimeout(() => void ensureChallengeBuffer(), 50);
   return solved;
 }
 
 /**
- * Invalidate all cached proofs (called on verification errors)
+ * Invalidate all cached proofs (called on verification errors or 403 refresh)
  */
 export function invalidateBrowserProof() {
   proofQueue.length = 0;
 }
+

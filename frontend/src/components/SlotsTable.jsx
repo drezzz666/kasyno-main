@@ -4,6 +4,9 @@ import { sounds } from "../lib/sounds";
 const ALL_SYMBOLS = ["2", "F", "G", "T", "◆", "♛"];
 
 export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
+  const lastRef = useRef(last);
+  lastRef.current = last;
+
   const currentReels = last?.payload?.reels || [
     ["2", "2", "F"],
     ["F", "F", "G"],
@@ -16,51 +19,57 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
   const [displayedReels, setDisplayedReels] = useState(currentReels);
   const [isWinHighlighted, setIsWinHighlighted] = useState(false);
   const spinIntervalsRef = useRef([]);
+  const stopTimersRef = useRef([]);
 
   // Handle spin lifecycle & staggered reel stopping
   useEffect(() => {
+    // Clear any prior intervals / timers
+    spinIntervalsRef.current.forEach((id) => id && clearInterval(id));
+    spinIntervalsRef.current = [];
+    stopTimersRef.current.forEach((id) => id && clearTimeout(id));
+    stopTimersRef.current = [];
+
     if (slotsSpinning) {
       setIsWinHighlighted(false);
       setStoppedReels([false, false, false, false, false]);
 
-      // Clear any prior intervals
-      spinIntervalsRef.current.forEach((id) => clearInterval(id));
-      spinIntervalsRef.current = [];
+      const intervalSpeed = turbo ? 25 : 45;
+      const stoppedMask = [false, false, false, false, false];
 
-      const intervalSpeed = turbo ? 15 : 45;
-
-      // Start rapid rolling shuffle for all reels
-      const newIntervals = [0, 1, 2, 3, 4].map((reelIdx) => {
-        return setInterval(() => {
-          setDisplayedReels((prev) => {
-            const next = [...prev];
-            next[reelIdx] = [
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-            ];
-            return next;
-          });
-        }, intervalSpeed);
-      });
-      spinIntervalsRef.current = newIntervals;
+      // Single synchronized rolling loop for active reels (eliminates 80% re-renders)
+      const rollInterval = setInterval(() => {
+        setDisplayedReels((prev) => {
+          let changed = false;
+          const next = [...prev];
+          for (let i = 0; i < 5; i++) {
+            if (!stoppedMask[i]) {
+              changed = true;
+              next[i] = [
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
+              ];
+            }
+          }
+          return changed ? next : prev;
+        });
+      }, intervalSpeed);
+      spinIntervalsRef.current = [rollInterval];
 
       // Staggered reel landings (lightning fast in turbo)
       const stopDelays = turbo
         ? [40, 75, 110, 145, 180]
-        : [250, 450, 650, 850, 1050];
+        : [220, 420, 620, 820, 1020];
 
-      const stopTimers = stopDelays.map((delay, reelIdx) => {
+      const newStopTimers = stopDelays.map((delay, reelIdx) => {
         return setTimeout(() => {
-          // Stop this reel's rapid roll
-          if (spinIntervalsRef.current[reelIdx]) {
-            clearInterval(spinIntervalsRef.current[reelIdx]);
-          }
+          stoppedMask[reelIdx] = true;
 
-          // Lock in the final symbols for this reel from last payload or current
+          // Lock in the final symbols for this reel from current backend round
+          const targetReels = lastRef.current?.payload?.reels || currentReels;
           setDisplayedReels((prev) => {
             const next = [...prev];
-            next[reelIdx] = currentReels[reelIdx] || [
+            next[reelIdx] = targetReels[reelIdx] || [
               ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
               ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
               ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
@@ -78,33 +87,35 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
           // Play lock sound
           sounds.playPegTick();
 
-          // If last reel locked, check for win animation
+          // If last reel locked, stop roll timer and check for win animation
           if (reelIdx === 4) {
-            setTimeout(() => {
-              if (last?.payload?.winning || (last?.payout && last.payout > 0)) {
+            clearInterval(rollInterval);
+            const round = lastRef.current;
+            const hasWon = Boolean(round?.payload?.winning || (round?.payout && round.payout > 0));
+            if (hasWon) {
+              setTimeout(() => {
                 setIsWinHighlighted(true);
                 sounds.playWin();
-              }
-            }, turbo ? 30 : 80);
+              }, turbo ? 20 : 60);
+            }
           }
         }, delay);
       });
+      stopTimersRef.current = newStopTimers;
 
       return () => {
-        spinIntervalsRef.current.forEach((id) => clearInterval(id));
-        stopTimers.forEach((id) => clearTimeout(id));
+        clearInterval(rollInterval);
+        stopTimersRef.current.forEach((id) => id && clearTimeout(id));
       };
     } else {
       // Idle state
-      setDisplayedReels(currentReels);
+      const targetReels = last?.payload?.reels || currentReels;
+      setDisplayedReels(targetReels);
       setStoppedReels([true, true, true, true, true]);
-      if (last?.payload?.winning || (last?.payout && last.payout > 0)) {
-        setIsWinHighlighted(true);
-      } else {
-        setIsWinHighlighted(false);
-      }
+      const hasWon = Boolean(last?.payload?.winning || (last?.payout && last.payout > 0));
+      setIsWinHighlighted(hasWon);
     }
-  }, [slotsSpinning, last?.id, turbo]);
+  }, [slotsSpinning, turbo]);
 
   // Check which middle symbols are part of the winning combo
   const middleSymbols = displayedReels.map((col) => col[1]);

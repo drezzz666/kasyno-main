@@ -7,7 +7,7 @@ import (
 func TestPlayPlinkoAllCombinations(t *testing.T) {
 	risks := []string{"low", "medium", "high"}
 	for _, risk := range risks {
-		for rows := 8; rows <= 16; rows++ {
+		for _, rows := range []int{14, 16} {
 			res, err := PlayPlinko(100, rows, risk)
 			if err != nil {
 				t.Fatalf("unexpected error for rows=%d risk=%s: %v", rows, risk, err)
@@ -28,6 +28,12 @@ func TestPlayPlinkoAllCombinations(t *testing.T) {
 				t.Errorf("expected non-negative payout, got %d", res.Payout)
 			}
 		}
+	}
+
+	// Test rejection for invalid rows
+	_, err := PlayPlinko(100, 8, "medium")
+	if err == nil {
+		t.Errorf("expected error for invalid rows (8), got nil")
 	}
 }
 

@@ -53,7 +53,18 @@ func HTTPMiddleware(c *Collector) func(next http.Handler) http.Handler {
 			duration := time.Since(start)
 			normalizedRoute := normalizePath(r.URL.Path)
 
-			c.RecordHTTPRequest(r.Method, normalizedRoute, wrappedWriter.statusCode, duration)
+			if c != nil {
+				c.RecordHTTPRequest(r.Method, normalizedRoute, wrappedWriter.statusCode, duration)
+			}
+
+			// Profiling log: Log all non-health requests, highlight slow ones (>50ms)
+			if r.URL.Path != "/health" {
+				if duration > 50*time.Millisecond {
+					fmt.Printf("⏱️ [SLOW HTTP %d] %s %s took %v (IP: %s)\n", wrappedWriter.statusCode, r.Method, r.URL.Path, duration, r.RemoteAddr)
+				} else {
+					fmt.Printf("[HTTP %d] %s %s in %v\n", wrappedWriter.statusCode, r.Method, r.URL.Path, duration)
+				}
+			}
 		})
 	}
 }
@@ -109,8 +120,6 @@ func normalizePath(path string) string {
 		return "/api/auth/me"
 	case strings.HasPrefix(path, "/api/auth/verify"):
 		return "/api/auth/verify"
-	case strings.HasPrefix(path, "/api/auth/dev-login"):
-		return "/api/auth/dev-login"
 	case strings.HasPrefix(path, "/api/auth"):
 		return "/api/auth"
 	case path == "/api/casino/challenge":

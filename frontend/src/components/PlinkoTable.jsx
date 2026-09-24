@@ -69,8 +69,8 @@ function getBinColors(binCount) {
 
 const WIDTH = 760;
 const HEIGHT = 570;
-const PADDING_X = 52;
-const PADDING_TOP = 46;
+const PADDING_X = 36;
+const PADDING_TOP = 40;
 const PADDING_BOTTOM = 46;
 
 // Cubic Bezier calculation
@@ -92,6 +92,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   ref
 ) {
   const canvasRef = useRef(null);
+  const viewportRef = useRef(null);
   const activeBallsRef = useRef([]);
   const pinHitsRef = useRef(new Map());
   const animFrameIdRef = useRef(null);
@@ -106,6 +107,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const [bouncedBin, setBouncedBin] = useState(null);
   const [activeBallCount, setActiveBallCount] = useState(0);
   const [recentHits, setRecentHits] = useState([]);
+  // Tracks the rendered canvas rect so bins overlay aligns precisely
+  const [canvasRect, setCanvasRect] = useState(null);
 
   const binColors = getBinColors(currentMults.length);
 
@@ -126,9 +129,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const numRows = rows;
       const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
-      // Peg radius & Larger Solid 3D Ball Radius
-      const pinRadius = Math.max(4.5, (25 - numRows) / 2.1);
-      const ballRadius = Math.max(16, 24 - numRows * 0.45);
+      // Prominent, solid, 3D balls and calibrated pins
+      const pinRadius = Math.max(3.6, 6.0 - numRows * 0.15);
+      const ballRadius = Math.max(11, 16.5 - numRows * 0.35);
       const collRadius = pinRadius + ballRadius;
 
       const segments = [];
@@ -140,10 +143,11 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const firstStep = path[0] ?? (Math.random() < 0.5 ? 0 : 1);
       const firstDir = firstStep === 1 ? 1 : -1;
 
-      // Contact point on apex pin
+      // Contact point on apex pin (tangential contact, zero penetration)
+      const apexAngle = -firstDir * 0.52;
       const apexContact = {
-        x: apexPin.x - firstDir * collRadius * 0.35,
-        y: apexPin.y - collRadius * 0.88,
+        x: apexPin.x + Math.sin(apexAngle) * collRadius,
+        y: apexPin.y - Math.cos(apexAngle) * collRadius,
       };
 
       segments.push({
@@ -159,6 +163,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       let curCol = 1;
       let prevContact = apexContact;
 
+      const lastRowPinCount = 3 + numRows - 1;
+      const pinDistX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
+
       for (let r = 0; r < numRows; r++) {
         const step = path[r] ?? (Math.random() < 0.5 ? 0 : 1);
         const dir = step === 1 ? 1 : -1;
@@ -171,23 +178,22 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         if (r < numRows - 1) {
           // Next pin in row r + 1
           const nextPin = getPinPos(r + 1, curCol, numRows);
-          const nextStep = path[r + 1] ?? (Math.random() < 0.5 ? 0 : 1);
-          const nextDir = nextStep === 1 ? 1 : -1;
 
-          // Next contact point on next pin
+          // Tangential strike point on next pin based on approach direction
+          const strikeAngle = -dir * 0.55;
           const nextContact = {
-            x: nextPin.x - nextDir * collRadius * 0.35,
-            y: nextPin.y - collRadius * 0.88,
+            x: nextPin.x + Math.sin(strikeAngle) * collRadius,
+            y: nextPin.y - Math.cos(strikeAngle) * collRadius,
           };
 
           // Parabolic bounce upwards & outwards over peg flank with gravity curve
           const bounceApex = {
-            x: currentPin.x + dir * collRadius * 1.1,
-            y: currentPin.y - collRadius * 0.7 - rowHeight * 0.42,
+            x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.22),
+            y: currentPin.y - collRadius * 0.55 - rowHeight * 0.35,
           };
           const gravityDescent = {
-            x: nextPin.x - dir * collRadius * 0.25,
-            y: nextPin.y - collRadius * 1.35,
+            x: nextPin.x - dir * (collRadius * 0.25),
+            y: nextPin.y - collRadius * 1.25,
           };
 
           segments.push({
@@ -200,24 +206,22 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           prevContact = nextContact;
         } else {
-          // 3. Final Drop into Multiplier Bin
+          // 3. Final Drop directly into center of Multiplier Bin
           const finalSlot = ballData.slot ?? (curCol - 1);
-          const lastRowPinCount = 3 + numRows - 1;
-          const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
-          const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistanceX;
+          const slotCenterX = PADDING_X + (finalSlot + 0.5) * pinDistX;
 
           const binContact = {
             x: slotCenterX,
-            y: HEIGHT - 18,
+            y: HEIGHT - 20,
           };
 
           const finalApex = {
-            x: currentPin.x + dir * collRadius * 1.1,
-            y: currentPin.y - collRadius * 0.6 - rowHeight * 0.35,
+            x: currentPin.x + dir * (collRadius * 0.85 + pinDistX * 0.2),
+            y: currentPin.y - collRadius * 0.5 - rowHeight * 0.3,
           };
           const binDescent = {
             x: slotCenterX,
-            y: HEIGHT - 40,
+            y: HEIGHT - 46,
           };
 
           segments.push({
@@ -240,7 +244,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         segments,
         curSegIndex: 0,
         segProgress: 0,
-        stepDuration: turbo ? 70 : 260, // Smooth, realistic gravity bounce speed
+        stepDuration: turbo ? 70 : 250, // Smooth, realistic gravity bounce speed
         color: ballColor,
         radius: ballRadius,
         slot: ballData.slot ?? 0,
@@ -281,7 +285,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
 
       // 2. Draw all Pins & Hit Glows
-      const pinRadius = Math.max(4.2, (24 - rows) / 1.8);
+      const pinRadius = Math.max(3.5, 6.0 - rows * 0.16);
       for (let r = 0; r < rows; ++r) {
         const cols = 3 + r;
         for (let c = 0; c < cols; ++c) {
@@ -386,9 +390,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           // If reached final multiplier bin
           if (seg.isFinal || b.curSegIndex >= b.segments.length) {
-            const mults = currentMultsRef.current;
-            const landedSlot = Math.min(Math.max(0, b.slot), mults.length - 1);
-            const finalMultiplier = mults[landedSlot] ?? b.data.multiplier;
+            const landedSlot = b.data?.slot ?? b.slot;
+            const finalMultiplier = b.data?.multiplier ?? (currentMultsRef.current[landedSlot] || 1.0);
 
             setBouncedBin(landedSlot);
             setTimeout(() => setBouncedBin(null), 300);
@@ -494,7 +497,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
 
       activeBallsRef.current = aliveBalls;
-      setActiveBallCount(aliveBalls.length);
+      setActiveBallCount((prev) => (prev !== aliveBalls.length ? aliveBalls.length : prev));
 
       animFrameIdRef.current = requestAnimationFrame(renderLoop);
     };
@@ -508,11 +511,45 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     };
   }, [rows]);
 
+  // ResizeObserver: track actual rendered canvas size to align bins
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport) return;
+
+    const update = () => {
+      const vRect = viewport.getBoundingClientRect();
+      const cRect = canvas.getBoundingClientRect();
+      // Position of canvas bottom relative to viewport bottom
+      const bottomOffset = vRect.bottom - cRect.bottom;
+      const scale = cRect.width / WIDTH; // CSS scale factor
+      setCanvasRect({ scale, bottomOffset, canvasWidth: cRect.width });
+    };
+
+    const ro = new ResizeObserver(update);
+    ro.observe(canvas);
+    ro.observe(viewport);
+    update();
+    return () => ro.disconnect();
+  }, [rows]);
+
   // Width ratio of bins to perfectly align with bottom pegs
   const lastRowPinCount = 3 + rows - 1;
   const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
   const totalBinsWidth = (rows + 1) * pinDistanceX;
   const binsWidthPercent = (totalBinsWidth / WIDTH) * 100;
+
+  // Compute absolute bins position in pixels from canvas rect
+  const binsStyle = canvasRect
+    ? {
+        // bins in canvas coords: bottom of canvas is HEIGHT, bin top = HEIGHT - PADDING_BOTTOM
+        bottom: canvasRect.bottomOffset,
+        height: Math.max(18, PADDING_BOTTOM * canvasRect.scale),
+        width: `${binsWidthPercent}%`,
+        left: "50%",
+        transform: "translateX(-50%)",
+      }
+    : { width: `${binsWidthPercent}%` };
 
   return (
     <div className="plinko-stake-wrapper">
@@ -537,7 +574,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       )}
 
       {/* Plinko Physics Canvas */}
-      <div className="plinko-viewport">
+      <div className="plinko-viewport" ref={viewportRef}>
         <canvas
           ref={canvasRef}
           width={WIDTH}
@@ -548,7 +585,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         {/* Multiplier Bins Row */}
         <div
           className="plinko-bins-container"
-          style={{ width: `${binsWidthPercent}%` }}
+          style={binsStyle}
         >
           {currentMults.map((mult, idx) => {
             const isBounced = bouncedBin === idx;
@@ -578,17 +615,22 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         <div className="plinko-config-group">
           <span className="config-label">Liczba rzędów:</span>
           <div className="config-pill-row">
-            {[14, 16].map((r) => (
-              <button
-                key={r}
-                type="button"
-                disabled={loading || activeBallCount > 0}
-                className={`config-pill-btn ${rows === r ? "active" : ""}`}
-                onClick={() => setRows(r)}
-              >
-                {r}
-              </button>
-            ))}
+            {[14, 16].map((r) => {
+              const isSelected = Number(rows) === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={activeBallCount > 0}
+                  aria-pressed={isSelected}
+                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
+                  onClick={() => setRows && setRows(r)}
+                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
+                >
+                  {r} Rows
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -599,17 +641,22 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
               { id: "low", label: "Niskie" },
               { id: "medium", label: "Średnie" },
               { id: "high", label: "Wysokie" },
-            ].map((rk) => (
-              <button
-                key={rk.id}
-                type="button"
-                disabled={loading || activeBallCount > 0}
-                className={`config-pill-btn ${risk === rk.id ? "active" : ""}`}
-                onClick={() => setRisk(rk.id)}
-              >
-                {rk.label}
-              </button>
-            ))}
+            ].map((rk) => {
+              const isSelected = risk === rk.id;
+              return (
+                <button
+                  key={rk.id}
+                  type="button"
+                  disabled={activeBallCount > 0}
+                  aria-pressed={isSelected}
+                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
+                  onClick={() => setRisk && setRisk(rk.id)}
+                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
+                >
+                  {rk.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

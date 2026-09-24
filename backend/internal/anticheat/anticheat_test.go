@@ -177,3 +177,28 @@ func TestRateLimiter(t *testing.T) {
 	}
 }
 
+func TestPlinkoTracker(t *testing.T) {
+	tracker := NewPlinkoTracker()
+	uid := "user_plinko_test"
+
+	// 1. Initial drop with 14 rows, medium risk -> OK
+	if err := tracker.ValidateAndRecordDrop(uid, 14, "medium"); err != nil {
+		t.Fatalf("first drop should succeed: %v", err)
+	}
+
+	// 2. Immediate rapid drop with SAME configuration (14, medium) -> OK (multi-ball drop)
+	if err := tracker.ValidateAndRecordDrop(uid, 14, "medium"); err != nil {
+		t.Fatalf("subsequent drop with same configuration should succeed: %v", err)
+	}
+
+	// 3. Immediate drop attempting to change rows (14 -> 16) while balls in flight -> MUST FAIL
+	if err := tracker.ValidateAndRecordDrop(uid, 16, "medium"); err == nil {
+		t.Errorf("expected error when changing rows mid-flight, got nil")
+	}
+
+	// 4. Immediate drop attempting to change risk (medium -> high) while balls in flight -> MUST FAIL
+	if err := tracker.ValidateAndRecordDrop(uid, 14, "high"); err == nil {
+		t.Errorf("expected error when changing risk mid-flight, got nil")
+	}
+}
+

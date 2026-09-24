@@ -20,7 +20,6 @@ type Config struct {
 	AuthentikTokenURL    string
 	AuthentikUserinfoURL string
 	AuthentikEndSessionURL string
-	DevAuthEnabled        bool
 	DefaultBalance        int64
 	DailyMissionTarget    int
 	DailyMissionReward    int64
@@ -45,8 +44,6 @@ func Load() *Config {
 	authentikIssuer := strings.TrimRight(getEnv("AUTHENTIK_ISSUER", "https://login.2fgt.pl/application/o/kasyno/"), "/")
 	authentikClientID := getEnv("AUTHENTIK_CLIENT_ID", "")
 	authentikClientSecret := getEnv("AUTHENTIK_CLIENT_SECRET", "")
-
-	devAuth := getEnvBool("DEV_AUTH_ENABLED", false)
 
 	discordErrorWebhook := getEnv("DISCORD_ERROR_WEBHOOK_URL", "")
 	if discordErrorWebhook == "" {
@@ -87,7 +84,6 @@ func Load() *Config {
 		AuthentikTokenURL:     getEnv("AUTHENTIK_TOKEN_URL", ""),
 		AuthentikUserinfoURL:  getEnv("AUTHENTIK_USERINFO_URL", ""),
 		AuthentikEndSessionURL: getEnv("AUTHENTIK_END_SESSION_URL", ""),
-		DevAuthEnabled:        devAuth,
 		DefaultBalance:        getEnvInt64("DEFAULT_BALANCE", 1000),
 		DailyMissionTarget:    getEnvInt("DAILY_MISSION_TARGET", 5),
 		DailyMissionReward:    getEnvInt64("DAILY_MISSION_REWARD", 250),

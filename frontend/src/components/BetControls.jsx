@@ -16,11 +16,12 @@ export function FgtChip({ small = false, className = "" }) {
 }
 
 const CHIP_PRESETS = [
+  { val: 5, label: "+5", color: "from-slate-600 to-slate-500", border: "border-slate-400/40" },
   { val: 10, label: "+10", color: "from-blue-600 to-cyan-500", border: "border-cyan-400/40" },
-  { val: 50, label: "+50", color: "from-emerald-600 to-teal-500", border: "border-emerald-400/40" },
+  { val: 25, label: "+25", color: "from-emerald-600 to-teal-500", border: "border-emerald-400/40" },
+  { val: 50, label: "+50", color: "from-indigo-600 to-violet-500", border: "border-indigo-400/40" },
   { val: 100, label: "+100", color: "from-purple-600 to-pink-500", border: "border-pink-400/40" },
   { val: 500, label: "+500", color: "from-amber-600 to-yellow-500", border: "border-amber-400/40" },
-  { val: 1000, label: "+1K", color: "from-rose-600 to-red-500", border: "border-rose-400/40" },
 ];
 
 export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
@@ -78,80 +79,82 @@ export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
               onClick={() => setTurbo(!turbo)}
               title={turbo ? "Tryb Turbo aktywny (błyskawiczne animacje)" : "Włącz tryb Turbo (błyskawiczne animacje)"}
             >
-              <Zap size={11} />
+              <Zap size={12} />
               <span>Turbo</span>
             </button>
           )}
           <span>Saldo:</span>
-          <strong className="text-amber-400">{money(userBalance)}</strong>
+          <strong className="text-amber-400 font-mono font-bold">{money(userBalance)}</strong>
         </div>
       </div>
 
-
+      {/* Spacious Full-Width Bet Input Bar */}
       <div className="casino-bet-input-wrap">
-        <div className="casino-bet-actions-left">
+        <div className="casino-bet-prefix" aria-hidden="true">
+          <span className="casino-bet-prefix-symbol">$FGT</span>
+        </div>
+
+        <input
+          type="number"
+          min="1"
+          max={userBalance > 0 ? userBalance : undefined}
+          value={inputVal}
+          onChange={(e) => handleBetChange(e.target.value)}
+          onBlur={handleBlur}
+          className="casino-bet-input"
+          placeholder="Stawka..."
+          aria-label="Kwota zakładu w $FGT"
+        />
+
+        <div className="casino-bet-quick-actions">
           <button
             type="button"
             tabIndex={-1}
-            className="casino-bet-mod-btn"
+            className="casino-bet-quick-btn"
             onClick={() => setBet(Math.max(1, Math.floor(bet / 2)))}
-            title="Zmniejsz o połowę"
-            aria-label="Podziel stawkę przez 2"
+            title="Zmniejsz stawkę o połowę (½)"
+            aria-label="Zmniejsz stawkę o połowę"
           >
             ½
           </button>
           <button
             type="button"
             tabIndex={-1}
-            className="casino-bet-mod-btn"
+            className="casino-bet-quick-btn"
             onClick={() => setBet(userBalance > 0 ? Math.min(userBalance, bet * 2) : bet * 2)}
-            title="Podwój stawkę"
+            title="Podwój stawkę (2×)"
             aria-label="Podwój stawkę"
           >
             2×
           </button>
-        </div>
-
-        <div className="casino-bet-field">
-          <input
-            type="number"
-            min="1"
-            max={userBalance > 0 ? userBalance : undefined}
-            value={inputVal}
-            onChange={(e) => handleBetChange(e.target.value)}
-            onBlur={handleBlur}
-            className="casino-bet-input"
-            aria-label="Kwota zakładu w $FGT"
-          />
-          <span className="casino-bet-currency" aria-hidden="true">$FGT</span>
-        </div>
-
-        <div className="casino-bet-actions-right">
           <button
             type="button"
             tabIndex={-1}
-            className="casino-bet-mod-btn min-btn"
-            onClick={() => setBet(10)}
-            title="Minimalna stawka (10 $FGT)"
-            aria-label="Ustaw minimalną stawkę 10 $FGT"
-          >
-            MIN
-          </button>
-          <button
-            type="button"
-            tabIndex={-1}
-            className="casino-bet-mod-btn max-btn"
+            className="casino-bet-quick-btn max-btn"
             onClick={() => setBet(userBalance > 0 ? userBalance : 10)}
-            title="Maksymalna stawka"
-            aria-label={`Ustaw maksymalną stawkę ${money(userBalance)} $FGT`}
+            title={`Maksymalna stawka (${money(userBalance)} $FGT)`}
+            aria-label="Ustaw maksymalną stawkę"
           >
             MAX
           </button>
         </div>
       </div>
 
-      {/* Tactile Poker Chips Row */}
+      {/* Quick Increment Chip Presets */}
       <div className="casino-chips-grid" role="group" aria-label="Szybkie dodawanie do stawki">
+        <button
+          type="button"
+          tabIndex={-1}
+          className="casino-chip-item min-chip"
+          onClick={() => setBet(10)}
+          title="Minimalna stawka (10 $FGT)"
+          aria-label="Minimalna stawka 10 $FGT"
+        >
+          <span className="casino-chip-inner">
+            <span className="casino-chip-label">MIN</span>
+          </span>
+        </button>
+
         {CHIP_PRESETS.map((chip) => (
           <button
             key={chip.val}
@@ -162,7 +165,6 @@ export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {
             aria-label={`Dodaj ${chip.val} $FGT do stawki`}
           >
             <span className="casino-chip-inner">
-              <span className="casino-chip-dash" />
               <span className="casino-chip-label">{chip.label}</span>
             </span>
           </button>

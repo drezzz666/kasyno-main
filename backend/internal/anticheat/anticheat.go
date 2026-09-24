@@ -235,6 +235,7 @@ func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bo
 	}
 	isRapid := actLower == "plinko" || gLower == "plinko" ||
 		actLower == "mines" || (gLower == "mines" && actLower != "start_mines") ||
+		actLower == "chicken" || (gLower == "chicken" && actLower != "start_chicken") ||
 		actLower == "slots" || gLower == "slots" ||
 		actLower == "limbo" || gLower == "limbo"
 
@@ -442,9 +443,70 @@ func ValidateRPSChoice(choice string) error {
 	return nil
 }
 
+// ============================================================================
+// Plinko Active Drop & Configuration Lock Tracker
+// ============================================================================
+
+const PlinkoDropDuration = 2500 * time.Millisecond
+
+type PlinkoDropState struct {
+	LastDropTime time.Time
+	Rows         int
+	Risk         string
+}
+
+type PlinkoTracker struct {
+	mu     sync.Mutex
+	states map[string]*PlinkoDropState
+}
+
+func NewPlinkoTracker() *PlinkoTracker {
+	t := &PlinkoTracker{
+		states: make(map[string]*PlinkoDropState),
+	}
+	go t.cleanupLoop()
+	return t
+}
+
+// ValidateAndRecordDrop checks if a player is attempting to change rows or risk while previous balls are still in flight.
+// Returns an error if an in-flight configuration change is attempted.
+func (pt *PlinkoTracker) ValidateAndRecordDrop(userID string, rows int, risk string) error {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+
+	now := time.Now()
+	state, exists := pt.states[userID]
+	if exists && now.Sub(state.LastDropTime) < PlinkoDropDuration {
+		if state.Rows != rows || state.Risk != risk {
+			return fmt.Errorf("%w: nie możesz zmienić liczby rzędów ani poziomu ryzyka podczas trwania zrzutu kulek (poczekaj na zakończenie lotu kulek)", ErrInvalidMove)
+		}
+	}
+
+	pt.states[userID] = &PlinkoDropState{
+		LastDropTime: now,
+		Rows:         rows,
+		Risk:         risk,
+	}
+	return nil
+}
+
+func (pt *PlinkoTracker) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		pt.mu.Lock()
+		cutoff := time.Now().Add(-10 * time.Minute)
+		for uid, s := range pt.states {
+			if s.LastDropTime.Before(cutoff) {
+				delete(pt.states, uid)
+			}
+		}
+		pt.mu.Unlock()
+	}
+}
+
 func ValidatePlinkoParams(rows int, risk string) error {
-	if rows < 8 || rows > 16 {
-		return fmt.Errorf("%w: plinko rows musi mieścić się w przedziale 8-16", ErrInvalidGameParam)
+	if rows != 14 && rows != 16 {
+		return fmt.Errorf("%w: plinko rows musi wynosić 14 lub 16", ErrInvalidGameParam)
 	}
 	risk = strings.ToLower(strings.TrimSpace(risk))
 	if risk != "low" && risk != "medium" && risk != "high" {
@@ -454,8 +516,8 @@ func ValidatePlinkoParams(rows int, risk string) error {
 }
 
 func ValidateLimboTarget(target float64) error {
-	if target < 1.20 || target > 10000.0 {
-		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.20x do 10,000x", ErrInvalidGameParam)
+	if target < 1.50 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.50x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }
@@ -500,6 +562,31 @@ func ValidateBlackjackMove(move string, cardsLen int) error {
 	}
 	if move == "double" && cardsLen != 2 {
 		return fmt.Errorf("%w: podwojenie stawki jest możliwe tylko przy pierwszych 2 kartach", ErrInvalidMove)
+	}
+	return nil
+}
+
+func ValidateChickenStart(difficulty string) error {
+	diff := strings.ToLower(strings.TrimSpace(difficulty))
+	if diff != "easy" && diff != "medium" && diff != "hard" && diff != "expert" {
+		return fmt.Errorf("%w: poziom trudności w Chicken musi być easy/medium/hard/expert", ErrInvalidGameParam)
+	}
+	return nil
+}
+
+func ValidateChickenStep(targetLane int, currentLane int) error {
+	if targetLane != currentLane+1 {
+		return fmt.Errorf("%w: można przejść tylko na kolejny pas (%d -> %d)", ErrInvalidMove, currentLane, currentLane+1)
+	}
+	if targetLane < 1 || targetLane > 10 {
+		return fmt.Errorf("%w: pas poza zakresem (1-10): %d", ErrInvalidMove, targetLane)
+	}
+	return nil
+}
+
+func ValidateChickenCashout(currentLane int) error {
+	if currentLane < 1 {
+		return fmt.Errorf("%w: musisz pokonać przynajmniej jeden pas przed wypłatą", ErrInvalidMove)
 	}
 	return nil
 }

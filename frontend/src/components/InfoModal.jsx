@@ -92,7 +92,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span className="badge-mult">Do ×1000</span>
               </div>
               <p>
-                Kule spadają przez piramidę kołków. Konfiguracja 8–16 rzędów oraz 3 poziomy ryzyka (Low, Medium, High). Zewnętrzne sloty dają najwyższe mnożniki.
+                Kule spadają przez piramidę kołków. Konfiguracja 14 lub 16 rzędów oraz 3 poziomy ryzyka (Low, Medium, High). Zewnętrzne sloty dają najwyższe mnożniki.
               </p>
             </div>
 
@@ -102,7 +102,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span className="badge-mult">Do ×10000</span>
               </div>
               <p>
-                Ustaw cel mnożnika (1.20× – 10,000×). Jeśli wylosowany mnożnik serwera jest równy lub wyższy od Twojego celu — zgarniasz pełną pulę.
+                Ustaw cel mnożnika (1.50× – 10,000×). Jeśli wylosowany mnożnik serwera jest równy lub wyższy od Twojego celu — zgarniasz pełną pulę.
               </p>
             </div>
 

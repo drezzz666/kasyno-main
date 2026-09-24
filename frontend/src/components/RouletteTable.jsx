@@ -108,7 +108,6 @@ const ROW_1 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
 export function RouletteBets({
   selectedBets = new Set(),
   onToggleBet,
-  onSelectAllNumbers,
   onClearBets,
   winningNumber = null,
   disabled = false,
@@ -126,15 +125,12 @@ export function RouletteBets({
     if (spot === "dozen1" && winningNumber >= 1 && winningNumber <= 12) return true;
     if (spot === "dozen2" && winningNumber >= 13 && winningNumber <= 24) return true;
     if (spot === "dozen3" && winningNumber >= 25 && winningNumber <= 36) return true;
-    if (spot === "col1" && winningNumber > 0 && (winningNumber - 1) % 3 === 0) return true;
-    if (spot === "col2" && winningNumber > 0 && (winningNumber - 2) % 3 === 0) return true;
-    if (spot === "col3" && winningNumber > 0 && winningNumber % 3 === 0) return true;
     return false;
   };
 
   const renderBtn = (id, label, sublabel, cls = "") => {
     const isSelected = selectedBets.has(id);
-    const won = isWinning(id);
+    const won = isSelected && isWinning(id);
 
     return (
       <button
@@ -144,103 +140,50 @@ export function RouletteBets({
         className={`simple-r-btn ${cls} ${isSelected ? "selected" : ""} ${won ? "winner" : ""}`}
         onClick={() => onToggleBet(id)}
       >
-        <span className="font-bold">{label}</span>
-        {sublabel && <span className="text-[10px] opacity-75">{sublabel}</span>}
+        <span className="font-extrabold text-sm sm:text-base">{label}</span>
+        {sublabel && <span className="text-xs opacity-85 font-mono">{sublabel}</span>}
       </button>
     );
   };
 
   return (
     <div className="simple-roulette-container">
-      {/* 1. Main Colors & Zero (Most common bets) */}
+      {/* 1. Main Colors & Zero */}
       <div className="simple-r-colors-row">
-        {renderBtn("red", "CZERWONE", "Mnożnik ×2", "btn-red-main")}
-        {renderBtn("0", "0 (Zielone)", "Mnożnik ×36", "btn-zero-main")}
-        {renderBtn("black", "CZARNE", "Mnożnik ×2", "btn-black-main")}
+        {renderBtn("red", "CZERWONE", "×2", "btn-red-main")}
+        {renderBtn("0", "0 ZIELONE", "×36", "btn-zero-main")}
+        {renderBtn("black", "CZARNE", "×2", "btn-black-main")}
       </div>
 
-      {/* 2. Simple Outside Bets (1-18, Parzyste, Nieparzyste, 19-36) */}
+      {/* 2. 50/50 Outside Bets */}
       <div className="simple-r-grid-4">
-        {renderBtn("low", "1–18 (Niskie)", "×2")}
-        {renderBtn("even", "PARZYSTE", "×2")}
-        {renderBtn("odd", "NIEPARZYSTE", "×2")}
-        {renderBtn("high", "19–36 (Wysokie)", "×2")}
+        {renderBtn("low", "1–18", "×2 (Niskie)")}
+        {renderBtn("even", "PARZYSTE", "×2 (Even)")}
+        {renderBtn("odd", "NIEPARZYSTE", "×2 (Odd)")}
+        {renderBtn("high", "19–36", "×2 (Wysokie)")}
       </div>
 
       {/* 3. Dozens (Tuziny ×3) */}
       <div className="simple-r-grid-3">
-        {renderBtn("dozen1", "1st 12 (1–12)", "×3")}
-        {renderBtn("dozen2", "2nd 12 (13–24)", "×3")}
-        {renderBtn("dozen3", "3rd 12 (25–36)", "×3")}
+        {renderBtn("dozen1", "1. Tuzin", "1–12 (×3)")}
+        {renderBtn("dozen2", "2. Tuzin", "13–24 (×3)")}
+        {renderBtn("dozen3", "3. Tuzin", "25–36 (×3)")}
       </div>
 
-      {/* 4. Numbers Grid 1-36 */}
-      <div className="simple-r-numbers-board">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
-          <span>Pojedyncze numery (×36):</span>
-          <span className="text-slate-500 font-normal">Kliknij numer, aby wybrać</span>
+      {/* 4. Actions Row */}
+      {selectedBets.size > 0 && (
+        <div className="simple-r-actions-row">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={onClearBets}
+            className="simple-action-btn danger w-full justify-center py-2"
+          >
+            <Trash2 size={15} />
+            <span>Wyczyść zaznaczone zakłady ({selectedBets.size})</span>
+          </button>
         </div>
-
-        <div className="simple-numbers-table">
-          <div className="numbers-subrow">
-            {ROW_3.map((n) =>
-              renderBtn(
-                String(n),
-                String(n),
-                "",
-                redNumbers.has(n) ? "num-red" : "num-black"
-              )
-            )}
-            {renderBtn("col3", "2:1", "×3", "num-col")}
-          </div>
-          <div className="numbers-subrow">
-            {ROW_2.map((n) =>
-              renderBtn(
-                String(n),
-                String(n),
-                "",
-                redNumbers.has(n) ? "num-red" : "num-black"
-              )
-            )}
-            {renderBtn("col2", "2:1", "×3", "num-col")}
-          </div>
-          <div className="numbers-subrow">
-            {ROW_1.map((n) =>
-              renderBtn(
-                String(n),
-                String(n),
-                "",
-                redNumbers.has(n) ? "num-red" : "num-black"
-              )
-            )}
-            {renderBtn("col1", "2:1", "×3", "num-col")}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Quick Presets & Clear */}
-      <div className="simple-r-actions-row">
-        <button
-          type="button"
-          disabled={disabled || selectedBets.size === 0}
-          onClick={onClearBets}
-          className="simple-action-btn danger"
-        >
-          <Trash2 size={13} />
-          <span>Wyczyść wybór</span>
-        </button>
-
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onSelectAllNumbers}
-          className="simple-action-btn gold"
-          title="Wybierz wszystkie 37 numerów koła (0-36)"
-        >
-          <Flame size={13} className="text-amber-400" />
-          <span>Obstaw całe koło (wszystkie 37 numerów)</span>
-        </button>
-      </div>
+      )}
     </div>
   );
 }
