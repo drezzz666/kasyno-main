@@ -2,7 +2,7 @@ export const format = (n) => new Intl.NumberFormat("pl-PL").format(n || 0);
 
 export const money = (n) => `${format(n)} $FGT`;
 
-export const dailyBonus = (streak) => Math.min(150 + (streak || 0) * 75, 1500);
+export const dailyBonus = (streak) => Math.min(200 + (streak || 0) * 100, 2000);
 
 export const gameNames = {
   roulette: "Ruletka",
@@ -43,10 +43,16 @@ export function getHistoryDetails(item) {
       subtitle: item.result || "Doładowanie administratora",
     };
   }
+  if (item.type === "bankruptcy_relief" || item.type === "faucet") {
+    return {
+      title: "Pakiet ratunkowy",
+      subtitle: "Zapomoga kryzysowa (+100 $FGT)",
+    };
+  }
   if (item.type === "captcha_reward") {
     return {
       title: "Mini-gra Captcha",
-      subtitle: "Nagroda za rozwiązanie (+40 $FGT)",
+      subtitle: "Nagroda za rozwiązanie (+50 $FGT)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

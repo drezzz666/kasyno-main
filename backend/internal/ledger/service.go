@@ -53,9 +53,9 @@ func TodayString() string {
 }
 
 func DailyBonusAmount(streak int) int64 {
-	bonus := 150 + streak*75
-	if bonus > 1500 {
-		bonus = 1500
+	bonus := 200 + streak*100
+	if bonus > 2000 {
+		bonus = 2000
 	}
 	return int64(bonus)
 }
@@ -527,7 +527,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_5",
 		Title:       "Rozgrzewka Kasynowa",
-		Description: "Rozegraj 5 dowolnych rund w kasynie (min. 50 $FGT)",
+		Description: "Rozegraj 5 dowolnych rund w kasynie (min. 10 $FGT)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      5,
@@ -538,7 +538,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_15",
 		Title:       "Kasynowy Bywalec",
-		Description: "Rozegraj 15 rund w dowolnych grach (min. 50 $FGT)",
+		Description: "Rozegraj 15 rund w dowolnych grach (min. 10 $FGT)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      15,
@@ -549,7 +549,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_30",
 		Title:       "Maraton Hazardowy",
-		Description: "Rozegraj 30 rund w dowolnych grach (min. 50 $FGT)",
+		Description: "Rozegraj 30 rund w dowolnych grach (min. 10 $FGT)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      30,
@@ -560,7 +560,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_50",
 		Title:       "Władca Stołów",
-		Description: "Rozegraj 50 rund w tym 6-godzinnym cyklu (min. 50 $FGT)",
+		Description: "Rozegraj 50 rund w tym 6-godzinnym cyklu (min. 10 $FGT)",
 		Category:    "Ogólne",
 		Icon:        "crown",
 		Target:      50,
@@ -571,7 +571,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_3",
 		Title:       "Trzy Sukcesy",
-		Description: "Wygraj 3 dowolne rundy w kasynie (min. 50 $FGT)",
+		Description: "Wygraj 3 dowolne rundy w kasynie (min. 10 $FGT)",
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      3,
@@ -582,7 +582,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_10",
 		Title:       "Złota Seria",
-		Description: "Wygraj 10 rund w dowolnych grach (min. 50 $FGT)",
+		Description: "Wygraj 10 rund w dowolnych grach (min. 10 $FGT)",
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      10,
@@ -593,7 +593,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_25",
 		Title:       "Niezłomny Zwycięzca",
-		Description: "Wygraj 25 rund w kasynie (min. 50 $FGT)",
+		Description: "Wygraj 25 rund w kasynie (min. 10 $FGT)",
 		Category:    "Zwycięstwa",
 		Icon:        "trophy",
 		Target:      25,
@@ -652,7 +652,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_3",
 		Title:       "Mistrz Koła",
-		Description: "Zakręć kołem Europejskiej Ruletki 3 razy (min. 50 $FGT)",
+		Description: "Zakręć kołem Europejskiej Ruletki 3 razy (min. 10 $FGT)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
@@ -663,7 +663,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_8",
 		Title:       "Król Ruletki",
-		Description: "Rozegraj 8 rund w Europejską Ruletkę (min. 50 $FGT)",
+		Description: "Rozegraj 8 rund w Europejską Ruletkę (min. 10 $FGT)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      8,
@@ -674,7 +674,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_win_3",
 		Title:       "Czysta Intuicja",
-		Description: "Traf wygraną w Ruletce 3 razy (min. 50 $FGT)",
+		Description: "Traf wygraną w Ruletce 3 razy (min. 10 $FGT)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
@@ -687,7 +687,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_3",
 		Title:       "Poszukiwacz Diamentów",
-		Description: "Rozegraj 3 rundy w Sapera (min. 50 $FGT)",
+		Description: "Rozegraj 3 rundy w Sapera (min. 10 $FGT)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
@@ -698,7 +698,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_8",
 		Title:       "Doświadczony Saper",
-		Description: "Rozegraj 8 rund w Sapera (min. 50 $FGT)",
+		Description: "Rozegraj 8 rund w Sapera (min. 10 $FGT)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      8,
@@ -709,7 +709,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_win_3",
 		Title:       "Diamentowa Ręka",
-		Description: "Wypłać wygraną z Sapera 3 razy (min. 50 $FGT)",
+		Description: "Wypłać wygraną z Sapera 3 razy (min. 10 $FGT)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
@@ -722,7 +722,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_3",
 		Title:       "Karciany Strateg",
-		Description: "Rozegraj 3 rozdania w Blackjack 21 (min. 50 $FGT)",
+		Description: "Rozegraj 3 rozdania w Blackjack 21 (min. 10 $FGT)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
@@ -733,7 +733,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_8",
 		Title:       "Mistrz Oczka",
-		Description: "Rozegraj 8 rozdań w Blackjack 21 (min. 50 $FGT)",
+		Description: "Rozegraj 8 rozdań w Blackjack 21 (min. 10 $FGT)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      8,
@@ -744,7 +744,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_win_3",
 		Title:       "Pogromca Krupiera",
-		Description: "Pokonaj krupiera w Blackjacku 3 razy (min. 50 $FGT)",
+		Description: "Pokonaj krupiera w Blackjacku 3 razy (min. 10 $FGT)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
@@ -757,7 +757,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_5",
 		Title:       "Nocny Szczęściarz",
-		Description: "Wykonaj 5 obrotów na automatach (min. 50 $FGT)",
+		Description: "Wykonaj 5 obrotów na automatach (min. 10 $FGT)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      5,
@@ -768,7 +768,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_15",
 		Title:       "Gorące Bębny",
-		Description: "Wykonaj 15 obrotów na automatach (min. 50 $FGT)",
+		Description: "Wykonaj 15 obrotów na automatach (min. 10 $FGT)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      15,
@@ -779,7 +779,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_win_3",
 		Title:       "Trafienie w Linię",
-		Description: "Traf wygrywającą kombinację na slotach 3 razy (min. 50 $FGT)",
+		Description: "Traf wygrywającą kombinację na slotach 3 razy (min. 10 $FGT)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      3,
@@ -792,7 +792,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_5",
 		Title:       "Rzut Przeznaczenia",
-		Description: "Rzuć monetą 5 razy w Coin Flip (min. 50 $FGT)",
+		Description: "Rzuć monetą 5 razy w Coin Flip (min. 10 $FGT)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      5,
@@ -803,7 +803,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_12",
 		Title:       "Podwójna Strona",
-		Description: "Rzuć monetą 12 razy w Coin Flip (min. 50 $FGT)",
+		Description: "Rzuć monetą 12 razy w Coin Flip (min. 10 $FGT)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      12,
@@ -814,7 +814,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_win_4",
 		Title:       "Złoty Orzeł",
-		Description: "Wygraj rzut monetą 4 razy (min. 50 $FGT)",
+		Description: "Wygraj rzut monetą 4 razy (min. 10 $FGT)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      4,
@@ -827,7 +827,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_5",
 		Title:       "Szybki Pojedynek",
-		Description: "Stocz 5 pojedynków w KPN (min. 50 $FGT)",
+		Description: "Stocz 5 pojedynków w KPN (min. 10 $FGT)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      5,
@@ -838,7 +838,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_12",
 		Title:       "Mistrz Gestów",
-		Description: "Stocz 12 pojedynków w KPN (min. 50 $FGT)",
+		Description: "Stocz 12 pojedynków w KPN (min. 10 $FGT)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      12,
@@ -849,7 +849,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_win_4",
 		Title:       "Zwycięska Dłoń",
-		Description: "Wygraj pojedynek w KPN 4 razy (min. 50 $FGT)",
+		Description: "Wygraj pojedynek w KPN 4 razy (min. 10 $FGT)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      4,
@@ -862,7 +862,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_10",
 		Title:       "Deszcz Kulek",
-		Description: "Upuść 10 kulek w Plinko (min. 50 $FGT)",
+		Description: "Upuść 10 kulek w Plinko (min. 10 $FGT)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      10,
@@ -873,7 +873,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_25",
 		Title:       "Plinko Kaskada",
-		Description: "Upuść 25 kulek w Plinko (min. 50 $FGT)",
+		Description: "Upuść 25 kulek w Plinko (min. 10 $FGT)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      25,
@@ -884,7 +884,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_win_5",
 		Title:       "Złoty Mnożnik",
-		Description: "Traf zyskowny koszyk (>1x) w Plinko 5 razy (min. 50 $FGT)",
+		Description: "Traf zyskowny koszyk (>1x) w Plinko 5 razy (min. 10 $FGT)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      5,
@@ -961,7 +961,7 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 	var rpsRounds, rpsWins int64
 	var plinkoRounds, plinkoWins int64
 
-	// Only count qualifying bets (min. 50 $FGT) towards daily missions to prevent 1 $FGT micro-bet exploits
+	// Only count qualifying bets (min. 10 $FGT) towards daily missions to prevent 1 $FGT micro-bet exploits
 	err := s.db.Pool.QueryRow(ctx, `
 		SELECT 
 			COUNT(*),
@@ -982,7 +982,7 @@ func (s *Service) fetchMissionStats(ctx context.Context, userID string, startOfW
 			COUNT(*) FILTER (WHERE game = 'plinko'),
 			COUNT(*) FILTER (WHERE game = 'plinko' AND payout > bet)
 		FROM game_rounds
-		WHERE user_id = $1 AND state = 'settled' AND bet >= 50
+		WHERE user_id = $1 AND state = 'settled' AND bet >= 10
 		  AND (settled_at >= $2 OR (settled_at IS NULL AND created_at >= $2))
 	`, userID, startOfWindow).Scan(
 		&totalRounds, &totalWins, &totalWagered,
@@ -1366,12 +1366,12 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 		}
 	}
 
-	// Check level-up reward
+	// Check level-up reward (50 $FGT per level)
 	var levelUpBonus int64
 	leveledUp := false
 	if prevLevel > 0 && newLevel > prevLevel {
 		leveledUp = true
-		levelUpBonus = int64((newLevel - prevLevel) * 25)
+		levelUpBonus = int64((newLevel - prevLevel) * 50)
 		newBal += levelUpBonus
 		_, _ = tx.Exec(ctx, `
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
@@ -1461,12 +1461,12 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 		}
 	}
 
-	// Check level-up reward (balanced to 25 $FGT per level)
+	// Check level-up reward (50 $FGT per level)
 	var levelUpBonus int64
 	leveledUp := false
 	if prevLevel > 0 && newLevel > prevLevel {
 		leveledUp = true
-		levelUpBonus = int64((newLevel - prevLevel) * 25)
+		levelUpBonus = int64((newLevel - prevLevel) * 50)
 		newBal += levelUpBonus
 		_, _ = tx.Exec(ctx, `
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
@@ -1565,12 +1565,12 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, fmt.Errorf("failed to record round in ledger: %w", err)
 	}
 
-	// Check level-up reward (balanced to 25 $FGT per level)
+	// Check level-up reward (50 $FGT per level)
 	var levelUpBonus int64
 	leveledUp := false
 	if prevLevel > 0 && newLevel > prevLevel {
 		leveledUp = true
-		levelUpBonus = int64((newLevel - prevLevel) * 25)
+		levelUpBonus = int64((newLevel - prevLevel) * 50)
 		newBal += levelUpBonus
 		_, _ = tx.Exec(ctx, `
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
@@ -2073,6 +2073,54 @@ func (s *Service) RecoverInterruptedRoundsOnStartup(ctx context.Context) (int, e
 	}
 
 	return refundCount, nil
+}
+
+// ClaimBankruptcyRelief grants 100 $FGT to players whose balance is strictly under 10 $FGT.
+// Rate limited to once every 10 minutes to prevent abuse.
+func (s *Service) ClaimBankruptcyRelief(ctx context.Context, userID string) (grantedAmount int64, newBalance int64, err error) {
+	t := NowMs()
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	var curBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
+	if curBal >= 10 {
+		return 0, curBal, fmt.Errorf("koło ratunkowe jest dostępne tylko, gdy Twoje saldo wynosi mniej niż 10 $FGT")
+	}
+
+	// Cooldown check: max once per 10 minutes (600,000 ms)
+	var lastReliefTime int64
+	err = tx.QueryRow(ctx, `
+		SELECT created_at FROM ledger_entries
+		WHERE user_id = $1 AND type = 'bankruptcy_relief'
+		ORDER BY created_at DESC LIMIT 1
+	`, userID).Scan(&lastReliefTime)
+	if err == nil && (t-lastReliefTime) < 600000 {
+		waitSec := int((600000 - (t - lastReliefTime)) / 1000)
+		return 0, curBal, fmt.Errorf("koło ratunkowe będzie dostępne ponownie za %d sek.", waitSec)
+	}
+
+	const reliefAmount int64 = 100
+	newBal := curBal + reliefAmount
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
+		VALUES ($1, $2, 'bankruptcy_relief', $3, $4, $5)
+	`, uuid.NewString(), userID, reliefAmount, newBal, t)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, err
+	}
+
+	return reliefAmount, newBal, nil
 }
 
 

@@ -5,45 +5,32 @@ import (
 )
 
 func TestMinesMultiplier(t *testing.T) {
-	// 5 mines: 1 diamond (< 1.00x, no instant profit)
+	// 5 mines: 1 diamond (fair profit)
 	m1 := CalculateMultiplier(1, 5)
-	if m1 >= 1.00 {
-		t.Errorf("expected multiplier < 1.00 for 1 diamond with 5 mines, got %f", m1)
+	if m1 <= 1.00 {
+		t.Errorf("expected multiplier >= 1.00 for 1 diamond with 5 mines, got %f", m1)
 	}
 
-	// 5 mines: 2 diamonds (> 1.00x, profit)
+	// 5 mines: 2 diamonds (> 1.00x, increasing)
 	m2 := CalculateMultiplier(2, 5)
-	if m2 <= 1.00 || m2 <= m1 {
-		t.Errorf("multiplier should be > 1.00 and increase with more revealed diamonds: m1=%f, m2=%f", m1, m2)
+	if m2 <= m1 {
+		t.Errorf("multiplier should increase with more revealed diamonds: m1=%f, m2=%f", m1, m2)
 	}
 
-	// 2 mines: 1 diamond (< 1.00x), 2 diamonds (< 1.00x), 3 diamonds (1.15x < 1.30x), 4 diamonds (1.25x < 1.30x)
+	// 2 mines: 1 diamond (1.05x), 2 diamonds (1.14x)
 	m2_1 := CalculateMultiplier(1, 2)
 	m2_2 := CalculateMultiplier(2, 2)
-	m2_3 := CalculateMultiplier(3, 2)
-	m2_4 := CalculateMultiplier(4, 2)
-	if m2_1 >= 1.00 {
-		t.Errorf("expected multiplier < 1.00 for 1 diamond with 2 mines, got %f", m2_1)
+	if m2_1 < 1.00 {
+		t.Errorf("expected multiplier >= 1.00 for 1 diamond with 2 mines, got %f", m2_1)
 	}
-	if m2_2 >= 1.00 {
-		t.Errorf("expected multiplier < 1.00 for 2 diamonds with 2 mines, got %f", m2_2)
-	}
-	if m2_3 <= 1.00 || m2_3 >= 1.30 {
-		t.Errorf("expected 1.00 < multiplier < 1.30 for 3 diamonds with 2 mines, got %f", m2_3)
-	}
-	if m2_4 >= 1.30 {
-		t.Errorf("expected multiplier < 1.30 for 4 diamonds with 2 mines, got %f", m2_4)
+	if m2_2 <= m2_1 {
+		t.Errorf("expected m2_2 > m2_1, got m2_1=%f, m2_2=%f", m2_1, m2_2)
 	}
 
-	// 5 mines: 2 diamonds reaches >= 1.30x
-	if m2 < 1.30 {
-		t.Errorf("expected multiplier >= 1.30 for 2 diamonds with 5 mines, got %f", m2)
-	}
-
-	// 0 diamonds -> 0.80
+	// 0 diamonds -> 1.00
 	m0 := CalculateMultiplier(0, 5)
-	if m0 != 0.80 {
-		t.Errorf("expected 0.80 for 0 diamonds, got %f", m0)
+	if m0 != 1.00 {
+		t.Errorf("expected 1.00 for 0 diamonds, got %f", m0)
 	}
 }
 
@@ -52,7 +39,7 @@ func TestMinesRevealAndCashout(t *testing.T) {
 		Mines:      []int{0, 1, 2, 3, 4},
 		Revealed:   []int{},
 		MineCount:  5,
-		Multiplier: 0.80,
+		Multiplier: 1.00,
 	}
 
 	// Reveal safe tile 10 (1 diamond)

@@ -16,11 +16,12 @@ export function FgtChip({ small = false, className = "" }) {
 }
 
 const CHIP_PRESETS = [
+  { val: 5, label: "+5", color: "from-slate-600 to-slate-500", border: "border-slate-400/40" },
   { val: 10, label: "+10", color: "from-blue-600 to-cyan-500", border: "border-cyan-400/40" },
-  { val: 50, label: "+50", color: "from-emerald-600 to-teal-500", border: "border-emerald-400/40" },
+  { val: 25, label: "+25", color: "from-emerald-600 to-teal-500", border: "border-emerald-400/40" },
+  { val: 50, label: "+50", color: "from-indigo-600 to-violet-500", border: "border-indigo-400/40" },
   { val: 100, label: "+100", color: "from-purple-600 to-pink-500", border: "border-pink-400/40" },
   { val: 500, label: "+500", color: "from-amber-600 to-yellow-500", border: "border-amber-400/40" },
-  { val: 1000, label: "+1K", color: "from-rose-600 to-red-500", border: "border-rose-400/40" },
 ];
 
 export function BetControl({ bet, setBet, maxBalance = 0, turbo, setTurbo }) {

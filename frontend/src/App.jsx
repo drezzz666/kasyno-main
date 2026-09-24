@@ -94,7 +94,7 @@ export default function App() {
     toast.success("Regulamin zaakceptowany. Witamy w grze!");
   }, []);
 
-  // Per-game bet memory with default 50 $FGT for every game
+  // Per-game bet memory with default 10 $FGT for every game
   const [gameBets, setGameBets] = useState(() => {
     try {
       const saved = localStorage.getItem("fgt_game_bets");
@@ -104,13 +104,13 @@ export default function App() {
     }
   });
 
-  const activeBet = activeGame ? (gameBets[activeGame] ?? 50) : 50;
+  const activeBet = activeGame ? (gameBets[activeGame] ?? 10) : 10;
 
   const setActiveBet = useCallback(
     (val) => {
       if (!activeGame) return;
       setGameBets((prev) => {
-        const prevBet = prev[activeGame] ?? 50;
+        const prevBet = prev[activeGame] ?? 10;
         const nextVal = typeof val === "function" ? val(prevBet) : val;
         const next = { ...prev, [activeGame]: nextVal };
         try {
@@ -598,7 +598,26 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="player-summary-right">
+              <div className="player-summary-right flex items-center gap-2 flex-wrap">
+                {data && data.player.balance < 10 && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    className="streak-bonus-btn ready border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 shadow-sm"
+                    onClick={async () => {
+                      const j = await post({ action: "faucet" });
+                      if (j?.ok) {
+                        toast.success(`Przyznano pakiet ratunkowy +${money(j.amount || 100)}!`);
+                      } else if (j?.error) {
+                        toast.error(j.error);
+                      }
+                    }}
+                    title="Odbierz darmowe 100 $FGT na grę (dostępne co 10 minut przy zerowym saldzie)"
+                  >
+                    <Coins size={14} className="text-emerald-400 animate-pulse" />
+                    <span>Pakiet ratunkowy (+100)</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={!bonusAvailable || loading}

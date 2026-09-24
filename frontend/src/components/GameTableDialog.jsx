@@ -407,10 +407,10 @@ export function GameTableDialog({
       setCrashPlaying(true);
       setCrashCrashed(false);
       setCrashCashedOut(false);
-      setCrashMult(0.8);
-      setCrashGraphPoints([{ x: 0, y: 0.8 }]);
+      setCrashMult(1.0);
+      setCrashGraphPoints([{ x: 0, y: 1.0 }]);
 
-      const targetCashout = crashAutoCashout >= 0.8 ? crashAutoCashout : 1000.0;
+      const targetCashout = crashAutoCashout >= 1.0 ? crashAutoCashout : 1000.0;
 
       const j = await post(
         { game: "crash", action: "start_crash", bet, auto_cashout: targetCashout, turbo: Boolean(turbo) },
@@ -424,10 +424,10 @@ export function GameTableDialog({
           try {
             const now = typeof currentTime === "number" ? currentTime : performance.now();
             const elapsed = Math.max(0, (now - startTime) / 1000);
-            const currentM = Math.max(0.8, 0.8 * Math.pow(Math.E, flightSpeed * elapsed));
+            const currentM = Math.max(1.0, 1.0 * Math.pow(Math.E, flightSpeed * elapsed));
 
             // Auto-cashout target reached before crash (Win)
-            if (targetCashout >= 0.80 && currentM >= targetCashout) {
+            if (targetCashout >= 1.00 && currentM >= targetCashout) {
               if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);
               setCrashPlaying(false);
 
@@ -478,7 +478,7 @@ export function GameTableDialog({
         crashAnimRef.current = requestAnimationFrame(animateFlight);
       } else {
         setCrashPlaying(false);
-        setCrashMult(0.8);
+        setCrashMult(1.0);
         setCrashGraphPoints([]);
         if (animatingRef) animatingRef.current = false;
         void load();
