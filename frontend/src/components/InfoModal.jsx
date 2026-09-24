@@ -16,7 +16,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
         <div className="modal-header">
           <div>
             <h3 id="info-dialog-title">Zasady i Mnożniki Gier</h3>
-            <p>Zasady 10 gier klubowych kasyna</p>
+            <p>Zasady 9 gier klubowych kasyna $FGT</p>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij okno zasad" autoFocus>
             <X size={18} />
@@ -24,7 +24,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
         </div>
 
         <div className="modal-body">
-          {/* Rules Grid Covering All 10 Games */}
+          {/* Rules Grid Covering All 9 Games */}
           <div className="info-rules-grid">
             <div className="rule-card">
               <div className="rule-card-header">
@@ -115,23 +115,13 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 Rakieta wznosi się ze stale rosnącym mnożnikiem. Ustaw automatyczny Cash-out lub wypłać ręcznie zanim rakieta eksploduje.
               </p>
             </div>
-
-            <div className="rule-card">
-              <div className="rule-card-header">
-                <b>10. Chicken Cross</b>
-                <span className="badge-mult">Do ×4000</span>
-              </div>
-              <p>
-                Przeprowadź kurczaka przez 10 pasów ruchu. 4 poziomy trudności (Easy, Medium, Hard, Expert). Wypłać wygraną (Cashout) w dowolnym momencie.
-              </p>
-            </div>
           </div>
 
           {/* Key Platform Points */}
           <div className="info-points-simple">
             <div className="point-item">
               <ShieldCheck size={18} className="text-emerald-400 shrink-0" />
-              <span>Saldo i stawki w zł są wyłącznie wirtualną walutą klubową (0 PLN). Brak wpłat i wypłat.</span>
+              <span>Tokeny $FGT są wyłącznie wirtualną walutą klubową (0 PLN). Brak wpłat i wypłat.</span>
             </div>
             <div className="point-item">
               <Lock size={18} className="text-cyan-400 shrink-0" />
@@ -151,7 +141,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span>Dokumentacja Prawna</span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Pełny regulamin platformy, polityka 18+, zasady antybotowe oraz status wirtualnej waluty.
+                Pełny regulamin platformy, polityka 18+, zasady antybotowe oraz status waluty $FGT.
               </p>
             </div>
             <button

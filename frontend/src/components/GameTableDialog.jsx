@@ -649,7 +649,7 @@ export function GameTableDialog({
         <div className="modal-header">
           <div>
             <h3 id="game-dialog-title">{gameNames[game] || "Gra"}</h3>
-            <p>Stolik klubowy kasyna</p>
+            <p>Stolik klubowy $FGT</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden sm:inline-block text-[10px] font-mono text-slate-500 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.5 rounded">
@@ -878,7 +878,7 @@ export function GameTableDialog({
                       <div className="flex items-center justify-between text-xs text-slate-300 mt-1.5 pt-1.5 border-t border-white/10">
                         <span>Łączny zakład:</span>
                         <strong className="text-amber-400 font-mono font-bold">
-                          {money(rouletteTotalBet)}
+                          {rouletteTotalBet} $FGT
                         </strong>
                       </div>
                     )}
@@ -970,7 +970,7 @@ export function GameTableDialog({
 
                     if (game === "roulette") {
                       if (rouletteTotalBet <= 0) return "Wybierz pole lub kolor";
-                      return `Zakręć kołem (${money(rouletteTotalBet)})`;
+                      return `Zakręć kołem (${rouletteTotalBet} $FGT)`;
                     }
 
                     if (last) return "Zagraj ponownie";

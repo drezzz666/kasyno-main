@@ -127,7 +127,7 @@ export function WinCelebrationModal({
           <span className="win-counter-number font-mono font-black">
             +{format(displayAmount)}
           </span>
-          <span className="win-counter-currency font-display">zł</span>
+          <span className="win-counter-currency font-display">$FGT</span>
         </div>
 
         {/* Subtitle result text */}

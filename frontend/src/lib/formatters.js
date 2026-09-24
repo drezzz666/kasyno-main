@@ -1,15 +1,8 @@
-export const formatPLN = (n) => {
-  const val = (n || 0) / 100;
-  return new Intl.NumberFormat("pl-PL", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val);
-};
+export const format = (n) => new Intl.NumberFormat("pl-PL").format(n || 0);
 
-export const format = formatPLN;
-export const money = (n) => `${formatPLN(n)} zł`;
+export const money = (n) => `${format(n)} $FGT`;
 
-export const dailyBonus = (streak) => Math.min(100 + (streak || 0) * 20, 500);
+export const dailyBonus = (streak) => Math.min(200 + (streak || 0) * 100, 2000);
 
 export const gameNames = {
   roulette: "Ruletka",
@@ -42,7 +35,7 @@ export function getHistoryDetails(item) {
   if (item.type === "welcome_bonus" || item.type === "starter_bonus") {
     return {
       title: "Bonus powitalny",
-      subtitle: "Pakiet startowy (10,00 zł)",
+      subtitle: "Pakiet startowy",
     };
   }
   if (item.type === "grant") {
@@ -54,13 +47,13 @@ export function getHistoryDetails(item) {
   if (item.type === "bankruptcy_relief" || item.type === "faucet") {
     return {
       title: "Pakiet ratunkowy",
-      subtitle: "Zapomoga kryzysowa (+1,00 zł)",
+      subtitle: "Zapomoga kryzysowa (+100 $FGT)",
     };
   }
   if (item.type === "captcha_reward") {
     return {
       title: "Mini-gra Captcha",
-      subtitle: "Nagroda za rozwiązanie (+0,20 zł)",
+      subtitle: "Nagroda za rozwiązanie (+50 $FGT)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

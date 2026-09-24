@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ShieldCheck, RefreshCw, Sparkles, CheckCircle, AlertCircle, Coins, Lock } from "lucide-react";
 import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
-import { format, money } from "../lib/formatters";
+import { format } from "../lib/formatters";
 import { toast } from "sonner";
 import { postCasinoAction } from "../lib/api";
 
@@ -112,7 +112,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         setSessionCount((prev) => prev + 1);
         setSessionEarned((prev) => prev + (res.amount || 40));
         setSuccessAnim(true);
-        toast.success(`+${money(res.amount || 40)} za rozwiązanie Captcha!`);
+        toast.success(`+${res.amount || 40} $FGT za rozwiązanie Captcha!`);
 
         setTimeout(() => setSuccessAnim(false), 1200);
         await fetchCaptcha(false);
@@ -200,7 +200,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         {successAnim && (
           <div className="captcha-status-msg success">
             <CheckCircle size={15} className="shrink-0" />
-            <span>+{money(40)} dodano do salda</span>
+            <span>+40 $FGT dodano do salda</span>
           </div>
         )}
 
@@ -217,7 +217,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           ) : (
             <>
               <Sparkles size={16} />
-              <span>Odbierz {money(40)}</span>
+              <span>Odbierz 40 $FGT</span>
             </>
           )}
         </button>
