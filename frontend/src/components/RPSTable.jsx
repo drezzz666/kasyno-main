@@ -9,10 +9,22 @@ export function RPSTable({
   isShooting,
 }) {
   const p = last?.payload || {};
-  const currentChoice = isShooting ? choice : (choice || p.player_choice);
-  const playerChoice = currentChoice;
-  const houseChoice = isShooting ? "rock" : (p.house_choice || null);
-  const outcome = p.outcome; // "win", "tie", "loss"
+  const [dirtyChoice, setDirtyChoice] = React.useState(false);
+
+  // Reset dirtyChoice whenever a new round finishes
+  React.useEffect(() => {
+    setDirtyChoice(false);
+  }, [last]);
+
+  const handleSelectChoice = (id) => {
+    setDirtyChoice(true);
+    setChoice(id);
+  };
+
+  const isBusy = isShooting || loading;
+  const playerChoice = choice || p.player_choice;
+  const houseChoice = isBusy ? null : (p.house_choice || null);
+  const outcome = (isBusy || dirtyChoice) ? null : p.outcome; // "win", "tie", "loss"
 
   const iconMap = {
     rock: "✊",
@@ -68,7 +80,7 @@ export function RPSTable({
               type="button"
               disabled={loading || isShooting}
               className={`rps-choice-btn ${choice === item.id ? "active" : ""}`}
-              onClick={() => setChoice(item.id)}
+              onClick={() => handleSelectChoice(item.id)}
             >
               <span className="text-2xl">{item.icon}</span>
               <strong className="text-xs font-bold text-white">{item.name}</strong>
