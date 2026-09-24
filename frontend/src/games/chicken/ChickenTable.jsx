@@ -861,6 +861,7 @@ export function ChickenTable({
           </div>
         </div>
       </div>
+      </div>
 
       {/* Bottom HUD Bar / Right-Aligned Cashout */}
       {activeRound && (
