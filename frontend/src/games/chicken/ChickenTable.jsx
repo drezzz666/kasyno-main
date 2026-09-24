@@ -6,6 +6,7 @@ export const CHICKEN_MULTIPLIERS = [
   1.15, 1.37, 1.64, 2.00, 2.46, 3.07, 3.91, 5.08, 6.77,
   9.31, 13.30, 19.95, 31.92, 55.86, 111.72, 279.30, 1117.20,
 ];
+export const TOTAL_LANES = CHICKEN_MULTIPLIERS.length;
 
 // SVG Cute Chubby White Chicken (matching Stake aesthetic)
 export function ChickenSprite({ isJumping = false }) {
