@@ -754,7 +754,7 @@ export function GameTableDialog({
     <div className="modal-backdrop game-modal-backdrop" role="presentation">
       <div
         ref={dialogRef}
-        className="modal-dialog game-dialog-box"
+        className={`modal-dialog game-dialog-box ${game === "upgrader" ? "is-upgrader-dialog" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-dialog-title"
@@ -783,10 +783,34 @@ export function GameTableDialog({
           </div>
         </div>
 
-        <div className="game-table-body horizontal-layout">
-          {/* Left Side: Game Visual / Board Surface */}
-          <div className="game-visual-column">
-            <div className={`table-visual ${game} ${turbo ? "turbo" : ""}`}>
+        {game === "upgrader" ? (
+          <div className="table-visual upgrader">
+            <UpgraderTable
+              bet={bet}
+              setBet={setBet}
+              maxBalance={data?.player?.balance ?? 0}
+              target={upgraderTarget}
+              setTarget={setUpgraderTarget}
+              rollType={upgraderRollType}
+              setRollType={setUpgraderRollType}
+              last={last}
+              loading={loading}
+              onPlay={(opts) => {
+                if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
+                if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
+                start();
+              }}
+              animatingRef={animatingRef}
+              onBusyChange={setUpgraderBusy}
+              triggerOutcome={triggerOutcome}
+              turbo={turbo}
+            />
+          </div>
+        ) : (
+          <div className="game-table-body horizontal-layout">
+            {/* Left Side: Game Visual / Board Surface */}
+            <div className="game-visual-column">
+              <div className={`table-visual ${game} ${turbo ? "turbo" : ""}`}>
               {game === "roulette" && (
                 <>
                   <div
@@ -919,34 +943,10 @@ export function GameTableDialog({
                   last={last}
                 />
               )}
-
-              {game === "upgrader" && (
-                <UpgraderTable
-                  bet={bet}
-                  setBet={setBet}
-                  maxBalance={data?.player?.balance ?? 0}
-                  target={upgraderTarget}
-                  setTarget={setUpgraderTarget}
-                  rollType={upgraderRollType}
-                  setRollType={setUpgraderRollType}
-                  last={last}
-                  loading={loading}
-                  onPlay={(opts) => {
-                    if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
-                    if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
-                    start();
-                  }}
-                  animatingRef={animatingRef}
-                  onBusyChange={setUpgraderBusy}
-                  triggerOutcome={triggerOutcome}
-                  turbo={turbo}
-                />
-              )}
             </div>
           </div>
 
-          {/* Right Side: Betting Controls & Play Action (Hidden for upgrader since it has its own integrated dashboard) */}
-          {game !== "upgrader" && (
+            {/* Right Side: Betting Controls & Play Action */}
             <div className="game-controls-column">
               {(!round || round.game === "crash") && !blackjackPreview && (
                 <div className="table-controls-panel">
@@ -1198,9 +1198,9 @@ export function GameTableDialog({
               </div>
             )}
           </div>
-          )}
         </div>
-      </div>
+      )}
+    </div>
 
       {/* Unified High-Impact Round Outcome Screen (Win / Tie / Loss) */}
       {outcomeData && (

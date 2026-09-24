@@ -3368,6 +3368,44 @@ body {
   overflow: hidden;
 }
 
+/* --- UPGRADER FULL-WIDTH EXPANSIVE LAYOUT --- */
+.game-dialog-box.is-upgrader-dialog {
+  max-width: 1200px !important;
+  width: 98vw !important;
+  max-height: 96vh !important;
+  overflow-y: auto !important;
+}
+
+.game-table-body.horizontal-layout.is-upgrader-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0.5rem !important;
+  overflow-y: auto !important;
+}
+
+.is-upgrader-layout .game-visual-column {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.is-upgrader-layout .table-visual,
+.is-upgrader-layout .table-visual.upgrader {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+}
+
 .game-visual-column {
   min-width: 0;
   width: 100%;
