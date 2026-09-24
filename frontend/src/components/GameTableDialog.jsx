@@ -12,6 +12,7 @@ import { RPSTable } from "./RPSTable";
 import { PlinkoTable } from "./PlinkoTable";
 import { LimboTable } from "./LimboTable";
 import { CrashTable } from "./CrashTable";
+import { ChickenTable } from "./ChickenTable";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";
@@ -136,7 +137,8 @@ export function GameTableDialog({
   const [crashCashedOut, setCrashCashedOut] = useState(false);
   const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 0.8 }]);
   const crashAnimRef = useRef(null);
-  const crashRoundRef = useRef(null);
+  // Chicken states
+  const [chickenDifficulty, setChickenDifficulty] = useState("easy");
 
   // Unified Round Outcome Modal (Win, Push, Loss)
   const [outcomeData, setOutcomeData] = useState(null);
@@ -582,6 +584,11 @@ export function GameTableDialog({
       return;
     }
 
+    if (game === "chicken") {
+      await post({ action: "start_chicken", bet, difficulty: chickenDifficulty });
+      return;
+    }
+
     if (game === "roulette") {
       if (rouletteSelected.size === 0) {
         toast.error("Wybierz pole lub kolor na stole ruletki przed zakręceniem!");
@@ -726,6 +733,19 @@ export function GameTableDialog({
                   loading={loading}
                   pendingTiles={pendingTiles}
                   onPending={handleTilePending}
+                />
+              )}
+
+              {game === "chicken" && (
+                <ChickenTable
+                  round={round}
+                  last={last}
+                  post={post}
+                  loading={loading}
+                  difficulty={chickenDifficulty}
+                  setDifficulty={setChickenDifficulty}
+                  turbo={turbo}
+                  triggerOutcome={triggerOutcome}
                 />
               )}
 
@@ -880,6 +900,35 @@ export function GameTableDialog({
                           onClick={() => setMineCount(count)}
                         >
                           {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {game === "chicken" && (
+                  <div className="chicken-diff-selector">
+                    <div className="chicken-diff-header">
+                      <span className="chicken-diff-title">Poziom trudności:</span>
+                      <span className="chicken-diff-current uppercase font-mono font-bold text-amber-400">
+                        {chickenDifficulty}
+                      </span>
+                    </div>
+                    <div className="chicken-presets-row">
+                      {[
+                        { id: "easy", label: "Łatwy", max: "×6.20" },
+                        { id: "medium", label: "Średni", max: "×8.15" },
+                        { id: "hard", label: "Trudny", max: "×43.5" },
+                        { id: "expert", label: "Ekspert", max: "×2 200" },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`chicken-preset-btn ${chickenDifficulty === item.id ? "active" : ""}`}
+                          onClick={() => setChickenDifficulty(item.id)}
+                        >
+                          <span className="font-semibold">{item.label}</span>
+                          <span className="text-[10px] opacity-75">{item.max}</span>
                         </button>
                       ))}
                     </div>

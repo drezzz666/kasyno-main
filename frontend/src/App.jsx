@@ -399,6 +399,8 @@ export default function App() {
       case "pickaxe":
       case "mines":
         return <Pickaxe size={18} className="text-emerald-400" />;
+      case "chicken":
+        return <Flame size={18} className="text-amber-400" />;
       case "spade":
       case "blackjack":
         return <Spade size={18} className="text-purple-400" />;
@@ -435,6 +437,7 @@ export default function App() {
     if (m.id.includes("crash")) return "crash";
     if (m.id.includes("limbo")) return "limbo";
     if (m.id.includes("plinko")) return "plinko";
+    if (m.id.includes("chicken")) return "chicken";
     if (m.id.includes("roulette")) return "roulette";
     if (m.id.includes("mines")) return "mines";
     if (m.id.includes("blackjack")) return "blackjack";
@@ -445,6 +448,14 @@ export default function App() {
   };
 
   const gamesList = [
+    {
+      id: "chicken",
+      name: "Chicken Cross",
+      badge: "RTP 98%",
+      mult: "Do ×181 060",
+      desc: "Przeprowadź kurczaka przez ruchliwą trasę 10 pasów. 4 poziomy ryzyka.",
+      img: "/chicken-hero.webp",
+    },
     {
       id: "crash",
       name: "Crash",

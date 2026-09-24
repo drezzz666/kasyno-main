@@ -2959,6 +2959,97 @@ body {
   font-weight: 800;
 }
 
+/* --- CHICKEN CROSS TABLE --- */
+.chicken-game-wrapper {
+  width: 100%;
+}
+
+.chicken-diff-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #111622;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.chicken-diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chicken-diff-title {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.chicken-diff-current {
+  font-size: 0.85rem;
+}
+
+.chicken-presets-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+}
+
+.chicken-preset-btn {
+  background: #1c2230;
+  border: 1px solid var(--border-subtle);
+  color: #cbd5e1;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.chicken-preset-btn:hover {
+  background: #273042;
+  color: #fff;
+  border-color: #475569;
+}
+
+.chicken-preset-btn.active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-color: #fbbf24;
+  color: #0f172a;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.chicken-highway-board {
+  min-height: 220px;
+  background: radial-gradient(circle at 50% 30%, #1e293b 0%, #090d16 100%);
+}
+
+.chicken-lane {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0px,
+    rgba(255, 255, 255, 0.03) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+}
+
+@keyframes chickenHop {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.08); }
+}
+
+.animate-chicken-hop {
+  animation: chickenHop 0.5s ease-in-out infinite;
+}
+
 /* --- 4. SLOTS TABLE --- */
 .slots-container {
   position: relative;
