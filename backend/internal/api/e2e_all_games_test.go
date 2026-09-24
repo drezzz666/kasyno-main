@@ -248,58 +248,43 @@ func TestGameMines_InteractiveSimulation(t *testing.T) {
 
 // 8. GAME: CHICKEN CROSS
 func TestGameChicken_InteractiveSimulation(t *testing.T) {
-	difficulties := []string{"easy", "medium", "hard", "expert"}
+	initP := chicken.InitialStart("classic")
+	if initP.CurrentLane != 0 {
+		t.Fatalf("chicken: start lane should be 0")
+	}
+	if initP.TotalLanes != 17 {
+		t.Fatalf("chicken: total lanes should be 17")
+	}
+	if len(initP.Multipliers) != 17 {
+		t.Fatalf("chicken: multipliers count should be 17")
+	}
 
-	for _, diff := range difficulties {
-		initP := chicken.InitialStart(diff)
-		if initP.CurrentLane != 0 {
-			t.Fatalf("chicken: start lane should be 0")
-		}
-		if initP.TotalLanes != 10 {
-			t.Fatalf("chicken: total lanes should be 10")
-		}
-		if len(initP.Multipliers) != 10 {
-			t.Fatalf("chicken: multipliers count should be 10")
-		}
+	// Zero-Knowledge mask test: active payload MUST NOT leak hazardLane / hazardType
+	masked := chicken.MaskChicken(initP)
+	if masked.HazardLane != 0 || masked.HazardType != "" {
+		t.Fatalf("SECURITY LEAK: active chicken payload leaked hazard info")
+	}
 
-		// Verify Warmup Multipliers on Medium/Hard/Expert
-		if diff == "medium" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: medium lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
+	// Test Step simulation
+	settled, stepSettle, err := chicken.Step(100, &initP)
+	if err != nil {
+		t.Fatalf("chicken: step error: %v", err)
+	}
+	if !settled {
+		if initP.CurrentLane != 1 {
+			t.Fatalf("chicken: step 1 currentLane should be 1, got %d", initP.CurrentLane)
 		}
-		if diff == "hard" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: hard lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
-		}
-		if diff == "expert" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: expert lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
-		}
-
-		// Zero-Knowledge mask test: active payload MUST NOT leak hazardLane / hazardType
-		masked := chicken.MaskChicken(initP)
-		if masked.HazardLane != 0 || masked.HazardType != "" {
-			t.Fatalf("SECURITY LEAK: active chicken payload leaked hazard info")
-		}
-
-		// Test Step simulation
-		settled, stepSettle, err := chicken.Step(100, &initP)
+		// Test Cashout
+		cashRes, err := chicken.Cashout(100, initP)
 		if err != nil {
-			t.Fatalf("chicken: step error: %v", err)
+			t.Fatalf("chicken: cashout error: %v", err)
 		}
-		if !settled {
-			if initP.CurrentLane != 1 {
-				t.Fatalf("chicken: step 1 currentLane should be 1, got %d", initP.CurrentLane)
-			}
-			// Test Cashout
-			cashRes, err := chicken.Cashout(100, initP)
-			if err != nil {
-				t.Fatalf("chicken: cashout error: %v", err)
-			}
-			if cashRes.State != "settled" {
-				t.Fatalf("chicken: cashout state should be settled")
-			}
-		} else { // Hit vehicle on lane 1
-			if stepSettle.Payout != 0 {
-				t.Fatalf("chicken: collision payout should be 0, got %d", stepSettle.Payout)
-			}
+		if cashRes.State != "settled" {
+			t.Fatalf("chicken: cashout state should be settled")
+		}
+	} else { // Hit vehicle on lane 1
+		if stepSettle.Payout != 0 {
+			t.Fatalf("chicken: collision payout should be 0, got %d", stepSettle.Payout)
 		}
 	}
 }

@@ -3,12 +3,10 @@ import { money } from "../../lib/formatters";
 import { Flame } from "lucide-react";
 import { sounds } from "../../lib/sounds";
 
-export const CHICKEN_MULTIPLIERS = {
-  easy: [0.90, 1.10, 1.25, 1.45, 1.75, 2.15, 2.70, 3.50, 4.60, 6.20],
-  medium: [0.75, 1.15, 1.50, 2.00, 2.65, 3.60, 5.00, 7.00, 10.00, 15.00],
-  hard: [0.60, 1.10, 1.85, 3.10, 5.40, 9.80, 18.50, 36.00, 75.00, 160.00],
-  expert: [0.50, 0.90, 1.80, 4.50, 12.00, 35.00, 110.00, 380.00, 1200.00, 4000.00],
-};
+export const CHICKEN_MULTIPLIERS = [
+  1.15, 1.37, 1.64, 2.00, 2.46, 3.07, 3.91, 5.08, 6.77,
+  9.31, 13.30, 19.95, 31.92, 55.86, 111.72, 279.30, 1117.20,
+];
 
 // SVG Sewer Grate (Kratka ściekowa / Właz kanalizacyjny)
 export function SewerGrate({ isCurrent, isPassed, isCrash, isNext }) {
@@ -163,8 +161,6 @@ export function ChickenTable({
   last,
   post,
   loading,
-  difficulty = "medium",
-  setDifficulty,
   turbo,
   triggerOutcome,
   animatingRef,
@@ -184,13 +180,12 @@ export function ChickenTable({
   const r = activeRound || (isSettled ? last : null);
   const p = r?.payload || {};
 
-  const currentDiff = p.difficulty || difficulty || "medium";
-  const multipliers = p.multipliers || CHICKEN_MULTIPLIERS[currentDiff] || CHICKEN_MULTIPLIERS.medium;
+  const multipliers = p.multipliers || CHICKEN_MULTIPLIERS;
   const currentLane = p.currentLane || 0;
   const hazardLane = crashAnim?.lane || p.hazardLane || 0;
   const hazardType = crashAnim?.type || p.hazardType || "";
   const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
-  const nextMult = currentLane < 10 ? multipliers[currentLane] : multipliers[9];
+  const nextMult = currentLane < 17 ? multipliers[currentLane] : multipliers[16];
 
   const currentBet = r?.bet || 10;
   const currentProfit = Math.floor(currentBet * currentMult);
@@ -230,7 +225,7 @@ export function ChickenTable({
     }
   }, [activeRound?.id, animatingRef, onBusyChange]);
 
-  // Smooth Camera Panning Effect (tracks chicken & smoothly slides back on start/reset)
+  // Smooth Camera Panning Effect (tracks chicken across all 17 lanes & slides back to start on reset)
   useEffect(() => {
     const updateCamera = () => {
       if (!viewportRef.current) return;
@@ -253,7 +248,8 @@ export function ChickenTable({
       const laneCenter = laneLeft + laneWidth / 2;
 
       const desired = laneCenter - viewportWidth / 2;
-      const totalWidth = laneEl.parentElement?.scrollWidth || 1050;
+      const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
+      const totalWidth = trackEl ? trackEl.scrollWidth : 1800;
       const maxOffset = Math.max(0, totalWidth - viewportWidth);
 
       setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
@@ -296,7 +292,7 @@ export function ChickenTable({
             if (triggerOutcome) triggerOutcome(res.round, 0);
           }, delay);
         } else {
-          // WIN / FINISH
+          // WIN / FINISH (Lane 17 reached!)
           sounds.playGemReveal(1.8);
           const delay = turbo ? 100 : 500;
           if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
@@ -308,7 +304,7 @@ export function ChickenTable({
         }
       } else {
         // Safe step
-        sounds.playGemReveal(1.0 + currentLane * 0.1);
+        sounds.playGemReveal(1.0 + currentLane * 0.05);
       }
     } finally {
       setTimeout(() => {
@@ -386,7 +382,7 @@ export function ChickenTable({
             </div>
           </div>
 
-          {/* 10 Vertical Lanes stretching rightwards */}
+          {/* 17 Vertical Lanes stretching rightwards */}
           <div className="flex items-stretch h-full flex-shrink-0">
             {multipliers.map((mult, idx) => {
               const laneNum = idx + 1;
@@ -468,23 +464,15 @@ export function ChickenTable({
 
                   {/* Bottom Multiplier Pill Badge */}
                   <div
-                    className={`px-2 sm:px-2.5 py-1 rounded-md text-xs font-mono font-bold transition-all shadow-md ${
+                    className={`px-1.5 sm:px-2 py-1 rounded-md text-[11px] sm:text-xs font-mono font-bold transition-all shadow-md truncate max-w-[95%] text-center ${
                       isCrashedLane
                         ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
                         : isCurrent
-                        ? mult < 1.00
-                          ? "bg-orange-500 text-slate-950 shadow-orange-500/40 scale-105 font-black"
-                          : "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
+                        ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
                         : isCompleted
-                        ? mult < 1.00
-                          ? "bg-orange-950/60 text-orange-300 border border-orange-600/40"
-                          : "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
+                        ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
                         : isNext
-                        ? mult < 1.00
-                          ? "bg-slate-800 text-orange-300 border border-orange-400/60 animate-pulse"
-                          : "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
-                        : mult < 1.00
-                        ? "bg-[#1f1a24] text-slate-500 border border-slate-700/50"
+                        ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
                         : "bg-[#182330] text-slate-400 border border-slate-700/60"
                     }`}
                   >
@@ -493,6 +481,24 @@ export function ChickenTable({
                 </div>
               );
             })}
+          </div>
+
+          {/* Right Finish Sidewalk / Goal Meta */}
+          <div className="chicken-right-sidewalk relative w-20 sm:w-24 flex-shrink-0 bg-[#16202c] border-l-2 border-slate-700/80 flex flex-col items-center justify-between p-2 z-10">
+            <div className="text-[10px] font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-2 py-0.5 rounded border border-emerald-500/50 shadow-sm mt-0.5">
+              META
+            </div>
+
+            {/* Checkered / Finish Zebra Lines */}
+            <div className="w-full flex flex-col gap-1.5 px-1 my-auto opacity-90">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-full h-2.5 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
+              ))}
+            </div>
+
+            <div className="pb-1">
+              <RoadsideShrub />
+            </div>
           </div>
         </div>
       </div>
@@ -505,7 +511,7 @@ export function ChickenTable({
             <span className="text-base font-bold font-mono text-emerald-400">
               {money(currentProfit)}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded font-bold border ${currentMult < 1.00 ? "bg-orange-500/20 text-orange-300 border-orange-500/40" : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"}`}>
+            <span className="text-xs px-2 py-0.5 rounded font-bold border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
               ×{currentMult.toFixed(2)}
             </span>
           </div>

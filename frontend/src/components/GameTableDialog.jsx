@@ -134,7 +134,6 @@ export function GameTableDialog({
   const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 0.8 }]);
   const crashAnimRef = useRef(null);
   // Chicken states
-  const [chickenDifficulty, setChickenDifficulty] = useState("easy");
   const [chickenBusy, setChickenBusy] = useState(false);
 
   // Unified Round Outcome Modal (Win, Push, Loss)
@@ -662,7 +661,7 @@ export function GameTableDialog({
     }
 
     if (game === "chicken") {
-      await post({ action: "start_chicken", bet, difficulty: chickenDifficulty });
+      await post({ action: "start_chicken", bet });
       return;
     }
 
@@ -819,8 +818,6 @@ export function GameTableDialog({
                   last={last}
                   post={post}
                   loading={loading}
-                  difficulty={chickenDifficulty}
-                  setDifficulty={setChickenDifficulty}
                   turbo={turbo}
                   triggerOutcome={triggerOutcome}
                   animatingRef={animatingRef}
@@ -986,34 +983,7 @@ export function GameTableDialog({
                   </div>
                 )}
 
-                {game === "chicken" && (
-                  <div className="chicken-diff-selector">
-                    <div className="chicken-diff-header">
-                      <span className="chicken-diff-title">Poziom trudności:</span>
-                      <span className="chicken-diff-current uppercase font-mono font-bold text-amber-400">
-                        {chickenDifficulty}
-                      </span>
-                    </div>
-                    <div className="chicken-presets-row">
-                      {[
-                        { id: "easy", label: "Łatwy", max: "×6.20" },
-                        { id: "medium", label: "Średni", max: "×15.0" },
-                        { id: "hard", label: "Trudny", max: "×160" },
-                        { id: "expert", label: "Ekspert", max: "×4 000" },
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`chicken-preset-btn ${chickenDifficulty === item.id ? "active" : ""}`}
-                          onClick={() => setChickenDifficulty(item.id)}
-                        >
-                          <span className="font-semibold">{item.label}</span>
-                          <span className="text-[10px] opacity-75">{item.max}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 {(() => {
                   const isChoiceMissing =
