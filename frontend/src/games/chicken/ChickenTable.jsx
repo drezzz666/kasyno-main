@@ -659,25 +659,25 @@ export function ChickenTable({
     }
   };
 
-  return (
-    <div
-      ref={viewportRef}
-      className="chicken-street-surface relative w-full h-[400px] sm:h-[430px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
-    >
-      {/* Top Right Live Win & Multiplier Overlay */}
-      {activeRound && currentLane >= 1 && (
-        <div className="absolute top-3 right-3 z-30 flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-700/60 shadow-lg pointer-events-none">
-          <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
-            Wygrana:
-          </span>
-          <span className="text-sm sm:text-base font-bold font-mono text-emerald-400">
-            {money(currentProfit)}
-          </span>
-          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-            ×{currentMult.toFixed(2)}
-          </span>
-        </div>
-      )}
+    <div className="chicken-game-canvas flex flex-col w-full select-none">
+      <div
+        ref={viewportRef}
+        className="chicken-street-surface relative w-full h-[370px] sm:h-[410px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
+      >
+        {/* Top Right Live Win & Cashout Button */}
+        {activeRound && currentLane >= 1 && (
+          <button
+            type="button"
+            disabled={loading || jumping || cashingOut || Boolean(crashAnim)}
+            onClick={handleCashout}
+            className="absolute top-3 right-3 z-30 flex items-center gap-2.5 px-4 py-2 rounded-lg bg-[#00e701] hover:bg-[#00c801] text-slate-950 font-black shadow-lg shadow-emerald-500/30 border border-emerald-400/50 active:scale-95 transition-all cursor-pointer"
+          >
+            <span className="text-xs sm:text-sm font-black">WYPŁAĆ {money(currentProfit)}</span>
+            <span className="text-xs font-bold font-mono bg-slate-950/20 px-1.5 py-0.5 rounded">
+              ×{currentMult.toFixed(2)}
+            </span>
+          </button>
+        )}
 
       {/* Smooth Moving Camera Track */}
       <div
