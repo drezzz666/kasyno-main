@@ -20,6 +20,7 @@ export function CrashTable({
   graphPoints = [],
   last,
 }) {
+  const canvasRef = useRef(null);
   const dimRef = useRef({ width: 640, height: 360, dpr: typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1 });
 
   // Handle canvas sizing on mount / window resize only (avoids layout thrashing)
