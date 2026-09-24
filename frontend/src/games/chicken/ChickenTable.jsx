@@ -279,23 +279,23 @@ export function ChickenTable({
             }
           }
 
-          // Delay the outcome popup so user sees the car run over the chicken first!
-          const delay = turbo ? 800 : 1400;
+          // Delay outcome popup by 0.5s so user sees the car run over chicken first!
+          const delay = turbo ? 100 : 500;
           if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
           outcomeTimeoutRef.current = setTimeout(() => {
             if (animatingRef) animatingRef.current = false;
             if (onBusyChange) onBusyChange(false);
-            if (triggerOutcome) triggerOutcome(res.round);
+            if (triggerOutcome) triggerOutcome(res.round, 0);
           }, delay);
         } else {
           // WIN / FINISH
           sounds.playGemReveal(1.8);
-          const delay = turbo ? 300 : 600;
+          const delay = turbo ? 100 : 500;
           if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
           outcomeTimeoutRef.current = setTimeout(() => {
             if (animatingRef) animatingRef.current = false;
             if (onBusyChange) onBusyChange(false);
-            if (triggerOutcome) triggerOutcome(res.round);
+            if (triggerOutcome) triggerOutcome(res.round, 0);
           }, delay);
         }
       } else {
@@ -321,12 +321,12 @@ export function ChickenTable({
       if (res?.round) {
         if (animatingRef) animatingRef.current = true;
         if (onBusyChange) onBusyChange(true);
-        const delay = turbo ? 200 : 400;
+        const delay = turbo ? 100 : 500;
         if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
         outcomeTimeoutRef.current = setTimeout(() => {
           if (animatingRef) animatingRef.current = false;
           if (onBusyChange) onBusyChange(false);
-          if (triggerOutcome) triggerOutcome(res.round);
+          if (triggerOutcome) triggerOutcome(res.round, 0);
         }, delay);
       }
     } finally {

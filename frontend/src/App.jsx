@@ -36,7 +36,6 @@ import { ProfileModal } from "./components/ProfileModal";
 import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
-import { WinCelebrationModal } from "./components/WinCelebrationModal";
 import { MinigamesModal, MINIGAMES } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
