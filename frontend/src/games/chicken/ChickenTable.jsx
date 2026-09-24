@@ -666,21 +666,6 @@ export function ChickenTable({
         ref={viewportRef}
         className="chicken-street-surface relative w-full h-[370px] sm:h-[410px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
       >
-        {/* Top Right Live Win & Cashout Button */}
-        {activeRound && currentLane >= 1 && (
-          <button
-            type="button"
-            disabled={loading || jumping || cashingOut || Boolean(crashAnim)}
-            onClick={handleCashout}
-            className="absolute top-3 right-3 z-30 flex items-center gap-2.5 px-4 py-2 rounded-lg bg-[#00e701] hover:bg-[#00c801] text-slate-950 font-black shadow-lg shadow-emerald-500/30 border border-emerald-400/50 active:scale-95 transition-all cursor-pointer"
-          >
-            <span className="text-xs sm:text-sm font-black">WYPŁAĆ {money(currentProfit)}</span>
-            <span className="text-xs font-bold font-mono bg-slate-950/20 px-1.5 py-0.5 rounded">
-              ×{currentMult.toFixed(2)}
-            </span>
-          </button>
-        )}
-
       {/* Smooth Moving Camera Track */}
       <div
         className="chicken-camera-track flex items-stretch h-full"

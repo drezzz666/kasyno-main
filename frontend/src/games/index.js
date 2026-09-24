@@ -8,3 +8,4 @@ export { PlinkoTable, PLINKO_MULTIPLIERS } from "./plinko/PlinkoTable";
 export { RouletteWheelVisual, RouletteBets, wheelOrder, redNumbers } from "./roulette/RouletteTable";
 export { RPSTable } from "./rps/RPSTable";
 export { SlotsTable } from "./slots/SlotsTable";
+export { UpgraderTable } from "./upgrader/UpgraderTable";

@@ -237,7 +237,8 @@ func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bo
 		actLower == "mines" || (gLower == "mines" && actLower != "start_mines") ||
 		actLower == "chicken" || (gLower == "chicken" && actLower != "start_chicken") ||
 		actLower == "slots" || gLower == "slots" ||
-		actLower == "limbo" || gLower == "limbo"
+		actLower == "limbo" || gLower == "limbo" ||
+		actLower == "upgrader" || gLower == "upgrader"
 
 	if isRapid {
 		e.rapidActions = pruneOlderThan(e.rapidActions, now, time.Minute)
@@ -518,6 +519,13 @@ func ValidatePlinkoParams(rows int, risk string) error {
 func ValidateLimboTarget(target float64) error {
 	if target < 1.50 || target > 10000.0 {
 		return fmt.Errorf("%w: cel w Limbo musi wynosić od 1.50x do 10,000x", ErrInvalidGameParam)
+	}
+	return nil
+}
+
+func ValidateUpgraderTarget(target float64) error {
+	if target < 1.05 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Upgrader musi wynosić od 1.05x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }

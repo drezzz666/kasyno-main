@@ -16,6 +16,7 @@ import {
   wheelOrder,
   RPSTable,
   SlotsTable,
+  UpgraderTable,
 } from "../games";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
 import { reportClientError } from "../lib/reporter";
@@ -135,6 +136,10 @@ export function GameTableDialog({
   const crashAnimRef = useRef(null);
   // Chicken states
   const [chickenBusy, setChickenBusy] = useState(false);
+  // Upgrader states
+  const [upgraderTarget, setUpgraderTarget] = useState(2.0);
+  const [upgraderRollType, setUpgraderRollType] = useState("under");
+  const [upgraderBusy, setUpgraderBusy] = useState(false);
 
   // Unified Round Outcome Modal (Win, Push, Loss)
   const [outcomeData, setOutcomeData] = useState(null);
@@ -185,6 +190,7 @@ export function GameTableDialog({
     limboAnimating ||
     crashPlaying ||
     chickenBusy ||
+    upgraderBusy ||
     outcomePending ||
     outcomeData ||
     animatingRef?.current
@@ -438,6 +444,24 @@ export function GameTableDialog({
         }
       } else {
         setLimboAnimating(false);
+        if (animatingRef) animatingRef.current = false;
+      }
+      return;
+    }
+
+    if (game === "upgrader") {
+      if (animatingRef) animatingRef.current = true;
+      setUpgraderBusy(true);
+      const j = await post(
+        { game: "upgrader", bet, target_multiplier: upgraderTarget, roll_type: upgraderRollType },
+        { deferBalance: true, deferRefresh: true, deductBet: bet }
+      );
+      if (j && j.round) {
+        setLast(j.round);
+        if (typeof j.balance === "number") syncBalance(j.balance);
+        void load();
+      } else {
+        setUpgraderBusy(false);
         if (animatingRef) animatingRef.current = false;
       }
       return;
@@ -895,6 +919,29 @@ export function GameTableDialog({
                   last={last}
                 />
               )}
+
+              {game === "upgrader" && (
+                <UpgraderTable
+                  bet={bet}
+                  setBet={setBet}
+                  maxBalance={data?.player?.balance ?? 0}
+                  target={upgraderTarget}
+                  setTarget={setUpgraderTarget}
+                  rollType={upgraderRollType}
+                  setRollType={setUpgraderRollType}
+                  last={last}
+                  loading={loading}
+                  onPlay={(opts) => {
+                    if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
+                    if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
+                    start();
+                  }}
+                  animatingRef={animatingRef}
+                  onBusyChange={setUpgraderBusy}
+                  triggerOutcome={triggerOutcome}
+                  turbo={turbo}
+                />
+              )}
             </div>
           </div>
 
@@ -1037,6 +1084,11 @@ export function GameTableDialog({
                     if (game === "roulette") {
                       if (rouletteTotalBet <= 0) return "Wybierz pole lub kolor";
                       return `Zakręć kołem (${rouletteTotalBet} $FGT)`;
+                    }
+
+                    if (game === "upgrader") {
+                      if (upgraderBusy) return "Ulepszanie…";
+                      return `UPGRADE (×${upgraderTarget.toFixed(2)})`;
                     }
 
                     if (last) return "Zagraj ponownie";

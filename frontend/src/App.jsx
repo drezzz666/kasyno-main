@@ -473,6 +473,7 @@ export default function App() {
     if (m.id.includes("slots")) return "slots";
     if (m.id.includes("coinflip")) return "coinflip";
     if (m.id.includes("rps")) return "rps";
+    if (m.id.includes("upgrader")) return "upgrader";
     return null;
   };
 
@@ -556,6 +557,14 @@ export default function App() {
       mult: "Do ×12",
       desc: "Klasyczny automat. Trafiaj linie 3, 4 lub 5 symboli.",
       img: "/slot-hero.webp",
+    },
+    {
+      id: "upgrader",
+      name: "Upgrader",
+      badge: "RTP 96%",
+      mult: "Do ×10000",
+      desc: "Wpisz kwotę, wybierz mnożnik i zakręć kołem szansy na Upgrade!",
+      img: "/limbo-hero.webp",
     },
   ];
 

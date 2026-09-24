@@ -27,6 +27,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/roulette"
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
 	"github.com/drezzz666/kasyno/backend/internal/games/slots"
+	"github.com/drezzz666/kasyno/backend/internal/games/upgrader"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/reporter"
 	"github.com/drezzz666/kasyno/backend/internal/telemetry"
@@ -783,6 +784,26 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 			res, err = crash.PlayCrashProvablyFair(serverSeed, clientSeed, nonce, bet, targetMult)
 		} else {
 			res, err = crash.PlayCrash(bet, targetMult)
+		}
+		if err != nil {
+			JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		payout = res.Payout
+		resultText = res.ResultText
+		payloadBytes, _ = json.Marshal(res.Payload)
+	} else if game == "upgrader" {
+		targetMult, _ := body["target_multiplier"].(float64)
+		rollType, _ := body["roll_type"].(string)
+		if err := anticheat.ValidateUpgraderTarget(targetMult); err != nil {
+			JSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		var res *upgrader.Result
+		if hasPF {
+			res, err = upgrader.PlayUpgraderProvablyFair(bet, targetMult, rollType, serverSeed, clientSeed, nonce)
+		} else {
+			res, err = upgrader.PlayUpgrader(bet, targetMult, rollType)
 		}
 		if err != nil {
 			JSONError(w, http.StatusBadRequest, err.Error())
