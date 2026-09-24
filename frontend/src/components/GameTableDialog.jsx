@@ -265,16 +265,24 @@ export function GameTableDialog({
       { deferRefresh: true, deferBalance: true }
     );
     if (j?.round?.state === "settled") {
-      setBlackjackPreview({ ...j.round, state: "settled" });
-      const delay = turbo ? 400 : 750;
-      setTimeout(() => {
+      if (turbo) {
         setBlackjackPreview(null);
         setLast(j.round);
         if (typeof j.balance === "number") syncBalance(j.balance);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
-      }, delay);
+      } else {
+        setBlackjackPreview({ ...j.round, state: "settled" });
+        setTimeout(() => {
+          setBlackjackPreview(null);
+          setLast(j.round);
+          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (animatingRef) animatingRef.current = false;
+          triggerOutcome(j.round);
+          void load();
+        }, 750);
+      }
     } else {
       if (animatingRef) animatingRef.current = false;
     }
@@ -379,31 +387,41 @@ export function GameTableDialog({
       );
       if (j && j.round?.payload) {
         const finalMult = j.round.payload.result_multiplier;
-        const duration = turbo ? 100 : 700;
-        const startTime = Date.now();
+        if (turbo) {
+          setLimboDisplayMult(finalMult);
+          setLimboAnimating(false);
+          setLast(j.round);
+          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (animatingRef) animatingRef.current = false;
+          triggerOutcome(j.round);
+          void load();
+        } else {
+          const duration = 700;
+          const startTime = Date.now();
 
-        const rollStep = () => {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(1, elapsed / duration);
-          if (progress < 0.75) {
-            setLimboDisplayMult(1.0 + Math.random() * Math.max(6, limboTarget * 1.8));
-            requestAnimationFrame(rollStep);
-          } else if (progress < 1) {
-            const ease = (progress - 0.75) / 0.25;
-            setLimboDisplayMult(1.0 + (finalMult - 1.0) * ease);
-            requestAnimationFrame(rollStep);
-          } else {
-            setLimboDisplayMult(finalMult);
-            setLimboAnimating(false);
-            setLast(j.round);
-            if (typeof j.balance === "number") syncBalance(j.balance);
-            if (animatingRef) animatingRef.current = false;
-            triggerOutcome(j.round);
-            void load();
-          }
-        };
+          const rollStep = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(1, elapsed / duration);
+            if (progress < 0.75) {
+              setLimboDisplayMult(1.0 + Math.random() * Math.max(6, limboTarget * 1.8));
+              requestAnimationFrame(rollStep);
+            } else if (progress < 1) {
+              const ease = (progress - 0.75) / 0.25;
+              setLimboDisplayMult(1.0 + (finalMult - 1.0) * ease);
+              requestAnimationFrame(rollStep);
+            } else {
+              setLimboDisplayMult(finalMult);
+              setLimboAnimating(false);
+              setLast(j.round);
+              if (typeof j.balance === "number") syncBalance(j.balance);
+              if (animatingRef) animatingRef.current = false;
+              triggerOutcome(j.round);
+              void load();
+            }
+          };
 
-        requestAnimationFrame(rollStep);
+          requestAnimationFrame(rollStep);
+        }
       } else {
         setLimboAnimating(false);
         if (animatingRef) animatingRef.current = false;
@@ -497,14 +515,13 @@ export function GameTableDialog({
 
     if (game === "slots") {
       if (animatingRef) animatingRef.current = true;
-      setSlotsSpinning(true);
+      setSlotsSpinning(!turbo);
       const j = await post(
         { game, bet },
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
       if (j && j.round) {
-        setPendingSlotsRound(j.round);
-        setTimeout(() => {
+        if (turbo) {
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           setSlotsSpinning(false);
@@ -512,7 +529,18 @@ export function GameTableDialog({
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 220 : 1200);
+        } else {
+          setPendingSlotsRound(j.round);
+          setTimeout(() => {
+            setLast(j.round);
+            if (typeof j.balance === "number") syncBalance(j.balance);
+            setSlotsSpinning(false);
+            setPendingSlotsRound(null);
+            if (animatingRef) animatingRef.current = false;
+            triggerOutcome(j.round);
+            void load();
+          }, 1200);
+        }
       } else {
         setSlotsSpinning(false);
         setPendingSlotsRound(null);
@@ -523,21 +551,30 @@ export function GameTableDialog({
 
     if (game === "coinflip") {
       if (animatingRef) animatingRef.current = true;
-      setIsFlipping(true);
+      setIsFlipping(!turbo);
       const coinPick = choice === "tails" ? "tails" : "heads";
       const j = await post(
         { game, bet, choice: coinPick },
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
       if (j) {
-        setTimeout(() => {
+        if (turbo) {
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           setIsFlipping(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 180 : 720);
+        } else {
+          setTimeout(() => {
+            setLast(j.round);
+            if (typeof j.balance === "number") syncBalance(j.balance);
+            setIsFlipping(false);
+            if (animatingRef) animatingRef.current = false;
+            triggerOutcome(j.round);
+            void load();
+          }, 720);
+        }
       } else {
         setIsFlipping(false);
         if (animatingRef) animatingRef.current = false;
@@ -547,21 +584,30 @@ export function GameTableDialog({
 
     if (game === "rps") {
       if (animatingRef) animatingRef.current = true;
-      setIsShootingRPS(true);
+      setIsShootingRPS(!turbo);
       const rpsPick = choice || "rock";
       const j = await post(
         { game, bet, choice: rpsPick },
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
       if (j) {
-        setTimeout(() => {
+        if (turbo) {
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           setIsShootingRPS(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
-        }, turbo ? 180 : 900);
+        } else {
+          setTimeout(() => {
+            setLast(j.round);
+            if (typeof j.balance === "number") syncBalance(j.balance);
+            setIsShootingRPS(false);
+            if (animatingRef) animatingRef.current = false;
+            triggerOutcome(j.round);
+            void load();
+          }, 900);
+        }
       } else {
         setIsShootingRPS(false);
         if (animatingRef) animatingRef.current = false;
@@ -573,15 +619,22 @@ export function GameTableDialog({
     if (game === "blackjack") {
       const j = await post({ action: "deal_blackjack", bet });
       if (j?.round?.state === "settled") {
-        setBlackjackPreview({ ...j.round, state: "settled" });
-        const delay = turbo ? 500 : 950;
-        setTimeout(() => {
+        if (turbo) {
           setBlackjackPreview(null);
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
           triggerOutcome(j.round);
           void load();
-        }, delay);
+        } else {
+          setBlackjackPreview({ ...j.round, state: "settled" });
+          setTimeout(() => {
+            setBlackjackPreview(null);
+            setLast(j.round);
+            if (typeof j.balance === "number") syncBalance(j.balance);
+            triggerOutcome(j.round);
+            void load();
+          }, 950);
+        }
       }
       return;
     }

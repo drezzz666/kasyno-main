@@ -52,13 +52,20 @@ export function RouletteWheelVisual({
     runningRef.current = true;
     const targetRotation =
       ((-(prizeNumber * rouletteSectorAngle) % 360) + 360) % 360;
+
+    if (turbo) {
+      setRotation(targetRotation);
+      timerRef.current = window.setTimeout(() => finishRef.current(), 50);
+      return;
+    }
+
     setRotation((previous) => {
       const current = ((previous % 360) + 360) % 360;
-      const spins = turbo ? 2 : 4;
+      const spins = 4;
       const delta = spins * 360 + ((targetRotation - current + 360) % 360);
       return previous + delta;
     });
-    timerRef.current = window.setTimeout(() => finishRef.current(), turbo ? 850 : 6420);
+    timerRef.current = window.setTimeout(() => finishRef.current(), 6420);
   }, [mustStartSpinning, prizeNumber, turbo]);
 
   return (
@@ -68,7 +75,7 @@ export function RouletteWheelVisual({
         className="roulette-dial"
         style={{
           transform: `rotate(${rotation}deg)`,
-          transition: `transform ${turbo ? "0.75s" : "6s"} cubic-bezier(0.12, 0.8, 0.32, 1)`,
+          transition: turbo ? "none" : `transform 6s cubic-bezier(0.12, 0.8, 0.32, 1)`,
           background: `conic-gradient(from ${-rouletteSectorAngle / 2}deg,${rouletteStops})`,
         }}
         onTransitionEnd={(e) => {
