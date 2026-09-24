@@ -3668,7 +3668,7 @@ body {
 }
 
 .coin-floor-shadow.flipping {
-  animation: coinShadowToss 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: coinShadowToss 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .coin-floor-shadow.landed {
@@ -3689,8 +3689,8 @@ body {
     filter: blur(10px);
   }
   50% {
-    transform: scale(0.3);
-    opacity: 0.12;
+    transform: scale(0.28);
+    opacity: 0.1;
     filter: blur(14px);
   }
   75% {
@@ -3703,7 +3703,7 @@ body {
     opacity: 0.9;
     filter: blur(2.5px);
   }
-  95% {
+  96% {
     transform: scale(0.92);
     opacity: 0.65;
     filter: blur(5px);
@@ -3726,72 +3726,68 @@ body {
   will-change: transform;
 }
 
-.coin-3d-polish.flipping {
-  animation: coinTossUpAndDown 0.72s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.coin-3d-polish.landed-heads {
+.coin-3d-polish.idle-heads {
   transform: translateY(0) rotateY(0deg) rotateX(0deg);
-  animation: coinSettleHeads 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
-.coin-3d-polish.landed-tails {
+.coin-3d-polish.idle-tails {
   transform: translateY(0) rotateY(180deg) rotateX(0deg);
-  animation: coinSettleTails 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
-@keyframes coinTossUpAndDown {
-  0% {
-    transform: translateY(0px) rotateY(0deg) rotateX(0deg) scale(1);
-  }
-  25% {
-    transform: translateY(-90px) rotateY(540deg) rotateX(-12deg) scale(1.12);
-  }
-  50% {
-    transform: translateY(-135px) rotateY(1080deg) rotateX(8deg) scale(1.2);
-  }
-  75% {
-    transform: translateY(-80px) rotateY(1620deg) rotateX(-8deg) scale(1.1);
-  }
-  90% {
-    transform: translateY(2px) rotateY(2000deg) rotateX(4deg) scale(0.98);
-  }
-  95% {
-    transform: translateY(-10px) rotateY(2100deg) rotateX(-2deg) scale(1.02);
-  }
-  100% {
-    transform: translateY(0px) rotateY(2160deg) rotateX(0deg) scale(1);
-  }
+.coin-3d-polish.toss-heads-from-heads {
+  animation: tossHeadsFromHeads 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-@keyframes coinSettleHeads {
-  0% {
-    transform: translateY(-16px) rotateY(180deg) scale(1.05);
-  }
-  60% {
-    transform: translateY(3px) rotateY(-6deg) scale(0.98);
-  }
-  80% {
-    transform: translateY(-2px) rotateY(3deg) scale(1.01);
-  }
-  100% {
-    transform: translateY(0) rotateY(0deg) scale(1);
-  }
+.coin-3d-polish.toss-heads-from-tails {
+  animation: tossHeadsFromTails 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-@keyframes coinSettleTails {
-  0% {
-    transform: translateY(-16px) rotateY(360deg) scale(1.05);
-  }
-  60% {
-    transform: translateY(3px) rotateY(174deg) scale(0.98);
-  }
-  80% {
-    transform: translateY(-2px) rotateY(183deg) scale(1.01);
-  }
-  100% {
-    transform: translateY(0) rotateY(180deg) scale(1);
-  }
+.coin-3d-polish.toss-tails-from-heads {
+  animation: tossTailsFromHeads 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.coin-3d-polish.toss-tails-from-tails {
+  animation: tossTailsFromTails 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tossHeadsFromHeads {
+  0% { transform: translateY(0px) rotateY(0deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(540deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1080deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1620deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2000deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2140deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2160deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossHeadsFromTails {
+  0% { transform: translateY(0px) rotateY(180deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(720deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1260deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1800deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2180deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2150deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2160deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossTailsFromHeads {
+  0% { transform: translateY(0px) rotateY(0deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(540deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1080deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1620deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(1960deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(1990deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(1980deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossTailsFromTails {
+  0% { transform: translateY(0px) rotateY(180deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(720deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1260deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1800deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2320deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2350deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2340deg) rotateX(0deg) scale(1); }
 }
 
 /* 3D Rim Layers */

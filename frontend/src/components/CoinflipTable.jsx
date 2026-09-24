@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { sounds } from "../lib/sounds";
 
 // SVG Vector Awers: Orzeł Rzeczypospolitej Polskiej
@@ -182,22 +182,42 @@ export function CoinflipTable({
   last,
   loading,
   isFlipping,
+  targetOutcome,
 }) {
-  const p = last?.payload || {};
-  const outcome = p.outcome;
-  const currentSide = outcome || choice || "heads";
+  const [restingSide, setRestingSide] = useState(choice || "heads");
+  const [animClass, setAnimClass] = useState("idle-heads");
+  const [animKey, setAnimKey] = useState(0);
 
-  const prevFlippingRef = useRef(false);
-
-  // Play coin sounds on flip start and finish
+  // When user clicks choice when idle, smoothly rotate to preview that face
   useEffect(() => {
-    if (isFlipping && !prevFlippingRef.current) {
-      sounds.playCoinToss();
-    } else if (!isFlipping && prevFlippingRef.current) {
-      sounds.playCoinLand();
+    if (!isFlipping) {
+      const side = choice || "heads";
+      setRestingSide(side);
+      setAnimClass(`idle-${side}`);
     }
-    prevFlippingRef.current = isFlipping;
-  }, [isFlipping]);
+  }, [choice, isFlipping]);
+
+  // When flip starts, compute the exact toss keyframe animation from restingSide to targetOutcome
+  useEffect(() => {
+    if (isFlipping && targetOutcome) {
+      const fromSide = restingSide || choice || "heads";
+      const toSide = targetOutcome;
+      const tossName = `toss-${toSide}-from-${fromSide}`;
+
+      setAnimKey((k) => k + 1);
+      setAnimClass(tossName);
+      sounds.playCoinToss();
+
+      const landTimer = setTimeout(() => {
+        sounds.playCoinLand();
+      }, 680);
+
+      return () => clearTimeout(landTimer);
+    } else if (!isFlipping && targetOutcome) {
+      setRestingSide(targetOutcome);
+      setAnimClass(`idle-${targetOutcome}`);
+    }
+  }, [isFlipping, targetOutcome]);
 
   return (
     <div className="coinflip-container">
@@ -206,9 +226,8 @@ export function CoinflipTable({
         <div className="coin-stage-perspective">
           {/* Real 3D Polish 1 ZŁ Coin */}
           <div
-            className={`coin-3d-polish ${isFlipping ? "flipping" : ""} ${
-              !isFlipping ? `landed-${currentSide}` : ""
-            }`}
+            key={animKey}
+            className={`coin-3d-polish ${animClass}`}
           >
             {/* Front Face: Awers (Orzeł RP) */}
             <div className="coin-face-polish coin-front">

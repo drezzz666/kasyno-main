@@ -76,6 +76,7 @@ export function GameTableDialog({
 
   // New games states
   const [isFlipping, setIsFlipping] = useState(false);
+  const [coinflipTarget, setCoinflipTarget] = useState(null);
   const [isShootingRPS, setIsShootingRPS] = useState(false);
   const [plinkoRows, setPlinkoRows] = useState(14);
   const [plinkoRisk, setPlinkoRisk] = useState("medium");
@@ -143,20 +144,38 @@ export function GameTableDialog({
 
   // Unified Round Outcome Modal (Win, Push, Loss)
   const [outcomeData, setOutcomeData] = useState(null);
+  const [outcomePending, setOutcomePending] = useState(false);
+  const outcomeTimerRef = useRef(null);
 
-  const triggerOutcome = (r) => {
+  const triggerOutcome = useCallback((r, explicitDelay) => {
     if (!r) return;
     const payout = r.payout || 0;
     const betVal = r.bet || 10;
     const multiplier = r.payload?.multiplier || (payout / Math.max(1, betVal));
 
-    setOutcomeData({
-      payout,
-      bet: betVal,
-      multiplier,
-      resultText: r.result,
-    });
-  };
+    if (outcomeTimerRef.current) clearTimeout(outcomeTimerRef.current);
+    setOutcomePending(true);
+
+    // Provide a clear delay across all games so player can see the table result first
+    const delay = typeof explicitDelay === "number" ? explicitDelay : (turbo ? 200 : 1200);
+
+    outcomeTimerRef.current = setTimeout(() => {
+      setOutcomePending(false);
+      setOutcomeData({
+        payout,
+        bet: betVal,
+        multiplier,
+        resultText: r.result,
+      });
+      if (animatingRef) animatingRef.current = false;
+    }, delay);
+  }, [turbo, animatingRef]);
+
+  useEffect(() => {
+    return () => {
+      if (outcomeTimerRef.current) clearTimeout(outcomeTimerRef.current);
+    };
+  }, []);
 
   const isBusy = Boolean(
     loading ||
@@ -172,6 +191,7 @@ export function GameTableDialog({
       limboAnimating ||
       crashPlaying ||
       chickenBusy ||
+      outcomePending ||
       outcomeData ||
       animatingRef?.current
   );
@@ -551,13 +571,14 @@ export function GameTableDialog({
 
     if (game === "coinflip") {
       if (animatingRef) animatingRef.current = true;
-      setIsFlipping(!turbo);
       const coinPick = choice === "tails" ? "tails" : "heads";
       const j = await post(
         { game, bet, choice: coinPick },
         { deferBalance: true, deferRefresh: true, deductBet: bet }
       );
-      if (j) {
+      if (j && j.round) {
+        const outSide = j.round.payload?.outcome || "heads";
+        setCoinflipTarget(outSide);
         if (turbo) {
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
@@ -566,14 +587,15 @@ export function GameTableDialog({
           triggerOutcome(j.round);
           void load();
         } else {
+          setIsFlipping(true);
           setTimeout(() => {
+            // Coin finishes toss and lands on table - user sees the result!
             setLast(j.round);
             if (typeof j.balance === "number") syncBalance(j.balance);
             setIsFlipping(false);
-            if (animatingRef) animatingRef.current = false;
             triggerOutcome(j.round);
             void load();
-          }, 720);
+          }, 820);
         }
       } else {
         setIsFlipping(false);
@@ -818,6 +840,7 @@ export function GameTableDialog({
                   last={last}
                   loading={loading}
                   isFlipping={isFlipping}
+                  targetOutcome={coinflipTarget}
                 />
               )}
 
