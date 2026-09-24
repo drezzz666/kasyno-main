@@ -157,7 +157,7 @@ export function GameTableDialog({
     setOutcomePending(true);
 
     // Provide a clear delay across all games so player can see the table result first
-    const delay = typeof explicitDelay === "number" ? explicitDelay : (turbo ? 200 : 1200);
+    const delay = typeof explicitDelay === "number" ? explicitDelay : (turbo ? 150 : 950);
 
     outcomeTimerRef.current = setTimeout(() => {
       setOutcomePending(false);
