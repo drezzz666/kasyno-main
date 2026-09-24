@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
-import { money } from "../lib/formatters";
-import { sounds } from "../lib/sounds";
+import { money } from "../../lib/formatters";
+import { sounds } from "../../lib/sounds";
 
 export function BlackjackTable({ round, last, revealDealer = false }) {
   const r = round || last;

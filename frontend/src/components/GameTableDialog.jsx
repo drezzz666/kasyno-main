@@ -3,16 +3,20 @@ import { X, Target } from "lucide-react";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
 import { BetControl } from "./BetControls";
-import { RouletteWheelVisual, RouletteBets, wheelOrder } from "./RouletteTable";
-import { BlackjackTable } from "./BlackjackTable";
-import { MinesTable } from "./MinesTable";
-import { SlotsTable } from "./SlotsTable";
-import { CoinflipTable } from "./CoinflipTable";
-import { RPSTable } from "./RPSTable";
-import { PlinkoTable } from "./PlinkoTable";
-import { LimboTable } from "./LimboTable";
-import { CrashTable } from "./CrashTable";
-import { ChickenTable } from "./ChickenTable";
+import {
+  BlackjackTable,
+  ChickenTable,
+  CoinflipTable,
+  CrashTable,
+  LimboTable,
+  MinesTable,
+  PlinkoTable,
+  RouletteWheelVisual,
+  RouletteBets,
+  wheelOrder,
+  RPSTable,
+  SlotsTable,
+} from "../games";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";

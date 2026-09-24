@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 const ALL_SYMBOLS = ["2", "F", "G", "T", "◆", "♛"];
 

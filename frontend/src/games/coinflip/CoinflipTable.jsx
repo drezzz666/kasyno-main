@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 // SVG Vector Awers: Orzeł Rzeczypospolitej Polskiej
 export function PolishEagleAwers({ className = "" }) {

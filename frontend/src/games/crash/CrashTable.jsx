@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Rocket, Zap, Target } from "lucide-react";
-import { money } from "../lib/formatters";
+import { money } from "../../lib/formatters";
 
 const CRASH_PRESETS = [
   { label: "1.2×", val: 1.2 },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { money, format } from "../lib/formatters";
+import { money, format } from "../../lib/formatters";
 import { ShieldCheck, AlertTriangle, Flame } from "lucide-react";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 export const CHICKEN_MULTIPLIERS = {
   easy: [0.90, 1.10, 1.25, 1.45, 1.75, 2.15, 2.70, 3.50, 4.60, 6.20],

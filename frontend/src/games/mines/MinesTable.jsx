@@ -1,7 +1,7 @@
 import React from "react";
-import { money, format } from "../lib/formatters";
+import { money, format } from "../../lib/formatters";
 import { Flame, ShieldAlert, Sparkles, CheckCircle2 } from "lucide-react";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 export function SharedMinesDefs() {
   return (
