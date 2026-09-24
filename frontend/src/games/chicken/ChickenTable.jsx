@@ -92,84 +92,75 @@ export function FlyingFeather({ className = "" }) {
   );
 }
 
-// SVG Rozjechany Kurczak na drodze (Flattened Run-Over Dead Chicken)
+// SVG Knocked-Out / Dead Cute Chicken (Clean cartoon style without weird road lines)
 export function FlattenedDeadChickenSprite() {
   return (
     <div className="relative flex flex-col items-center justify-center select-none pointer-events-none animate-chicken-squish">
-      {/* Heavy black double tire skid marks burned into asphalt across the lane */}
-      <div className="absolute -top-24 flex justify-between w-20 sm:w-24 md:w-28 h-56 opacity-95 pointer-events-none">
-        <div className="w-3 sm:w-3.5 h-full bg-slate-950 rounded-full shadow-lg" />
-        <div className="w-3 sm:w-3.5 h-full bg-slate-950 rounded-full shadow-lg" />
-      </div>
-
       <svg
-        viewBox="0 0 84 56"
-        className="w-20 h-13 sm:w-24 sm:h-16 md:w-28 md:h-18 drop-shadow-2xl z-10"
+        viewBox="0 0 68 56"
+        className="w-14 h-12 sm:w-16 sm:h-14 md:w-18 md:h-16 drop-shadow-xl z-10"
         fill="none"
       >
-        {/* Soft dark grease/roadkill shadow */}
-        <ellipse cx="42" cy="30" rx="38" ry="20" fill="#05080e" fillOpacity="0.88" />
+        {/* Soft shadow on asphalt */}
+        <ellipse cx="34" cy="46" rx="26" ry="7" fill="#000000" fillOpacity="0.5" />
 
-        {/* Splayed Limp Orange Feet sticking out at bottom */}
-        <ellipse cx="33" cy="46" rx="5.5" ry="3.5" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
-        <ellipse cx="51" cy="46" rx="5.5" ry="3.5" fill="#f59e0b" stroke="#b45309" strokeWidth="1" />
+        {/* Little Yellow/Orange Feet splayed out */}
+        <ellipse cx="26" cy="45" rx="5" ry="3" fill="#f59e0b" stroke="#d97706" strokeWidth="1" />
+        <ellipse cx="42" cy="45" rx="5" ry="3" fill="#f59e0b" stroke="#d97706" strokeWidth="1" />
 
-        {/* Squashed Flat White Plumage Body */}
-        <ellipse
-          cx="42"
-          cy="28"
-          rx="34"
-          ry="17"
+        {/* Plump White Chicken Body (Flattened / Lying Down) */}
+        <path
+          d="M14 28 C10 18 16 12 26 12 C38 12 54 16 58 28 C62 38 52 46 38 46 C24 46 12 42 14 28 Z"
           fill="#ffffff"
           stroke="#cbd5e1"
           strokeWidth="1.8"
         />
 
-        {/* Flattened Underbelly Soft Shading */}
-        <ellipse cx="42" cy="31" rx="28" ry="12" fill="#f1f5f9" />
-
-        {/* Flapped Outstretched Wings to Left and Right */}
-        <ellipse cx="14" cy="27" rx="13" ry="9" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
-        <ellipse cx="70" cy="27" rx="13" ry="9" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
-        <path d="M7 26 C12 24 16 28 12 33" stroke="#94a3b8" strokeWidth="1" />
-        <path d="M77 26 C72 24 68 28 72 33" stroke="#94a3b8" strokeWidth="1" />
-
-        {/* Tire Tread Imprint Track stamped cleanly across chicken belly */}
-        <g stroke="#0f172a" strokeWidth="3.2" strokeLinecap="round">
-          <line x1="28" y1="12" x2="36" y2="44" strokeDasharray="3 4" />
-          <line x1="48" y1="12" x2="56" y2="44" strokeDasharray="3 4" />
-        </g>
-
-        {/* Flopped Red Comb drooping to the top-left */}
+        {/* Body Underbelly Shading */}
         <path
-          d="M26 14 C22 10 24 6 28 8 C31 7 33 10 32 14 Z"
+          d="M16 34 C22 43 38 45 48 40 C52 37 54 32 52 28 C42 36 28 38 16 34 Z"
+          fill="#e2e8f0"
+          fillOpacity="0.8"
+        />
+
+        {/* Flopped Red Comb on Head */}
+        <path
+          d="M26 11 C24 6 28 3 32 5 C35 4 37 7 36 11 Z"
           fill="#ef4444"
-          stroke="#b91c1c"
+          stroke="#dc2626"
           strokeWidth="1"
         />
 
-        {/* Squashed Orange Beak on right */}
+        {/* Wing resting on side */}
+        <ellipse cx="28" cy="30" rx="10" ry="7" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.2" />
+
+        {/* Orange Beak */}
         <polygon
-          points="68,27 78,31 68,35"
+          points="54,28 64,32 54,36"
           fill="#f59e0b"
           stroke="#d97706"
-          strokeWidth="1.2"
+          strokeWidth="1"
         />
 
-        {/* "X X" Thick Cartoon Dead Eyes */}
-        <g stroke="#0f172a" strokeWidth="3" strokeLinecap="round">
-          {/* Left Eye X */}
-          <line x1="48" y1="21" x2="56" y2="29" />
-          <line x1="56" y1="21" x2="48" y2="29" />
-          {/* Right Eye X */}
-          <line x1="59" y1="20" x2="66" y2="27" />
-          <line x1="66" y1="20" x2="59" y2="27" />
+        {/* Knocked-Out "X X" Eyes */}
+        <g stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round">
+          {/* Eye 1 */}
+          <line x1="42" y1="23" x2="48" y2="29" />
+          <line x1="48" y1="23" x2="42" y2="29" />
+          {/* Eye 2 */}
+          <line x1="50" y1="22" x2="56" y2="28" />
+          <line x1="56" y1="22" x2="50" y2="28" />
         </g>
 
-        {/* Scattered loose feathers around roadkill */}
-        <circle cx="20" cy="12" r="2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
-        <circle cx="64" cy="45" r="2.2" fill="#ffffff" stroke="#cbd5e1" strokeWidth="0.8" />
-        <circle cx="24" cy="42" r="1.8" fill="#f8fafc" />
+        {/* Dizzy cartoon stars above head */}
+        <path
+          d="M44 8 L45.5 12 L50 12.5 L46.5 15.5 L47.5 20 L44 17.5 L40.5 20 L41.5 15.5 L38 12.5 L42.5 12 Z"
+          fill="#fbbf24"
+          stroke="#d97706"
+          strokeWidth="0.8"
+          className="animate-spin origin-[44px_14px]"
+          style={{ animationDuration: "3s" }}
+        />
       </svg>
     </div>
   );
