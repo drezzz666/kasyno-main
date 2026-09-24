@@ -29,6 +29,8 @@ type Config struct {
 	DiscordGuildID            string
 	DiscordAdminRole          string
 	DiscordAdminUsers         []string
+	Timezone                  string
+	DiscordDropChannelID      string
 }
 
 func Load() *Config {
@@ -72,6 +74,16 @@ func Load() *Config {
 		}
 	}
 
+	tz := getEnv("TZ", "Europe/Warsaw")
+	if tz == "" {
+		tz = "Europe/Warsaw"
+	}
+
+	discordDropChannel := getEnv("DISCORD_DROP_CHANNEL_ID", "")
+	if discordDropChannel == "" {
+		discordDropChannel = getEnv("DISCORD_ANNOUNCEMENT_CHANNEL_ID", "")
+	}
+
 	return &Config{
 		Port:                  port,
 		AppURL:                appURL,
@@ -93,6 +105,8 @@ func Load() *Config {
 		DiscordGuildID:            discordGuildID,
 		DiscordAdminRole:          discordAdminRole,
 		DiscordAdminUsers:         adminUsers,
+		Timezone:                  tz,
+		DiscordDropChannelID:      discordDropChannel,
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/db"
 	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
 
@@ -51,10 +52,16 @@ func main() {
 	wsHub := ws.NewHub()
 	go wsHub.Run()
 
-	// 3b. Optional Discord Bot Service
+	// 3b. Initialize Auto-Drop Scheduler
+	schedulerSvc := scheduler.New(cfg, database, ledgerService)
+	if err := schedulerSvc.Start(ctx); err != nil {
+		log.Printf("⚠️ [Server] Błąd uruchamiania harmonogramu zrzutów: %v", err)
+	}
+
+	// 3c. Optional Discord Bot Service
 	var discordBot *discordbot.Bot
 	if cfg.DiscordBotToken != "" {
-		bot, err := discordbot.New(cfg, ledgerService)
+		bot, err := discordbot.New(cfg, ledgerService, schedulerSvc)
 		if err != nil {
 			log.Printf("⚠️ [Server] Nie udało się zainicjalizować bota Discord: %v", err)
 		} else {
@@ -122,6 +129,10 @@ func main() {
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("[Server] Server forced to shutdown: %v", err)
+	}
+
+	if schedulerSvc != nil {
+		schedulerSvc.Stop()
 	}
 
 	if discordBot != nil {

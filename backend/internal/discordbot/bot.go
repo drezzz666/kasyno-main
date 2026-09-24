@@ -1,16 +1,19 @@
 package discordbot
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
+	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
 const (
@@ -23,13 +26,14 @@ const (
 )
 
 type Bot struct {
-	session *discordgo.Session
-	cfg     *config.Config
-	ledger  *ledger.Service
-	appURL  string
+	session   *discordgo.Session
+	cfg       *config.Config
+	ledger    *ledger.Service
+	scheduler *scheduler.Scheduler
+	appURL    string
 }
 
-func New(cfg *config.Config, ledgerSvc *ledger.Service) (*Bot, error) {
+func New(cfg *config.Config, ledgerSvc *ledger.Service, schedulerSvc *scheduler.Scheduler) (*Bot, error) {
 	if cfg.DiscordBotToken == "" {
 		return nil, fmt.Errorf("DISCORD_BOT_TOKEN nie jest ustawiony")
 	}
@@ -40,10 +44,15 @@ func New(cfg *config.Config, ledgerSvc *ledger.Service) (*Bot, error) {
 	}
 
 	b := &Bot{
-		session: session,
-		cfg:     cfg,
-		ledger:  ledgerSvc,
-		appURL:  strings.TrimRight(cfg.AppURL, "/"),
+		session:   session,
+		cfg:       cfg,
+		ledger:    ledgerSvc,
+		scheduler: schedulerSvc,
+		appURL:    strings.TrimRight(cfg.AppURL, "/"),
+	}
+
+	if schedulerSvc != nil {
+		schedulerSvc.SetAnnounceHandler(b.announceDrop)
 	}
 
 	session.AddHandler(b.handleReady)
@@ -245,5 +254,81 @@ func (b *Bot) getValidAvatarURL(avatar *string) string {
 		}
 	}
 	return ""
+}
+
+func (b *Bot) announceDrop(ctx context.Context, res *scheduler.GrantExecutionResult) {
+	if b.session == nil || res == nil || res.Grant == nil {
+		return
+	}
+
+	channelID := b.cfg.DiscordDropChannelID
+	if channelID == "" {
+		log.Printf("ℹ️ [Discord Bot] Wykonano automatyczny zrzut '%s' (+%d $FGT), ale DISCORD_DROP_CHANNEL_ID nie jest ustawiony.", res.Grant.Name, res.Grant.Amount)
+		return
+	}
+
+	var targetDesc string
+	if len(res.SuccessfulUsers) == 1 && res.SuccessfulUsers[0] == "* (Wszyscy gracze)" {
+		targetDesc = fmt.Sprintf("🌐 **Wszyscy zarejestrowani gracze** *(%d kont)*", res.RecipientsCount)
+	} else {
+		targetDesc = fmt.Sprintf("👥 **Gracze (%d):** %s", len(res.SuccessfulUsers), strings.Join(res.SuccessfulUsers, ", "))
+	}
+
+	if len(res.FailedUsers) > 0 {
+		targetDesc += fmt.Sprintf("\n⚠️ *Nie znaleziono:* %s", strings.Join(res.FailedUsers, ", "))
+	}
+
+	nextRunStr := "Brak"
+	if res.Grant.NextRunAt != nil {
+		loc := time.Local
+		if b.scheduler != nil && b.scheduler.Location() != nil {
+			loc = b.scheduler.Location()
+		}
+		nextRunStr = time.UnixMilli(*res.Grant.NextRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Color:       ColorGold,
+		Title:       fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT $FGT: %s", res.Grant.Name),
+		Description: fmt.Sprintf("Zrealizowano zaplanowane doładowanie środków dla graczy!\nZaloguj się i zagraj na [**%s**](%s)", b.appURL, b.appURL),
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "💰 Kwota zrzutu",
+				Value:  fmt.Sprintf("**+%s** / gracz", formatFGT(res.Grant.Amount)),
+				Inline: true,
+			},
+			{
+				Name:   "💎 Łącznie rozdano",
+				Value:  fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred)),
+				Inline: true,
+			},
+			{
+				Name:   "🎯 Odbiorcy",
+				Value:  targetDesc,
+				Inline: false,
+			},
+			{
+				Name:   "📝 Powód / Okazja",
+				Value:  res.Grant.Reason,
+				Inline: true,
+			},
+			{
+				Name:   "🕒 Harmonogram",
+				Value:  fmt.Sprintf("%s\n*(Kolejny drop: %s)*", res.Grant.HumanSchedule, nextRunStr),
+				Inline: false,
+			},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Kasyno 2FGT • Zrzut Automatyczny • Strefa: %s", b.cfg.Timezone),
+		},
+		Timestamp: res.ExecutedAt.Format(time.RFC3339),
+	}
+
+	_, err := b.session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("⚠️ [Discord Bot] Błąd wysyłania powiadomienia o zrzucie na kanał %s: %v", channelID, err)
+	} else {
+		log.Printf("📢 [Discord Bot] Wysłano ogłoszenie o zrzucie '%s' (+%d $FGT) na kanał Discord %s.", res.Grant.Name, res.Grant.Amount, channelID)
+	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
 func (b *Bot) buildBalanceEmbed(ctx context.Context, target string) *discordgo.MessageEmbed {
@@ -366,6 +367,15 @@ func (b *Bot) buildHelpEmbed(isAdmin bool) *discordgo.MessageEmbed {
 				"`/pomoc` lub `!pomoc` — Wyświetla ten panel pomocy",
 			Inline: false,
 		},
+		{
+			Name: "⏰ Automatyczne Zrzuty ($FGT Drops Harmonogram)",
+			Value: "`/casino-schedule-add <nazwa> <kwota> <gracze> [dzien_tygodnia] [godzina] [cron] [powod]` — Dodaj auto-drop\n" +
+				"`/casino-schedule-list [filtr]` — Lista wszystkich zaplanowanych zrzutów\n" +
+				"`/casino-schedule-toggle <id> <aktywny>` — Włącz/wyłącz harmonogram\n" +
+				"`/casino-schedule-remove <id>` — Usuń harmonogram\n" +
+				"`/casino-schedule-run <id>` — Wykonaj zrzut natychmiastowo w celach testowych",
+			Inline: false,
+		},
 	}
 
 	return &discordgo.MessageEmbed{
@@ -623,6 +633,257 @@ func (b *Bot) buildUsersSelectMenu(ctx context.Context, search string) []discord
 				},
 			},
 		},
+	}
+}
+
+func (b *Bot) buildScheduledGrantsListEmbed(ctx context.Context, filter string) *discordgo.MessageEmbed {
+	if b.scheduler == nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd Harmonogramu",
+			Description: "Usługa harmonogramu nie została zainicjalizowana.",
+		}
+	}
+
+	grants, err := b.scheduler.ListGrants(ctx)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd Bazy Danych",
+			Description: fmt.Sprintf("Nie udało się pobrać listy harmonogramów: %v", err),
+		}
+	}
+
+	if len(grants) == 0 {
+		return &discordgo.MessageEmbed{
+			Color:       ColorGold,
+			Title:       "⏰ Harmonogram Automatycznych Zrzutów ($FGT)",
+			Description: "Brak zaplanowanych zrzutów. Użyj `/casino-schedule-add`, aby dodać nowy harmonogram.",
+		}
+	}
+
+	loc := b.scheduler.Location()
+	filterLower := strings.ToLower(strings.TrimSpace(filter))
+
+	var sb strings.Builder
+	matchedCount := 0
+
+	for idx, g := range grants {
+		if filterLower != "" {
+			combined := strings.ToLower(fmt.Sprintf("%s %s %s %s", g.ID, g.Name, g.TargetUsers, g.Reason))
+			if !strings.Contains(combined, filterLower) {
+				continue
+			}
+		}
+		matchedCount++
+
+		statusIcon := "🟢 Aktywny"
+		if !g.Enabled {
+			statusIcon = "🔴 Wyłączony"
+		}
+
+		targetStr := g.TargetUsers
+		if targetStr == "*" {
+			targetStr = "🌐 Wszyscy gracze (*)"
+		} else {
+			targetStr = "👥 " + targetStr
+		}
+
+		nextRunStr := "Brak"
+		if g.NextRunAt != nil && g.Enabled {
+			nextRunStr = time.UnixMilli(*g.NextRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
+		}
+
+		lastRunStr := "Nigdy"
+		if g.LastRunAt != nil {
+			lastRunStr = time.UnixMilli(*g.LastRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
+		}
+
+		shortID := g.ID
+		if len(shortID) > 8 {
+			shortID = shortID[:8]
+		}
+
+		sb.WriteString(fmt.Sprintf("**%d. %s** `[%s]` — %s\n", idx+1, g.Name, shortID, statusIcon))
+		sb.WriteString(fmt.Sprintf("└ 💰 Kwota: **+%s** / gracz | Cel: **%s**\n", formatFGT(g.Amount), targetStr))
+		sb.WriteString(fmt.Sprintf("└ 🕒 Harmonogram: *%s* (Cron: `%s`)\n", g.HumanSchedule, g.CronExpr))
+		sb.WriteString(fmt.Sprintf("└ ⏳ Następny zrzut: `%s` | Ostatni: `%s`\n", nextRunStr, lastRunStr))
+		sb.WriteString(fmt.Sprintf("└ 📝 Powód: *%s* | ID: `%s`\n\n", g.Reason, g.ID))
+	}
+
+	if matchedCount == 0 {
+		return &discordgo.MessageEmbed{
+			Color:       ColorGold,
+			Title:       "⏰ Harmonogram Automatycznych Zrzutów ($FGT)",
+			Description: fmt.Sprintf("Brak harmonogramów pasujących do filtra: `%s`", filter),
+		}
+	}
+
+	return &discordgo.MessageEmbed{
+		Color:       ColorGold,
+		Title:       fmt.Sprintf("⏰ Harmonogram Automatycznych Zrzutów ($FGT) [%d]", matchedCount),
+		Description: sb.String(),
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Strefa czasowa: %s • Zarządzaj: /casino-schedule-add / -remove / -toggle", b.cfg.Timezone),
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
+func (b *Bot) executeScheduleAdd(ctx context.Context, params scheduler.CreateGrantParams) *discordgo.MessageEmbed {
+	if b.scheduler == nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd",
+			Description: "Harmonogram nie jest aktywny na tym serwerze.",
+		}
+	}
+
+	grant, err := b.scheduler.AddScheduledGrant(ctx, params)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd tworzenia harmonogramu",
+			Description: fmt.Sprintf("Nie udało się utworzyć harmonogramu: **%v**", err),
+		}
+	}
+
+	nextRunStr := "Brak"
+	if grant.NextRunAt != nil {
+		loc := b.scheduler.Location()
+		nextRunStr = time.UnixMilli(*grant.NextRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
+	}
+
+	targetDesc := grant.TargetUsers
+	if targetDesc == "*" {
+		targetDesc = "🌐 Wszyscy zarejestrowani gracze (*)"
+	} else {
+		targetDesc = fmt.Sprintf("👥 Gracze: `%s`", targetDesc)
+	}
+
+	return &discordgo.MessageEmbed{
+		Color: ColorEmerald,
+		Title: "✅ Utworzono Nowy Harmonogram Zrzutu $FGT",
+		Fields: []*discordgo.MessageEmbedField{
+			{Name: "📌 Nazwa", Value: fmt.Sprintf("**%s**", grant.Name), Inline: true},
+			{Name: "💰 Kwota na konto", Value: fmt.Sprintf("**+%s**", formatFGT(grant.Amount)), Inline: true},
+			{Name: "🎯 Cel zrzutu", Value: targetDesc, Inline: false},
+			{Name: "🕒 Harmonogram", Value: fmt.Sprintf("%s\n*(Cron: `%s`)*", grant.HumanSchedule, grant.CronExpr), Inline: false},
+			{Name: "⏳ Następne uruchomienie", Value: fmt.Sprintf("`%s`", nextRunStr), Inline: true},
+			{Name: "📝 Powód", Value: grant.Reason, Inline: true},
+			{Name: "🆔 ID Zadania", Value: fmt.Sprintf("`%s`", grant.ID), Inline: false},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Kasyno 2FGT • Zapisano w bazie danych • Strefa: %s", b.cfg.Timezone),
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
+func (b *Bot) executeScheduleRemove(ctx context.Context, idOrName string) *discordgo.MessageEmbed {
+	if b.scheduler == nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd",
+			Description: "Harmonogram nie jest aktywny.",
+		}
+	}
+
+	grant, err := b.scheduler.RemoveGrant(ctx, idOrName)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd usuwania harmonogramu",
+			Description: fmt.Sprintf("Nie udało się usunąć zadania: **%v**", err),
+		}
+	}
+
+	return &discordgo.MessageEmbed{
+		Color:       ColorGold,
+		Title:       "🗑️ Usunięto Harmonogram Zrzutu",
+		Description: fmt.Sprintf("Pomyślnie usunięto automatyczny zrzut **%s** (`%s`).", grant.Name, grant.ID),
+	}
+}
+
+func (b *Bot) executeScheduleToggle(ctx context.Context, idOrName string, enable bool) *discordgo.MessageEmbed {
+	if b.scheduler == nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd",
+			Description: "Harmonogram nie jest aktywny.",
+		}
+	}
+
+	grant, err := b.scheduler.ToggleGrant(ctx, idOrName, enable)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd zmiany statusu harmonogramu",
+			Description: fmt.Sprintf("Nie udało się zaktualizować zadania: **%v**", err),
+		}
+	}
+
+	statusText := "Włączony 🟢"
+	statusColor := ColorEmerald
+	if !enable {
+		statusText = "Wyłączony 🔴"
+		statusColor = ColorRose
+	}
+
+	return &discordgo.MessageEmbed{
+		Color:       statusColor,
+		Title:       fmt.Sprintf("🔄 Zmieniono Status Harmonogramu: %s", statusText),
+		Description: fmt.Sprintf("Harmonogram **%s** (`%s`) jest teraz **%s**.", grant.Name, grant.ID, statusText),
+	}
+}
+
+func (b *Bot) executeScheduleRun(ctx context.Context, idOrName string) *discordgo.MessageEmbed {
+	if b.scheduler == nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd",
+			Description: "Harmonogram nie jest aktywny.",
+		}
+	}
+
+	grant, err := b.scheduler.GetGrant(ctx, idOrName)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Nie znaleziono harmonogramu",
+			Description: fmt.Sprintf("%v", err),
+		}
+	}
+
+	res, err := b.scheduler.ExecuteGrant(ctx, grant.ID)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd natychmiastowego wykonania",
+			Description: fmt.Sprintf("Nie udało się wykonać zrzutu: **%v**", err),
+		}
+	}
+
+	var recDesc string
+	if len(res.SuccessfulUsers) == 1 && res.SuccessfulUsers[0] == "* (Wszyscy gracze)" {
+		recDesc = fmt.Sprintf("🌐 **Wszyscy zarejestrowani gracze** *(%d kont)*", res.RecipientsCount)
+	} else {
+		recDesc = fmt.Sprintf("👥 **Gracze (%d):** %s", len(res.SuccessfulUsers), strings.Join(res.SuccessfulUsers, ", "))
+	}
+
+	return &discordgo.MessageEmbed{
+		Color: ColorEmerald,
+		Title: fmt.Sprintf("⚡ Ręcznie Wykonano Zrzut: %s", res.Grant.Name),
+		Fields: []*discordgo.MessageEmbedField{
+			{Name: "💰 Kwota na gracza", Value: fmt.Sprintf("**+%s**", formatFGT(res.Grant.Amount)), Inline: true},
+			{Name: "💎 Łącznie rozdano", Value: fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred)), Inline: true},
+			{Name: "🎯 Odbiorcy", Value: recDesc, Inline: false},
+			{Name: "📝 Powód", Value: res.Grant.Reason, Inline: true},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Zrzut został natychmiastowo rozliczony i zapisany w bazie danych",
+		},
+		Timestamp: res.ExecutedAt.Format(time.RFC3339),
 	}
 }
 
