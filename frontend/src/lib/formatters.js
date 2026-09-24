@@ -38,10 +38,22 @@ export function getHistoryDetails(item) {
       subtitle: "Pakiet startowy",
     };
   }
-  if (item.type === "grant") {
+  if (item.type === "scheduled_grant" || item.type === "scheduled" || item.type === "grant_scheduled") {
     return {
-      title: "Konto / Doładowanie",
-      subtitle: item.result || "Doładowanie administratora",
+      title: "Automatyczny zrzut",
+      subtitle: item.result || item.description || "Zaplanowany zrzut $FGT",
+    };
+  }
+  if (item.type === "grant" || item.type === "grant_all" || item.type === "admin_grant" || item.type === "admin_create") {
+    return {
+      title: item.amount < 0 ? "Korekta administratora" : "Doładowanie administratora",
+      subtitle: item.result || item.description || (item.amount < 0 ? "Korekta salda" : "Doładowanie administratora"),
+    };
+  }
+  if (item.type === "admin_set" || item.type === "admin_set_all") {
+    return {
+      title: "Korekta salda",
+      subtitle: item.result || item.description || "Ręczna modyfikacja salda",
     };
   }
   if (item.type === "captcha_reward") {

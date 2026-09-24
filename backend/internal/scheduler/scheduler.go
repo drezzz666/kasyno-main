@@ -462,7 +462,7 @@ func (s *Scheduler) ExecuteGrant(ctx context.Context, grantID string) (*GrantExe
 	isAll := target == "*" || strings.EqualFold(target, "all") || strings.EqualFold(target, "wszyscy") || strings.EqualFold(target, "@everyone")
 
 	if isAll {
-		count, total, err := s.ledger.GrantBalanceAll(ctx, g.Amount, g.Reason)
+		count, total, err := s.ledger.GrantBalanceAllWithType(ctx, g.Amount, "scheduled_grant", g.Reason)
 		if err != nil {
 			return nil, fmt.Errorf("błąd masowego zrzutu dla wszystkich graczy: %w", err)
 		}
@@ -481,7 +481,7 @@ func (s *Scheduler) ExecuteGrant(ctx context.Context, grantID string) (*GrantExe
 			if u == "" {
 				continue
 			}
-			nick, _, _, grantErr := s.ledger.GrantBalance(ctx, u, g.Amount, g.Reason)
+			nick, _, _, grantErr := s.ledger.GrantBalanceWithType(ctx, u, g.Amount, "scheduled_grant", g.Reason)
 			if grantErr != nil {
 				failed = append(failed, fmt.Sprintf("%s (%v)", u, grantErr))
 			} else {

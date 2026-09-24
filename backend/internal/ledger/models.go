@@ -36,6 +36,7 @@ type LedgerEntry struct {
 	Amount       int64   `json:"amount"`
 	BalanceAfter int64   `json:"balanceAfter"`
 	CreatedAt    int64   `json:"createdAt"`
+	Description  *string `json:"description,omitempty"`
 	Game         *string `json:"game,omitempty"`
 	Result       *string `json:"result,omitempty"`
 	Bet          *int64  `json:"bet,omitempty"`
