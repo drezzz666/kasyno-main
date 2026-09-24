@@ -197,31 +197,39 @@ export function ChickenTable({
   // Otherwise: currentLane
   const activeChickenLane = isLoss ? -1 : (jumping && jumpLane !== null ? jumpLane : currentLane);
 
-  // Auto-scroll logic: on new game/start line scroll immediately to LEFT (0), else follow chicken smoothly
-  useEffect(() => {
-    if (roadContainerRef.current) {
-      if (!activeRound || currentLane === 0) {
-        roadContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
-      } else {
-        const laneEl = roadContainerRef.current.querySelector(`[data-lane="${currentLane}"]`);
-        if (laneEl) {
-          laneEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-        }
-      }
-    }
-  }, [activeRound?.id, currentLane]);
+  // Track active round id to detect when a brand new game starts
+  const prevRoundIdRef = useRef(null);
 
-  // Reset crash animation when new round starts
+  // Auto-scroll logic: Only scroll LEFT on a brand new game start.
+  // During active play follow chicken, and on loss/crash STAY on the crash lane!
   useEffect(() => {
-    if (activeRound) {
+    if (!roadContainerRef.current) return;
+
+    const isNewGameStarting = activeRound && activeRound.id !== prevRoundIdRef.current;
+    if (isNewGameStarting) {
+      prevRoundIdRef.current = activeRound.id;
       setCrashAnim(null);
       setJumping(false);
       setJumpLane(null);
-      if (roadContainerRef.current) {
-        roadContainerRef.current.scrollTo({ left: 0, behavior: "instant" });
+      // New game start: immediately scroll back to the start line on the left
+      roadContainerRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (activeRound && currentLane > 0) {
+      // While playing: follow chicken smoothly
+      const laneEl = roadContainerRef.current.querySelector(`[data-lane="${currentLane}"]`);
+      if (laneEl) {
+        laneEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+    } else if (isLoss && hazardLane > 0) {
+      // On crash: make sure camera stays right on the crash lane!
+      const crashEl = roadContainerRef.current.querySelector(`[data-lane="${hazardLane}"]`);
+      if (crashEl) {
+        crashEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
       }
     }
-  }, [activeRound?.id]);
+  }, [activeRound?.id, currentLane, isLoss, hazardLane]);
 
   // Handle jump step
   const handleStep = async () => {
