@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { money } from "../../lib/formatters";
 import { sounds } from "../../lib/sounds";
-import { ArrowDown, ArrowUp, Zap, RotateCw, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, Zap, RotateCw } from "lucide-react";
 
 const MULTIPLIER_PRESETS = [
   { label: "1.5×", val: 1.5 },
@@ -106,21 +106,26 @@ export function UpgraderTable({
   }, [last?.id]);
 
   // SVG Arc calculation for winning sector (Radius: 130, ViewBox: 320x320)
+  // With strokeLinecap="butt" the stroke boundary is mathematically exact to 0.01%
   const radius = 130;
   const circumference = 2 * Math.PI * radius;
   const winStrokeLength = (winChance / 100) * circumference;
   const strokeDashoffset =
     rollType === "under" ? 0 : circumference - winStrokeLength;
 
+  // Exact boundary cut-off angle in degrees
+  const boundaryAngle =
+    rollType === "under" ? (winChance / 100) * 360 : ((100 - winChance) / 100) * 360;
+
   return (
-    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-2 sm:p-4 md:p-6 gap-4 sm:gap-6">
-      {/* Responsive 3-Block Grid: on mobile Wheel is top (order-1), on desktop middle (order-2) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
+    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-2 sm:p-4 md:p-6 gap-3 sm:gap-6">
+      {/* Responsive Grid: on mobile Wheel is top (order-1), on desktop middle (order-2) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 items-stretch">
         
         {/* Box 1: Left Inputs & Multipliers (Mobile Order 2, Desktop Order 1, 4 cols) */}
-        <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col justify-between p-4 sm:p-6 rounded-2xl bg-[#0c131f] border border-slate-800 shadow-2xl gap-4 sm:gap-5">
+        <div className="order-2 lg:order-1 lg:col-span-4 flex flex-col justify-between p-3.5 sm:p-6 rounded-2xl bg-[#0c131f] border border-slate-800 shadow-2xl gap-3.5 sm:gap-5">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
               <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Wpisz Hajs (Stawka)
               </span>
@@ -130,7 +135,7 @@ export function UpgraderTable({
             </div>
 
             {/* Bet Input */}
-            <div className="relative flex items-center mb-3">
+            <div className="relative flex items-center mb-2 sm:mb-3">
               <input
                 type="number"
                 min="1"
@@ -141,20 +146,20 @@ export function UpgraderTable({
                   const v = Math.max(1, parseInt(e.target.value) || 1);
                   setBet(v);
                 }}
-                className="w-full px-4 py-3 sm:py-4 rounded-xl bg-[#131d2e] border-2 border-slate-700/80 text-white font-mono font-black text-lg sm:text-2xl focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+                className="w-full px-3.5 py-2.5 sm:py-4 rounded-xl bg-[#131d2e] border-2 border-slate-700/80 text-white font-mono font-black text-base sm:text-2xl focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
               />
-              <span className="absolute right-4 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
+              <span className="absolute right-3.5 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
                 $FGT
               </span>
             </div>
 
             {/* Quick Bet Buttons */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet(10)}
-                className="py-2.5 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-2 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 Min
               </button>
@@ -162,7 +167,7 @@ export function UpgraderTable({
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
-                className="py-2.5 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-2 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 ½
               </button>
@@ -174,7 +179,7 @@ export function UpgraderTable({
                     Math.min(maxBalance || 1000000, Math.floor(b * 2))
                   )
                 }
-                className="py-2.5 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-2 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 2×
               </button>
@@ -182,7 +187,7 @@ export function UpgraderTable({
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet(maxBalance || 100)}
-                className="py-2.5 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-2 sm:py-3 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 Max
               </button>
@@ -191,7 +196,7 @@ export function UpgraderTable({
 
           {/* Multiplier Presets */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
               <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Wybierz Mnożnik
               </span>
@@ -200,7 +205,7 @@ export function UpgraderTable({
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
               {MULTIPLIER_PRESETS.map((p) => {
                 const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
                 return (
@@ -209,7 +214,7 @@ export function UpgraderTable({
                     type="button"
                     disabled={loading || spinning}
                     onClick={() => setTarget(p.val)}
-                    className={`py-2.5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                    className={`py-2 sm:py-3.5 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                       isSelected
                         ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-102 border-2 border-amber-300"
                         : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
@@ -234,48 +239,48 @@ export function UpgraderTable({
                   const v = parseFloat(e.target.value);
                   setTarget(isNaN(v) ? 2.0 : v);
                 }}
-                className="w-full px-4 py-3 rounded-xl bg-[#131d2e] border-2 border-slate-700 text-white font-mono text-sm sm:text-base font-black focus:outline-none focus:border-amber-500"
+                className="w-full px-3.5 py-2.5 sm:py-3 rounded-xl bg-[#131d2e] border-2 border-slate-700 text-white font-mono text-xs sm:text-base font-black focus:outline-none focus:border-amber-500"
                 placeholder="Własny mnożnik..."
               />
-              <span className="absolute right-4 text-xs font-black text-slate-400 pointer-events-none">
+              <span className="absolute right-3.5 text-xs font-black text-slate-400 pointer-events-none">
                 × cel
               </span>
             </div>
           </div>
 
           {/* Roll Direction (Roll under / Roll over) */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <button
               type="button"
               disabled={loading || spinning}
               onClick={() => setRollType("under")}
-              className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
                 rollType === "under"
                   ? "bg-amber-500/20 text-amber-300 border-2 border-amber-500 shadow-md shadow-amber-500/20"
                   : "bg-[#172336] text-slate-400 border border-slate-700/60 hover:bg-slate-700"
               }`}
             >
-              <ArrowDown size={18} />
+              <ArrowDown size={16} />
               <span>Roll under ↓</span>
             </button>
             <button
               type="button"
               disabled={loading || spinning}
               onClick={() => setRollType("over")}
-              className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
                 rollType === "over"
                   ? "bg-amber-500/20 text-amber-300 border-2 border-amber-500 shadow-md shadow-amber-500/20"
                   : "bg-[#172336] text-slate-400 border border-slate-700/60 hover:bg-slate-700"
               }`}
             >
-              <ArrowUp size={18} />
+              <ArrowUp size={16} />
               <span>Roll over ↑</span>
             </button>
           </div>
         </div>
 
         {/* Box 2: Center Grand Gauge Wheel (Mobile Order 1, Desktop Order 2, 4 cols) */}
-        <div className="order-1 lg:order-2 lg:col-span-4 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[340px] sm:min-h-[420px] md:min-h-[460px]">
+        <div className="order-1 lg:order-2 lg:col-span-4 flex flex-col items-center justify-center p-3.5 sm:p-6 md:p-8 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[300px] sm:min-h-[420px] md:min-h-[460px]">
           {/* Ambient Glow */}
           <div
             className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
@@ -289,8 +294,8 @@ export function UpgraderTable({
             }`}
           />
 
-          {/* Large Wheel Container */}
-          <div className="relative w-64 h-64 xs:w-72 xs:h-72 sm:w-84 sm:h-84 md:w-96 md:h-96 lg:w-[380px] lg:h-[380px] flex items-center justify-center">
+          {/* Wheel Container (Scales naturally on mobile and desktop) */}
+          <div className="relative w-56 h-56 xs:w-64 xs:h-64 sm:w-84 sm:h-84 md:w-96 md:h-96 lg:w-[380px] lg:h-[380px] flex items-center justify-center">
             <svg
               viewBox="0 0 320 320"
               className="w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl"
@@ -316,7 +321,7 @@ export function UpgraderTable({
                 strokeDasharray="6 6"
               />
 
-              {/* Winning Sector Arc (Grand Gold/Amber Gradient) */}
+              {/* Mathematically Exact Winning Sector Arc (strokeLinecap="butt" prevents 1% bleeding!) */}
               <circle
                 cx="160"
                 cy="160"
@@ -326,7 +331,7 @@ export function UpgraderTable({
                 strokeWidth="18"
                 strokeDasharray={`${winStrokeLength} ${circumference}`}
                 strokeDashoffset={-strokeDashoffset}
-                strokeLinecap="round"
+                strokeLinecap="butt"
                 className="transition-all duration-300"
               />
 
@@ -345,6 +350,16 @@ export function UpgraderTable({
               </defs>
             </svg>
 
+            {/* Exact Cut-off Divider Marker at the boundary angle */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                transform: `rotate(${boundaryAngle}deg)`,
+              }}
+            >
+              <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-1 h-5 bg-white shadow-lg shadow-white rounded-full z-15" />
+            </div>
+
             {/* Rotating Pointer Needle (Starts from exact top 0deg every time) */}
             <div
               ref={pointerRef}
@@ -353,27 +368,27 @@ export function UpgraderTable({
                 transform: "rotate(0deg)",
               }}
             >
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
+              <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
                 <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
                 <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
               </div>
             </div>
 
             {/* Center Info Display */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 z-10 pointer-events-none">
-              <span className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight text-white drop-shadow-2xl">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-3 sm:p-4 z-10 pointer-events-none">
+              <span className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight text-white drop-shadow-2xl">
                 {winChance.toFixed(2)}%
               </span>
-              <span className="text-xs sm:text-sm md:text-base font-black text-slate-300 uppercase tracking-widest mt-1">
+              <span className="text-[11px] sm:text-sm md:text-base font-black text-slate-300 uppercase tracking-widest mt-0.5 sm:mt-1">
                 Upgrade chance
               </span>
 
               {/* Stake Badge */}
-              <div className="mt-3 sm:mt-4 px-4 py-1.5 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-2">
+              <div className="mt-2.5 sm:mt-4 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
                 <span className="text-xs sm:text-sm font-mono font-black text-amber-400">
                   {money(bet)}
                 </span>
-                <span className="text-[10px] sm:text-xs text-slate-400 uppercase font-bold">
+                <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">
                   Stawka
                 </span>
               </div>
@@ -383,7 +398,7 @@ export function UpgraderTable({
           {/* Outcome Banner */}
           {lastOutcome && !spinning && (
             <div
-              className={`mt-4 px-5 py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
+              className={`mt-3 sm:mt-4 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
                 lastOutcome.won
                   ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
                   : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
@@ -399,9 +414,9 @@ export function UpgraderTable({
         </div>
 
         {/* Box 3: Potential Win & Big UPGRADE Button (Mobile Order 3, Desktop Order 3, 4 cols) */}
-        <div className="order-3 lg:order-3 lg:col-span-4 flex flex-col justify-between p-4 sm:p-6 rounded-2xl bg-[#0c131f] border border-slate-800 shadow-2xl gap-4 sm:gap-5">
+        <div className="order-3 lg:order-3 lg:col-span-4 flex flex-col justify-between p-3.5 sm:p-6 rounded-2xl bg-[#0c131f] border border-slate-800 shadow-2xl gap-3.5 sm:gap-5">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
               <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Możliwa Wygrana
               </span>
@@ -411,11 +426,11 @@ export function UpgraderTable({
             </div>
 
             {/* Target Display Card */}
-            <div className="p-6 sm:p-8 rounded-2xl bg-[#131d2e] border-2 border-slate-700/80 flex flex-col items-center justify-center text-center shadow-inner">
-              <span className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">
+            <div className="p-4 sm:p-8 rounded-2xl bg-[#131d2e] border-2 border-slate-700/80 flex flex-col items-center justify-center text-center shadow-inner">
+              <span className="text-2xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">
                 {money(potentialPayout)}
               </span>
-              <span className="text-xs sm:text-sm font-bold text-slate-400 mt-2">
+              <span className="text-xs sm:text-sm font-bold text-slate-400 mt-1 sm:mt-2">
                 Zysk netto: +{money(Math.max(0, potentialPayout - bet))}
               </span>
             </div>
@@ -433,7 +448,7 @@ export function UpgraderTable({
                 });
               }
             }}
-            className={`w-full py-5 sm:py-6 rounded-2xl font-black text-xl sm:text-2xl flex items-center justify-center gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
+            className={`w-full py-4 sm:py-6 rounded-2xl font-black text-lg sm:text-2xl flex items-center justify-center gap-2.5 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
               loading || spinning || bet > maxBalance
                 ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                 : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-amber-500/40 border-2 border-amber-300 hover:shadow-amber-500/60"
@@ -441,12 +456,12 @@ export function UpgraderTable({
           >
             {spinning ? (
               <>
-                <RotateCw size={28} className="animate-spin" />
+                <RotateCw size={24} className="animate-spin" />
                 <span>UPGRADING...</span>
               </>
             ) : (
               <>
-                <Zap size={28} className="fill-slate-950" />
+                <Zap size={24} className="fill-slate-950" />
                 <span>UPGRADE</span>
               </>
             )}
