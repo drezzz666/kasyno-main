@@ -433,6 +433,44 @@ export function ChickenTable({
     }
   }, [activeRound?.id, animatingRef, onBusyChange]);
 
+  // Dynamic random traffic: 1 car every 5 seconds on a random visible unblocked lane
+  const [activeTrafficCars, setActiveTrafficCars] = useState([]);
+
+  useEffect(() => {
+    const spawnTrafficCar = () => {
+      // Candidate unblocked lanes (ahead of currentLane, visible on screen)
+      const candidateLanes = [];
+      const minLane = currentLane + 1;
+      const maxLane = Math.min(17, currentLane + 5);
+
+      for (let l = minLane; l <= maxLane; l++) {
+        candidateLanes.push(l);
+      }
+
+      // If none in near range, check any upcoming lane
+      if (candidateLanes.length === 0) {
+        for (let l = currentLane + 1; l <= 17; l++) {
+          candidateLanes.push(l);
+        }
+      }
+
+      if (candidateLanes.length === 0) return;
+
+      const randomLane = candidateLanes[Math.floor(Math.random() * candidateLanes.length)];
+      const randomCarIndex = Math.floor(Math.random() * 5);
+      const carId = `car_${Date.now()}_${Math.random()}`;
+
+      setActiveTrafficCars((prev) => [...prev, { id: carId, lane: randomLane, carIndex: randomCarIndex }]);
+
+      setTimeout(() => {
+        setActiveTrafficCars((prev) => prev.filter((c) => c.id !== carId));
+      }, 2100);
+    };
+
+    const interval = setInterval(spawnTrafficCar, 5000);
+    return () => clearInterval(interval);
+  }, [currentLane]);
+
   // Camera tracking centered on chicken
   useEffect(() => {
     const updateCamera = () => {
@@ -602,12 +640,8 @@ export function ChickenTable({
               // Has blockade if lane has been reached (laneNum <= currentLane)
               const hasBlockade = isCompleted;
 
-              // Cars drive on lanes that are NOT yet blocked and not crashed
-              const isTrafficActive = !hasBlockade && !isCrashedLane;
-
-              const animSpeed = laneNum % 2 === 0 ? "trafficDriveDownFast" : "trafficDriveDownSlow";
-              const animDuration = `${2.0 + (laneNum % 3) * 0.5}s`;
-              const animDelay = `${(laneNum * 0.4) % 2.0}s`;
+              // Cars active on this lane from 5-second traffic manager
+              const laneCars = activeTrafficCars.filter((c) => c.lane === laneNum && !hasBlockade && !isCrashedLane);
 
               return (
                 <div
@@ -627,17 +661,18 @@ export function ChickenTable({
                     #{laneNum}
                   </div>
 
-                  {/* Ambient Cars driving vertically across unblocked lanes (continuous & seamless) */}
-                  {isTrafficActive && (
+                  {/* Ambient Car driving down (1 car every ~5s on random lane) */}
+                  {laneCars.map((car) => (
                     <div
+                      key={car.id}
                       className="absolute left-1/2 -translate-x-1/2 pointer-events-none z-10"
                       style={{
-                        animation: `${animSpeed} ${animDuration} linear ${animDelay} infinite`,
+                        animation: "trafficDriveDownSlow 2.0s linear forwards",
                       }}
                     >
-                      <AmbientVehicle carIndex={idx} />
+                      <AmbientVehicle carIndex={car.carIndex} />
                     </div>
-                  )}
+                  ))}
 
                   {/* Concrete Road Blockade [ | | | | | ] positioned closer to the center right above chicken */}
                   {hasBlockade && (
