@@ -77,48 +77,112 @@ export function ChickenSprite({ isJumping = false }) {
 }
 
 // SVG Rozjechany Kurczak na drodze (Flattened Run-Over Dead Chicken)
+// SVG Flying Cartoon Feather
+export function FlyingFeather({ className = "" }) {
+  return (
+    <svg viewBox="0 0 24 16" className={`w-4 h-3 drop-shadow-md pointer-events-none ${className}`} fill="none">
+      <path
+        d="M2 14 C6 14 12 10 22 2 C18 6 14 12 4 14 Z"
+        fill="#f8fafc"
+        stroke="#cbd5e1"
+        strokeWidth="1.2"
+      />
+      <line x1="4" y1="13" x2="16" y2="5" stroke="#94a3b8" strokeWidth="1" />
+    </svg>
+  );
+}
+
+// SVG Rozjechany Kurczak na drodze (Flattened Run-Over Dead Chicken)
 export function FlattenedDeadChickenSprite() {
   return (
-    <div className="relative flex flex-col items-center justify-center select-none pointer-events-none">
-      {/* Tire skid marks on road */}
-      <div className="absolute -top-12 flex justify-between w-12 h-20 opacity-80 pointer-events-none">
-        <div className="w-2 h-full bg-slate-950/90 rounded-full" />
-        <div className="w-2 h-full bg-slate-950/90 rounded-full" />
+    <div className="relative flex flex-col items-center justify-center select-none pointer-events-none animate-chicken-squish">
+      {/* Heavy black tire skid marks burned into asphalt */}
+      <div className="absolute -top-16 flex justify-between w-14 sm:w-16 h-28 opacity-90 pointer-events-none">
+        <div className="w-2.5 h-full bg-slate-950 rounded-full shadow-inner" />
+        <div className="w-2.5 h-full bg-slate-950 rounded-full shadow-inner" />
       </div>
 
       <svg
-        viewBox="0 0 70 45"
-        className="w-16 h-11 sm:w-20 sm:h-13 md:w-22 md:h-15 drop-shadow-2xl z-10"
+        viewBox="0 0 76 48"
+        className="w-18 h-12 sm:w-22 sm:h-14 md:w-26 md:h-16 drop-shadow-2xl z-10"
         fill="none"
       >
-        <ellipse cx="35" cy="24" rx="30" ry="16" fill="#090d16" fillOpacity="0.8" />
+        {/* Shadow & tire grease spot */}
+        <ellipse cx="38" cy="26" rx="34" ry="18" fill="#06090e" fillOpacity="0.85" />
+
+        {/* Flattened Squashed Chicken Body */}
         <ellipse
-          cx="35"
-          cy="22"
-          rx="26"
-          ry="13"
+          cx="38"
+          cy="24"
+          rx="30"
+          ry="14"
           fill="#cbd5e1"
           stroke="#475569"
           strokeWidth="1.5"
         />
-        <ellipse cx="16" cy="22" rx="10" ry="7" fill="#94a3b8" />
-        <ellipse cx="52" cy="22" rx="9" ry="6" fill="#94a3b8" />
+
+        {/* Flat Outstretched Wings */}
+        <ellipse cx="15" cy="24" rx="12" ry="8" fill="#94a3b8" stroke="#475569" strokeWidth="1" />
+        <ellipse cx="61" cy="24" rx="12" ry="8" fill="#94a3b8" stroke="#475569" strokeWidth="1" />
+
+        {/* Tire Tread Mark printed right across chicken body */}
         <path
-          d="M18 12 L50 32 M24 10 L56 30 M12 14 L44 34"
+          d="M20 12 L56 34 M28 10 L64 32 M14 14 L50 36"
           stroke="#0f172a"
-          strokeWidth="2.5"
-          strokeDasharray="2 3"
+          strokeWidth="3"
+          strokeDasharray="2.5 3.5"
           strokeLinecap="round"
         />
-        <polygon points="56,22 64,25 56,28" fill="#d97706" />
-        <ellipse cx="38" cy="10" rx="6" ry="3" fill="#dc2626" />
-        <g stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round">
-          <line x1="43" y1="16" x2="49" y2="22" />
-          <line x1="49" y1="16" x2="43" y2="22" />
+
+        {/* Squashed Beak */}
+        <polygon points="64,24 73,27 64,30" fill="#d97706" />
+
+        {/* Flattened Comb */}
+        <ellipse cx="42" cy="11" rx="7" ry="3.5" fill="#dc2626" />
+
+        {/* "X X" Knocked-Out Eyes */}
+        <g stroke="#1e293b" strokeWidth="2.8" strokeLinecap="round">
+          <line x1="48" y1="17" x2="55" y2="24" />
+          <line x1="55" y1="17" x2="48" y2="24" />
         </g>
-        <circle cx="28" cy="8" r="1.5" fill="#f8fafc" />
-        <circle cx="18" cy="30" r="1.8" fill="#f8fafc" />
+
+        {/* Feathers on asphalt */}
+        <circle cx="30" cy="9" r="1.8" fill="#f8fafc" />
+        <circle cx="20" cy="32" r="2.2" fill="#f8fafc" />
       </svg>
+    </div>
+  );
+}
+
+// Complete Run-Over Crash Scene Component
+export function CrashRunOverScene() {
+  return (
+    <div className="relative flex flex-col items-center justify-center pointer-events-none z-30">
+      {/* Shockwave Burst Ring */}
+      <div className="absolute w-24 h-24 rounded-full bg-rose-500/30 border-2 border-rose-400/60 animate-impact-shockwave pointer-events-none" />
+
+      {/* Bursting cartoon feathers */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 pointer-events-none">
+        <div className="absolute animate-feather-left">
+          <FlyingFeather />
+        </div>
+        <div className="absolute animate-feather-right">
+          <FlyingFeather />
+        </div>
+        <div className="absolute animate-feather-up">
+          <FlyingFeather />
+        </div>
+      </div>
+
+      {/* Police Car zooming in and driving over with bounce */}
+      <div className="z-20 animate-car-drive-over mb-[-14px]">
+        <PoliceCarTopDown isAnimating={false} />
+      </div>
+
+      {/* Flattened Dead Chicken on asphalt */}
+      <div className="z-10">
+        <FlattenedDeadChickenSprite />
+      </div>
     </div>
   );
 }
@@ -704,14 +768,9 @@ export function ChickenTable({
 
                 {/* Center Road Element: Rozjechany Kurczak (Crash) / Chicken / Gold Coin / Sewer Grate */}
                 <div className="relative flex flex-col items-center justify-center my-auto w-full px-2 pt-6">
-                  {/* Crash: Police car + Flattened Dead Chicken on asphalt */}
+                  {/* Crash: Animated Run-Over Scene with shockwave, feathers, and squished chicken */}
                   {isCrashedLane && (
-                    <div className="absolute z-30 flex flex-col items-center justify-center pointer-events-none">
-                      <div className="mb-[-12px]">
-                        <PoliceCarTopDown isAnimating={true} />
-                      </div>
-                      <FlattenedDeadChickenSprite />
-                    </div>
+                    <CrashRunOverScene />
                   )}
 
                   {/* Cute White Chicken ONLY on activeChickenLane */}
