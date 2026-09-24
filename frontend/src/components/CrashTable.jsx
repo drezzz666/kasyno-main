@@ -14,7 +14,7 @@ const CRASH_PRESETS = [
 export function CrashTable({
   bet,
   isPlaying,
-  currentMult = 1.0,
+  currentMult = 0.8,
   isCrashed,
   isCashedOut,
   graphPoints = [],
@@ -86,7 +86,7 @@ export function CrashTable({
 
     graphPoints.forEach((pt, idx) => {
       const x = (pt.x / maxTime) * (width - 30) + 15;
-      const y = height - ((pt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
+      const y = height - ((pt.y - 0.8) / (maxMult - 0.8)) * (height - 40) - 20;
       if (idx === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -95,7 +95,7 @@ export function CrashTable({
     // 3. Fill Gradient Area Under Curve
     const lastPt = graphPoints[graphPoints.length - 1];
     const lastX = (lastPt.x / maxTime) * (width - 30) + 15;
-    const lastY = height - ((lastPt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
+    const lastY = height - ((lastPt.y - 0.8) / (maxMult - 0.8)) * (height - 40) - 20;
 
     ctx.lineTo(lastX, height);
     ctx.lineTo(15, height);
@@ -154,7 +154,7 @@ export function CrashTable({
                 ? `ROZBITO @ ${(last?.payload?.crash_point || currentMult).toFixed(2)}x`
                 : isCashedOut
                   ? `WYPŁACONO @ ${(last?.payload?.cashed_at || currentMult).toFixed(2)}x`
-                  : `${(last?.payload?.crash_point || 1.0).toFixed(2)}x`}
+                  : `${(last?.payload?.crash_point || 0.8).toFixed(2)}x`}
           </div>
 
           {isPlaying && (
