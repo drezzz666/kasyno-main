@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, Target } from "lucide-react";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
