@@ -1,18 +1,19 @@
 package ledger
 
 type Player struct {
-	UserID       string  `json:"user_id"`
-	Email        string  `json:"email"`
-	Nick         string  `json:"nick"`
-	Avatar       *string `json:"avatar,omitempty"`
-	Balance      int64   `json:"balance"`
-	XP           int     `json:"xp"`
-	Level        int     `json:"level"`
-	Streak       int     `json:"streak"`
-	LastBonusDay *string `json:"last_bonus_day"`
-	TosAccepted  int64   `json:"tos_accepted"`
-	CreatedAt    int64   `json:"created_at"`
-	UpdatedAt    int64   `json:"updated_at"`
+	UserID           string  `json:"user_id"`
+	Email            string  `json:"email"`
+	Nick             string  `json:"nick"`
+	Avatar           *string `json:"avatar,omitempty"`
+	Balance          int64   `json:"balance"`
+	XP               int     `json:"xp"`
+	Level            int     `json:"level"`
+	Streak           int     `json:"streak"`
+	LastBonusDay     *string `json:"last_bonus_day"`
+	TosAccepted      int64   `json:"tos_accepted"`
+	MusorLepszaBoxes int     `json:"musor_lepsza_boxes"`
+	CreatedAt        int64   `json:"created_at"`
+	UpdatedAt        int64   `json:"updated_at"`
 }
 
 type GameRound struct {
@@ -76,7 +77,6 @@ type PlayerStats struct {
 	TotalWagered  int64   `json:"totalWagered"`
 }
 
-
 type Mission struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
@@ -89,6 +89,24 @@ type Mission struct {
 	XPReward    int    `json:"xp_reward"`
 	Claimed     bool   `json:"claimed"`
 	Ready       bool   `json:"ready"`
+}
+
+type MusorDropState struct {
+	PlebsUsed         int   `json:"plebsUsed"`
+	PlebsLimit        int   `json:"plebsLimit"`
+	ArystokracjaUsed  int   `json:"arystokracjaUsed"`
+	ArystokracjaLimit int   `json:"arystokracjaLimit"`
+	ArystokracjaCost  int64 `json:"arystokracjaCost"`
+	LepszaBoxes       int   `json:"lepszaBoxes"`
+}
+
+type MusorDropOutcome struct {
+	BoxType   string         `json:"boxType"`
+	Prize     int64          `json:"prize"`
+	PrizeName string         `json:"prizeName"`
+	IsJackpot bool           `json:"isJackpot"`
+	Balance   int64          `json:"balance"`
+	State     MusorDropState `json:"state"`
 }
 
 type ProvablyFairSeedRecord struct {
@@ -118,4 +136,3 @@ type PlayerLoginSummary struct {
 	LastIP       string `json:"last_ip"`
 	TotalLogins  int64  `json:"total_logins"`
 }
-

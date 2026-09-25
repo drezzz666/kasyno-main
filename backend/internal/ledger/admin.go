@@ -86,12 +86,12 @@ func (s *Service) AdminCreateUser(ctx context.Context, userID, nick, email strin
 func (s *Service) AdminGetUser(ctx context.Context, identifier string) (*Player, *PlayerStats, *GameRound, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), COALESCE(p.musor_lepsza_boxes, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1 OR p.nick = $1 OR p.email = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.created_at, p.updated_at
-	`, identifier).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.musor_lepsza_boxes, p.created_at, p.updated_at
+	`, identifier).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.MusorLepszaBoxes, &p.CreatedAt, &p.UpdatedAt)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)

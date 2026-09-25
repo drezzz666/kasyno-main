@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/db"
+	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/games/provablyfair"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -65,12 +66,12 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 
 	var p Player
 	err := pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), COALESCE(p.musor_lepsza_boxes, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.musor_lepsza_boxes, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.MusorLepszaBoxes, &p.CreatedAt, &p.UpdatedAt)
 
 	if err == nil {
 		// Existing player: update avatar if newly provided
@@ -160,12 +161,12 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 func (s *Service) GetPlayer(ctx context.Context, userID string) (*Player, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), COALESCE(p.musor_lepsza_boxes, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.musor_lepsza_boxes, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.MusorLepszaBoxes, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -1173,6 +1174,9 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
 	newBal := curBal + reward
 
+	var prevLevel int
+	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
+
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
 		UPDATE players
@@ -1184,6 +1188,10 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	`, xpReward, t, userID).Scan(&newXP, &newLevel)
 	if err != nil {
 		return 0, 0, 0, 0, 0, err
+	}
+
+	if prevLevel > 0 && newLevel > prevLevel {
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -1419,6 +1427,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1514,6 +1523,7 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1618,6 +1628,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -2195,6 +2206,181 @@ func (s *Service) RefundActiveRound(ctx context.Context, userID string, reason s
 		Balance: newBal,
 	}, nil
 }
+
+// GetMusorDropState retrieves current daily usage counts and inventory for Musor Drop
+func (s *Service) GetMusorDropState(ctx context.Context, userID string) (*MusorDropState, error) {
+	dayKey := TodayString()
+	var plebsUsed, arystokracjaUsed int
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT box_type, count FROM musor_drop_daily
+		WHERE user_id = $1 AND day_key = $2
+	`, userID, dayKey)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var bType string
+			var cnt int
+			if err := rows.Scan(&bType, &cnt); err == nil {
+				if bType == string(musordrop.BoxPlebs) {
+					plebsUsed = cnt
+				} else if bType == string(musordrop.BoxArystokracja) {
+					arystokracjaUsed = cnt
+				}
+			}
+		}
+	}
+
+	var lepszaBoxes int
+	_ = s.db.Pool.QueryRow(ctx, `SELECT COALESCE(musor_lepsza_boxes, 0) FROM players WHERE user_id = $1`, userID).Scan(&lepszaBoxes)
+
+	return &MusorDropState{
+		PlebsUsed:         plebsUsed,
+		PlebsLimit:        5,
+		ArystokracjaUsed:  arystokracjaUsed,
+		ArystokracjaLimit: 5,
+		ArystokracjaCost:  500,
+		LepszaBoxes:       lepszaBoxes,
+	}, nil
+}
+
+// OpenMusorBox atomically executes box opening with anti-race locks and ledger recording
+func (s *Service) OpenMusorBox(ctx context.Context, userID string, bType musordrop.BoxType) (*MusorDropOutcome, error) {
+	t := NowMs()
+	dayKey := TodayString()
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Advisory transaction lock to prevent race conditions
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	// Get player current balance and lepsza boxes
+	var curBal int64
+	var lepszaBoxes int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(l.amount), 0), COALESCE(p.musor_lepsza_boxes, 0)
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		WHERE p.user_id = $1
+		GROUP BY p.user_id, p.musor_lepsza_boxes
+	`, userID).Scan(&curBal, &lepszaBoxes)
+	if err != nil {
+		return nil, fmt.Errorf("błąd odczytu danych gracza: %w", err)
+	}
+
+	var plebsCount, arystokracjaCount int
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(count, 0) FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2 AND box_type = $3`,
+		userID, dayKey, string(musordrop.BoxPlebs)).Scan(&plebsCount)
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(count, 0) FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2 AND box_type = $3`,
+		userID, dayKey, string(musordrop.BoxArystokracja)).Scan(&arystokracjaCount)
+
+	switch bType {
+	case musordrop.BoxPlebs:
+		if plebsCount >= 5 {
+			return nil, fmt.Errorf("Osiągnięto dzienny limit (5/5) darmowych skrzynek Plebsowych")
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO musor_drop_daily (user_id, day_key, box_type, count)
+			VALUES ($1, $2, $3, 1)
+			ON CONFLICT (user_id, day_key, box_type)
+			DO UPDATE SET count = musor_drop_daily.count + 1
+		`, userID, dayKey, string(musordrop.BoxPlebs))
+		if err != nil {
+			return nil, fmt.Errorf("błąd aktualizacji limitu dziennego: %w", err)
+		}
+		plebsCount++
+
+	case musordrop.BoxArystokracja:
+		if arystokracjaCount >= 5 {
+			return nil, fmt.Errorf("Osiągnięto dzienny limit (5/5) zakupu skrzynek Arystokrackich")
+		}
+		const cost = int64(500)
+		if curBal < cost {
+			return nil, ErrInsufficientFunds
+		}
+		curBal -= cost
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, 'musor_drop_buy', $3, $4, $5, 'Zakup skrzynki Arystokrackiej')
+		`, uuid.NewString(), userID, -cost, curBal, t)
+		if err != nil {
+			return nil, fmt.Errorf("błąd zapisu opłaty za skrzynkę: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO musor_drop_daily (user_id, day_key, box_type, count)
+			VALUES ($1, $2, $3, 1)
+			ON CONFLICT (user_id, day_key, box_type)
+			DO UPDATE SET count = musor_drop_daily.count + 1
+		`, userID, dayKey, string(musordrop.BoxArystokracja))
+		if err != nil {
+			return nil, fmt.Errorf("błąd aktualizacji limitu dziennego: %w", err)
+		}
+		arystokracjaCount++
+
+	case musordrop.BoxLepsza:
+		if lepszaBoxes < 1 {
+			return nil, fmt.Errorf("Brak skrzynek Lepszych. Zdobywaj kolejne poziomy konta, aby je otrzymać.")
+		}
+		lepszaBoxes--
+		_, err = tx.Exec(ctx, `
+			UPDATE players
+			SET musor_lepsza_boxes = musor_lepsza_boxes - 1, updated_at = $1
+			WHERE user_id = $2
+		`, t, userID)
+		if err != nil {
+			return nil, fmt.Errorf("błąd pobrania skrzynki z ekwipunku: %w", err)
+		}
+
+	default:
+		return nil, fmt.Errorf("Nieprawidłowy typ skrzynki: %s", bType)
+	}
+
+	// Roll prize
+	dropRes, err := musordrop.RollBox(bType)
+	if err != nil {
+		return nil, err
+	}
+
+	if dropRes.Prize > 0 {
+		curBal += dropRes.Prize
+		desc := fmt.Sprintf("Wygrana ze skrzynki (%s): %s", bType, dropRes.PrizeName)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, 'musor_drop_win', $3, $4, $5, $6)
+		`, uuid.NewString(), userID, dropRes.Prize, curBal, t, desc)
+		if err != nil {
+			return nil, fmt.Errorf("błąd zapisu wygranej ze skrzynki: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("błąd zatwierdzania transakcji dropu: %w", err)
+	}
+
+	state := MusorDropState{
+		PlebsUsed:         plebsCount,
+		PlebsLimit:        5,
+		ArystokracjaUsed:  arystokracjaCount,
+		ArystokracjaLimit: 5,
+		ArystokracjaCost:  500,
+		LepszaBoxes:       lepszaBoxes,
+	}
+
+	return &MusorDropOutcome{
+		BoxType:   string(bType),
+		Prize:     dropRes.Prize,
+		PrizeName: dropRes.PrizeName,
+		IsJackpot: dropRes.IsJackpot,
+		Balance:   curBal,
+		State:     state,
+	}, nil
+}
+
 
 
 

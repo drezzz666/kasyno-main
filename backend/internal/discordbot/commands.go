@@ -8,12 +8,30 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
 var adminPerms int64 = discordgo.PermissionAdministrator
 
 var slashCommands = []*discordgo.ApplicationCommand{
+	{
+		Name:        "musordrop",
+		Description: "Otwórz skrzynkę w minigrze Musor Drop",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "skrzynka",
+				Description: "Wybierz skrzynkę do otwarcia",
+				Required:    true,
+				Choices: []*discordgo.ApplicationCommandOptionChoice{
+					{Name: "Plebsowa (Darmowa, limit 5/dzień)", Value: "plebs"},
+					{Name: "Arystokracka (Koszt: 500 ₽, limit 5/dzień)", Value: "arystokracja"},
+					{Name: "Lepsza (Z awansów poziomu)", Value: "lepsza"},
+				},
+			},
+		},
+	},
 	{
 		Name:                     "money",
 		Description:              "Manage player $FGT token balances",
@@ -496,6 +514,15 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 
 	case "stats", "statystyki":
 		b.respondInteraction(s, i, b.buildGlobalStatsEmbed(ctx))
+
+	case "musordrop":
+		skrzynka := "plebs"
+		for _, opt := range options {
+			if opt.Name == "skrzynka" || opt.Name == "box" || opt.Name == "type" {
+				skrzynka = opt.StringValue()
+			}
+		}
+		b.handleMusorDropInteraction(s, i, ctx, skrzynka)
 
 	case "help", "pomoc":
 		b.respondInteraction(s, i, b.buildHelpEmbed(true))
@@ -1453,3 +1480,59 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 		}
 	}
 }
+
+func (b *Bot) handleMusorDropInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, ctx context.Context, boxType string) {
+	var userID string
+	var nick string
+	if i.Member != nil && i.Member.User != nil {
+		userID = i.Member.User.ID
+		nick = i.Member.User.Username
+		if i.Member.Nick != "" {
+			nick = i.Member.Nick
+		}
+	} else if i.User != nil {
+		userID = i.User.ID
+		nick = i.User.Username
+	}
+
+	if userID == "" {
+		b.respondInteraction(s, i, &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd",
+			Description: "Nie można zidentyfikować konta Discord.",
+		})
+		return
+	}
+
+	player, _, _, err := b.ledger.AdminGetUser(ctx, userID)
+	if err != nil || player == nil {
+		player, _, _, err = b.ledger.AdminGetUser(ctx, nick)
+	}
+	if err != nil || player == nil {
+		b.respondInteraction(s, i, &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Nie znaleziono konta",
+			Description: fmt.Sprintf("Twoje konto Discord (**%s**) nie jest połączone z profilem gracza.\nZaloguj się najpierw na stronie kasyna [**%s**](%s).", nick, b.appURL, b.appURL),
+		})
+		return
+	}
+
+	bType := musordrop.BoxType(boxType)
+	outcome, err := b.ledger.OpenMusorBox(ctx, player.UserID, bType)
+	if err != nil {
+		b.respondInteraction(s, i, &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Nie można otworzyć skrzynki",
+			Description: err.Error(),
+		})
+		return
+	}
+
+	if outcome.Prize > 0 {
+		b.AnnounceMusorDropWin(player.Nick, boxType, outcome.PrizeName, outcome.Prize, outcome.IsJackpot)
+	}
+
+	embed := b.buildMusorDropResultEmbed(player.Nick, outcome)
+	b.respondInteraction(s, i, embed)
+}
+

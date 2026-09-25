@@ -1,11 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Gamepad2, X } from "lucide-react";
 import { getMinigameById } from "./registry";
 import { FgtChip } from "../components/BetControls";
 import { money } from "../lib/formatters";
 
-export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "captcha" }) {
+export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "musordrop" }) {
   const [selectedGameId, setSelectedGameId] = useState(initialGame);
+
+  useEffect(() => {
+    if (initialGame) {
+      setSelectedGameId(initialGame);
+    }
+  }, [initialGame, isOpen]);
 
   if (!isOpen) return null;
 

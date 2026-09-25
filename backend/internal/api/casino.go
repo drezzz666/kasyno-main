@@ -17,12 +17,14 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/anticheat"
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/captcha"
+	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
 	"github.com/drezzz666/kasyno/backend/internal/games/chicken"
 	"github.com/drezzz666/kasyno/backend/internal/games/coinflip"
 	"github.com/drezzz666/kasyno/backend/internal/games/crash"
 	"github.com/drezzz666/kasyno/backend/internal/games/limbo"
 	"github.com/drezzz666/kasyno/backend/internal/games/mines"
+	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/games/plinko"
 	"github.com/drezzz666/kasyno/backend/internal/games/roulette"
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
@@ -193,6 +195,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 	missions, missionNextReset, _ := h.ledger.GetDailyMissions(r.Context(), p.UserID)
 	recentWins, _ := h.ledger.GetRecentGlobalWins(r.Context(), 15)
 	playerStats, _ := h.ledger.GetPlayerStats(r.Context(), p.UserID)
+	musorDropState, _ := h.ledger.GetMusorDropState(r.Context(), p.UserID)
 
 	resp := map[string]interface{}{
 		"player":           p,
@@ -211,6 +214,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"levelLeaders":     levelLeaders,
 		"today":            today,
 		"recentWins":       recentWins,
+		"musorDrop":        musorDropState,
 		"challenge":        anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	}
 
@@ -333,7 +337,7 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 
 	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge for game actions
 	// Captcha actions and ToS acceptance are self-verifying / non-gameplay state actions
-	isExemptAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha" || action == "accept_tos" || action == "tos_accept"
+	isExemptAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha" || action == "accept_tos" || action == "tos_accept" || action == "musor_drop_status"
 	if !isExemptAction {
 		proofHeader := r.Header.Get("X-Browser-Proof")
 		if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
@@ -403,9 +407,61 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleSettleCrash(w, r, p, body)
 	case "refund_active", "cancel_active":
 		h.handleRefundActive(w, r, p)
+	case "musor_drop_status":
+		h.handleMusorDropStatus(w, r, p)
+	case "musor_drop_open", "open_musor_box":
+		h.handleMusorDropOpen(w, r, p, body)
 	default:
 		h.handleInstantGame(w, r, p, body)
 	}
+}
+
+func (h *CasinoHandler) handleMusorDropStatus(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
+	state, err := h.ledger.GetMusorDropState(r.Context(), p.UserID)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd pobierania stanu Musor Drop")
+		return
+	}
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"state":   state,
+	})
+}
+
+func (h *CasinoHandler) handleMusorDropOpen(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	boxType, _ := body["box_type"].(string)
+	if boxType == "" {
+		boxType, _ = body["boxType"].(string)
+	}
+	if boxType == "" {
+		boxType = "plebs"
+	}
+
+	bType := musordrop.BoxType(boxType)
+	outcome, err := h.ledger.OpenMusorBox(r.Context(), p.UserID, bType)
+	if err != nil {
+		if errors.Is(err, ledger.ErrInsufficientFunds) {
+			JSONError(w, http.StatusBadRequest, "Niewystarczające środki na zakup skrzynki (500 ₽).")
+			return
+		}
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Broadcast win to all players if prize > 0
+	if outcome.Prize > 0 {
+		h.broadcastWin("", p.Nick, "musordrop", p.Avatar, outcome.Prize, 0, outcome.PrizeName)
+		if bot := discordbot.GetGlobalBot(); bot != nil {
+			bot.AnnounceMusorDropWin(p.Nick, string(bType), outcome.PrizeName, outcome.Prize, outcome.IsJackpot)
+		}
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
+		"outcome":   outcome,
+		"balance":   outcome.Balance,
+		"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+	})
 }
 
 func (h *CasinoHandler) handleGetCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player) {

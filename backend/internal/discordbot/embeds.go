@@ -1145,3 +1145,71 @@ func (b *Bot) executeScheduleRun(ctx context.Context, idOrName string) *discordg
 	}
 }
 
+func (b *Bot) buildMusorDropResultEmbed(playerNick string, outcome *ledger.MusorDropOutcome) *discordgo.MessageEmbed {
+	color := ColorSky
+	if outcome.IsJackpot {
+		color = ColorGold
+	} else if outcome.Prize > 0 {
+		color = ColorEmerald
+	} else {
+		color = ColorDark
+	}
+
+	logoURL := b.appURL + "/musor-drop-hero.webp"
+
+	title := fmt.Sprintf("🎁 Musor Drop: Skrzynka %s", strings.ToUpper(outcome.BoxType))
+	if outcome.IsJackpot {
+		title = fmt.Sprintf("🔥 JACKPOT W MUSOR DROP: Skrzynka %s!", strings.ToUpper(outcome.BoxType))
+	}
+
+	desc := fmt.Sprintf("Gracz **%s** otworzył skrzynkę **%s**!", playerNick, outcome.BoxType)
+
+	var prizeDisplay string
+	if outcome.Prize > 0 {
+		prizeDisplay = fmt.Sprintf("🎉 **+%s** *(%s)*", formatFGT(outcome.Prize), outcome.PrizeName)
+	} else {
+		prizeDisplay = "💨 **Pusta skrzynka** *(Brak nagrody tym razem)*"
+	}
+
+	var limitsInfo string
+	switch outcome.BoxType {
+	case "plebs":
+		limitsInfo = fmt.Sprintf("Darmowe dzisiaj: **%d / %d**", outcome.State.PlebsUsed, outcome.State.PlebsLimit)
+	case "arystokracja":
+		limitsInfo = fmt.Sprintf("Płatne dzisiaj: **%d / %d**", outcome.State.ArystokracjaUsed, outcome.State.ArystokracjaLimit)
+	case "lepsza":
+		limitsInfo = fmt.Sprintf("Pozostałe Lepsze: **%d szt.**", outcome.State.LepszaBoxes)
+	}
+
+	return &discordgo.MessageEmbed{
+		Color:       color,
+		Title:       title,
+		Description: desc,
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: logoURL,
+		},
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "🎁 Wynik losowania",
+				Value:  prizeDisplay,
+				Inline: false,
+			},
+			{
+				Name:   "💰 Aktualne saldo",
+				Value:  fmt.Sprintf("**%s**", formatFGT(outcome.Balance)),
+				Inline: true,
+			},
+			{
+				Name:   "📊 Stan skrzynek",
+				Value:  limitsInfo,
+				Inline: true,
+			},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Kasyno 2FGT • Musor Drop",
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
+

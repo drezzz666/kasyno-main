@@ -16,11 +16,18 @@ export const gameNames = {
   crash: "Crash",
   chicken: "Chicken Cross",
   upgrader: "Upgrader",
+  musordrop: "Musor Drop",
 };
 
 export const gameName = (g) => gameNames[g] || (g ? g.toUpperCase() : "Gra");
 
 export function getHistoryDetails(item) {
+  if (item.type === "musor_drop_win" || item.type === "musor_drop_buy") {
+    return {
+      title: item.type === "musor_drop_win" ? "Musor Drop · Wygrana" : "Musor Drop · Zakup",
+      subtitle: item.description || (item.type === "musor_drop_win" ? "Nagroda ze skrzynki" : "Zakup skrzynki Arystokrackiej"),
+    };
+  }
   if (item.type === "daily_bonus") {
     return {
       title: "Bonus dzienny",

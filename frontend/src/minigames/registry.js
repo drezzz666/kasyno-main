@@ -1,5 +1,6 @@
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Package } from "lucide-react";
 import { CaptchaMinigame } from "./CaptchaMinigame";
+import { MusorDropMinigame } from "./MusorDropMinigame";
 
 /**
  * Registry of all available Mini-Games.
@@ -8,6 +9,19 @@ import { CaptchaMinigame } from "./CaptchaMinigame";
  * 2. Add an entry below in `MINIGAMES` array
  */
 export const MINIGAMES = [
+  {
+    id: "musordrop",
+    name: "Musor Drop",
+    shortName: "Drop",
+    badge: "Do 100 000 ₽",
+    reward: "Do 100 000 ₽",
+    desc: "Otwieraj skrzynki dzienne, kupuj wersje premium i odbieraj skrzynki za poziom!",
+    img: "/musor-drop-hero.webp",
+    icon: Package,
+    iconColor: "text-amber-400",
+    component: MusorDropMinigame,
+    active: true,
+  },
   {
     id: "captcha",
     name: "Captcha Faucet",

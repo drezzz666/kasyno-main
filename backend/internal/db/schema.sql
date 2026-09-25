@@ -13,8 +13,19 @@ CREATE TABLE IF NOT EXISTS players (
 
 ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS tos_accepted BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS musor_lepsza_boxes INTEGER NOT NULL DEFAULT 0;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_players_nick_unique ON players (nick);
+
+CREATE TABLE IF NOT EXISTS musor_drop_daily (
+    user_id TEXT NOT NULL,
+    day_key TEXT NOT NULL,
+    box_type TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, day_key, box_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_musor_drop_daily_user ON musor_drop_daily (user_id, day_key);
 
 CREATE TABLE IF NOT EXISTS daily_claims (
     user_id TEXT NOT NULL,
