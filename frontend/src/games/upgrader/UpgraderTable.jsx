@@ -118,235 +118,173 @@ export function UpgraderTable({
     rollType === "under" ? (winChance / 100) * 360 : ((100 - winChance) / 100) * 360;
 
   return (
-    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-2 sm:gap-6">
-      {/* Responsive Grid: Stacks cleanly on mobile with button higher up, expansive 3 columns on desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 items-stretch">
-        
-        {/* Box 2 (Wheel): Mobile Order 1, Desktop Order 2, 4 cols */}
-        <div className="order-1 lg:order-2 lg:col-span-4 flex flex-col items-center justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden sm:min-h-[420px] md:min-h-[460px] gap-1.5 sm:gap-2">
-          {/* Ambient Glow */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
-              spinning
-                ? "bg-amber-500/15 animate-pulse"
-                : lastOutcome?.won
-                ? "bg-emerald-500/25"
-                : lastOutcome
-                ? "bg-rose-500/20"
-                : "bg-transparent"
-            }`}
-          />
+    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">
+      {/* TOP: Game Wheel Arena (Full Width, Big & Expansive) */}
+      <div className="w-full flex flex-col items-center justify-between p-3 sm:p-6 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[340px] sm:min-h-[420px] md:min-h-[480px] gap-2">
+        {/* Ambient Glow */}
+        <div
+          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+            spinning
+              ? "bg-amber-500/15 animate-pulse"
+              : lastOutcome?.won
+              ? "bg-emerald-500/25"
+              : lastOutcome
+              ? "bg-rose-500/20"
+              : "bg-transparent"
+          }`}
+        />
 
-          {/* Compact Roll Mode Selector at top of the wheel */}
-          <div className="z-20 flex items-center bg-[#131d2e] p-0.5 sm:p-1 rounded-xl border border-slate-700/80 shadow-md">
-            <button
-              type="button"
-              disabled={loading || spinning}
-              onClick={() => setRollType("under")}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                rollType === "under"
-                  ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <ArrowDown size={14} />
-              <span>Roll under</span>
-            </button>
-            <button
-              type="button"
-              disabled={loading || spinning}
-              onClick={() => setRollType("over")}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                rollType === "over"
-                  ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <ArrowUp size={14} />
-              <span>Roll over</span>
-            </button>
-          </div>
-
-          {/* Wheel Container — responsive, fills available space on mobile */}
-          <div className="relative w-[min(54vw,220px)] h-[min(54vw,220px)] xs:w-[min(60vw,240px)] xs:h-[min(60vw,240px)] sm:w-80 sm:h-80 md:w-92 md:h-92 lg:w-[360px] lg:h-[360px] flex items-center justify-center">
-            <svg
-              viewBox="0 0 320 320"
-              className="w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl"
-            >
-              {/* Outer Dark Track */}
-              <circle
-                cx="160"
-                cy="160"
-                r={radius}
-                fill="none"
-                stroke="#151e2d"
-                strokeWidth="18"
-              />
-
-              {/* Decorative Inner Dotted Ring */}
-              <circle
-                cx="160"
-                cy="160"
-                r={radius - 24}
-                fill="none"
-                stroke="#1f2d42"
-                strokeWidth="2.5"
-                strokeDasharray="6 6"
-              />
-
-              {/* Mathematically Exact Winning Sector Arc (strokeLinecap="butt" prevents 1% bleeding!) */}
-              <circle
-                cx="160"
-                cy="160"
-                r={radius}
-                fill="none"
-                stroke="url(#upgraderGoldSuperGradient)"
-                strokeWidth="18"
-                strokeDasharray={`${winStrokeLength} ${circumference}`}
-                strokeDashoffset={-strokeDashoffset}
-                strokeLinecap="butt"
-                className="transition-all duration-300"
-              />
-
-              <defs>
-                <linearGradient
-                  id="upgraderGoldSuperGradient"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#fef08a" />
-                  <stop offset="50%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#b45309" />
-                </linearGradient>
-              </defs>
-            </svg>
-
-            {/* Rotating Pointer Needle (Starts from exact top 0deg every time) */}
-            <div
-              ref={pointerRef}
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                transform: "rotate(0deg)",
-              }}
-            >
-              <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
-                <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
-                <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
-              </div>
-            </div>
-
-            {/* Center Info Display */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 sm:p-4 z-10 pointer-events-none">
-              <span className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight text-white drop-shadow-2xl">
-                {winChance.toFixed(2)}%
-              </span>
-              <span className="text-[10px] sm:text-sm md:text-base font-black text-slate-300 uppercase tracking-widest mt-0.5 sm:mt-1">
-                Szansa na Upgrade
-              </span>
-
-              {/* Stake Badge */}
-              <div className="mt-1 sm:mt-3 px-2.5 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
-                <span className="text-xs sm:text-sm font-mono font-black text-amber-400">
-                  {money(bet)}
-                </span>
-                <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">
-                  Stawka
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Outcome Banner */}
-          {lastOutcome && !spinning && (
-            <div
-              className={`z-20 px-2.5 sm:px-5 py-1 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
-                lastOutcome.won
-                  ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
-                  : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
-              }`}
-            >
-              {lastOutcome.won
-                ? `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • WYGRANA ${money(
-                    lastOutcome.payout
-                  )}!`
-                : `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • Przegrana`}
-            </div>
-          )}
-        </div>
-
-        {/* Box 3 (Możliwa Wygrana + UPGRADE Action Button): Mobile Order 2 (HIGH UP), Desktop Order 3, 4 cols */}
-        <div className="order-2 lg:order-3 lg:col-span-4 flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-1.5 sm:gap-5">
-          <div>
-            <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
-                Możliwa Wygrana
-              </span>
-              <span className="sm:hidden text-[11px] font-bold text-slate-400">
-                ×{clampedTarget.toFixed(2)}
-              </span>
-            </div>
-
-            {/* Compact Potential Win Card */}
-            <div className="px-3 py-2 sm:p-8 rounded-lg sm:rounded-2xl bg-[#131d2e] border border-slate-700/80 sm:border-2 flex flex-row sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center shadow-inner">
-              <div className="sm:hidden flex flex-col">
-                <span className="text-xs text-slate-400 font-medium">Zysk:</span>
-                <span className="text-xs font-mono font-bold text-emerald-400">+{money(Math.max(0, potentialPayout - bet))}</span>
-              </div>
-              <span className="text-xl xs:text-2xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">
-                {money(potentialPayout)}
-              </span>
-              <span className="hidden sm:inline-block text-xs sm:text-sm font-bold text-slate-400 mt-1 sm:mt-2">
-                Mnożnik: <strong className="text-white">×{clampedTarget.toFixed(2)}</strong> • Zysk: +{money(Math.max(0, potentialPayout - bet))}
-              </span>
-            </div>
-          </div>
-
-          {/* Large Glowing Gold UPGRADE Button (Elevated on Mobile) */}
+        {/* Compact Roll Mode Selector at top of the wheel */}
+        <div className="z-20 flex items-center bg-[#131d2e] p-0.5 sm:p-1 rounded-xl border border-slate-700/80 shadow-md">
           <button
             type="button"
-            disabled={loading || spinning || bet > maxBalance}
-            onClick={() => {
-              if (onPlay) {
-                onPlay({
-                  target_multiplier: clampedTarget,
-                  roll_type: rollType,
-                });
-              }
-            }}
-            className={`w-full py-3 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-2xl flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
-              loading || spinning || bet > maxBalance
-                ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-amber-500/40 border-2 border-amber-300 hover:shadow-amber-500/60"
+            disabled={loading || spinning}
+            onClick={() => setRollType("under")}
+            className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              rollType === "under"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
+                : "text-slate-400 hover:text-white"
             }`}
           >
-            {spinning ? (
-              <>
-                <RotateCw size={20} className="animate-spin sm:w-7 sm:h-7" />
-                <span>UPGRADING...</span>
-              </>
-            ) : (
-              <>
-                <Zap size={20} className="fill-slate-950 sm:w-7 sm:h-7" />
-                <span>UPGRADE</span>
-              </>
-            )}
+            <ArrowDown size={14} />
+            <span>Roll under</span>
+          </button>
+          <button
+            type="button"
+            disabled={loading || spinning}
+            onClick={() => setRollType("over")}
+            className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+              rollType === "over"
+                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <ArrowUp size={14} />
+            <span>Roll over</span>
           </button>
         </div>
 
-        {/* Box 1 (Stawka & Multipliers): Mobile Order 3 (Bottom), Desktop Order 1 (Left), 4 cols */}
-        <div className="order-3 lg:order-1 lg:col-span-4 flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-5">
-          {/* Stawka Section */}
+        {/* Wheel Container — responsive, fills available space */}
+        <div className="relative w-[min(65vw,260px)] h-[min(65vw,260px)] xs:w-[min(70vw,290px)] xs:h-[min(70vw,290px)] sm:w-84 sm:h-84 md:w-96 md:h-96 lg:w-[400px] lg:h-[400px] flex items-center justify-center my-auto">
+          <svg
+            viewBox="0 0 320 320"
+            className="w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl"
+          >
+            {/* Outer Dark Track */}
+            <circle
+              cx="160"
+              cy="160"
+              r={radius}
+              fill="none"
+              stroke="#151e2d"
+              strokeWidth="18"
+            />
+
+            {/* Decorative Inner Dotted Ring */}
+            <circle
+              cx="160"
+              cy="160"
+              r={radius - 24}
+              fill="none"
+              stroke="#1f2d42"
+              strokeWidth="2.5"
+              strokeDasharray="6 6"
+            />
+
+            {/* Mathematically Exact Winning Sector Arc */}
+            <circle
+              cx="160"
+              cy="160"
+              r={radius}
+              fill="none"
+              stroke="url(#upgraderGoldSuperGradient)"
+              strokeWidth="18"
+              strokeDasharray={`${winStrokeLength} ${circumference}`}
+              strokeDashoffset={-strokeDashoffset}
+              strokeLinecap="butt"
+              className="transition-all duration-300"
+            />
+
+            <defs>
+              <linearGradient
+                id="upgraderGoldSuperGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#fef08a" />
+                <stop offset="50%" stopColor="#f59e0b" />
+                <stop offset="100%" stopColor="#b45309" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          {/* Rotating Pointer Needle */}
+          <div
+            ref={pointerRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{ transform: "rotate(0deg)" }}
+          >
+            <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
+              <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
+            </div>
+          </div>
+
+          {/* Center Info Display */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 sm:p-4 z-10 pointer-events-none">
+            <span className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight text-white drop-shadow-2xl">
+              {winChance.toFixed(2)}%
+            </span>
+            <span className="text-[10px] sm:text-sm md:text-base font-black text-slate-300 uppercase tracking-widest mt-0.5 sm:mt-1">
+              Szansa na Upgrade
+            </span>
+
+            {/* Stake Badge */}
+            <div className="mt-1 sm:mt-3 px-2.5 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
+              <span className="text-xs sm:text-sm font-mono font-black text-amber-400">
+                {money(bet)}
+              </span>
+              <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">
+                Stawka
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Outcome Banner */}
+        {lastOutcome && !spinning && (
+          <div
+            className={`z-20 px-3 sm:px-5 py-1 sm:py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
+              lastOutcome.won
+                ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
+                : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
+            }`}
+          >
+            {lastOutcome.won
+              ? `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • WYGRANA ${money(
+                  lastOutcome.payout
+                )}!`
+              : `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • Przegrana`}
+          </div>
+        )}
+      </div>
+
+      {/* BOTTOM: 3-Column Control Bar for Everything */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+        
+        {/* Panel 1 (Stawka): md:col-span-4 */}
+        <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-4">
           <div>
             <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Stawka
               </span>
             </div>
 
             {/* Bet Input */}
-            <div className="relative flex items-center mb-1.5 sm:mb-3">
+            <div className="relative flex items-center mb-1.5 sm:mb-2.5">
               <input
                 type="number"
                 min="1"
@@ -357,7 +295,7 @@ export function UpgraderTable({
                   const v = Math.max(1, parseInt(e.target.value) || 1);
                   setBet(v);
                 }}
-                className="w-full px-3 py-1.5 sm:py-3.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 sm:border-2 text-white font-mono font-black text-sm sm:text-xl focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+                className="w-full px-3 py-2 sm:py-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-lg focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
               />
               <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
                 $FGT
@@ -365,12 +303,12 @@ export function UpgraderTable({
             </div>
 
             {/* Quick Bet Buttons */}
-            <div className="grid grid-cols-4 gap-1 sm:gap-2">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
               <button
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet(10)}
-                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 Min
               </button>
@@ -378,7 +316,7 @@ export function UpgraderTable({
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
-                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 ½
               </button>
@@ -390,7 +328,7 @@ export function UpgraderTable({
                     Math.min(maxBalance || 1000000, Math.floor(b * 2))
                   )
                 }
-                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 2×
               </button>
@@ -398,22 +336,24 @@ export function UpgraderTable({
                 type="button"
                 disabled={loading || spinning}
                 onClick={() => setBet(maxBalance || 100)}
-                className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+                className="py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 Max
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Multiplier Presets */}
+        {/* Panel 2 (Wybór Mnożnika): md:col-span-4 */}
+        <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-4">
           <div>
             <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
                 Wybierz Mnożnik
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-1.5 sm:mb-3">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-2">
               {MULTIPLIER_PRESETS.map((p) => {
                 const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
                 return (
@@ -422,7 +362,7 @@ export function UpgraderTable({
                     type="button"
                     disabled={loading || spinning}
                     onClick={() => setTarget(p.val)}
-                    className={`py-1.5 sm:py-3 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                    className={`py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                       isSelected
                         ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/40 scale-102 border-2 border-amber-300"
                         : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
@@ -458,6 +398,62 @@ export function UpgraderTable({
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Panel 3 (Możliwa Wygrana + Action Button): md:col-span-4 */}
+        <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-4">
+          <div>
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
+                Możliwa Wygrana
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                ×{clampedTarget.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Compact Potential Win Card */}
+            <div className="px-3 py-2 sm:py-3 rounded-xl bg-[#131d2e] border border-slate-700/80 flex items-center justify-between shadow-inner">
+              <div className="flex flex-col">
+                <span className="text-[11px] text-slate-400 font-medium">Zysk:</span>
+                <span className="text-xs font-mono font-bold text-emerald-400">+{money(Math.max(0, potentialPayout - bet))}</span>
+              </div>
+              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight">
+                {money(potentialPayout)}
+              </span>
+            </div>
+          </div>
+
+          {/* Large Glowing Gold UPGRADE Button */}
+          <button
+            type="button"
+            disabled={loading || spinning || bet > maxBalance}
+            onClick={() => {
+              if (onPlay) {
+                onPlay({
+                  target_multiplier: clampedTarget,
+                  roll_type: rollType,
+                });
+              }
+            }}
+            className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
+              loading || spinning || bet > maxBalance
+                ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-amber-500/40 border-2 border-amber-300 hover:shadow-amber-500/60"
+            }`}
+          >
+            {spinning ? (
+              <>
+                <RotateCw size={20} className="animate-spin sm:w-6 sm:h-6" />
+                <span>UPGRADING...</span>
+              </>
+            ) : (
+              <>
+                <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
+                <span>UPGRADE</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

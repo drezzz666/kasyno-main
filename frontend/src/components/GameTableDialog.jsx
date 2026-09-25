@@ -559,7 +559,6 @@ export function GameTableDialog({
   const hasSettledSpin = Boolean(spinResult && !spinning && !rouletteWaiting);
   const rawWinningNumber = spinResult?.payload?.number ?? 0;
   const prize = Math.max(0, wheelOrder.indexOf(rawWinningNumber));
-  const isWideGame = game === "roulette" || game === "blackjack" || game === "plinko";
 
   const getPotentialWinInfo = () => {
     if (game === "plinko") return null;
@@ -690,168 +689,78 @@ export function GameTableDialog({
             turbo={turbo}
           />
         ) : (
-          <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-2 sm:gap-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 items-stretch">
-              
-              {/* Box 2 (Visual Arena): Mobile Order 1, Desktop Order 2 */}
-              <div className={`order-1 lg:order-2 ${isWideGame ? "lg:col-span-6" : "lg:col-span-4"} flex flex-col items-center justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden sm:min-h-[420px] md:min-h-[460px] gap-1.5 sm:gap-2`}>
-                <div
-                  className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
-                    isBusy ? "bg-amber-500/15 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/25" : last ? "bg-rose-500/20" : "bg-transparent"
-                  }`}
-                />
+          <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">
+            {/* TOP: Big Game Arena (Full Width & Spacious) */}
+            <div className="w-full flex flex-col items-center justify-between p-3 sm:p-6 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[340px] sm:min-h-[440px] md:min-h-[500px] gap-2">
+              <div
+                className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
+                  isBusy ? "bg-amber-500/15 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/25" : last ? "bg-rose-500/20" : "bg-transparent"
+                }`}
+              />
 
-                <div className="w-full flex-1 flex items-center justify-center relative z-10 my-auto overflow-hidden">
-                  <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full flex items-center justify-center`}>
-                    {game === "roulette" && (
-                      <>
-                        <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
-                          <RouletteWheelVisual
-                            mustStartSpinning={spinning}
-                            prizeNumber={prize}
-                            turbo={turbo}
-                            onStopSpinning={() => {
-                              setSpinning(false);
-                              if (pendingSpin) {
-                                setLast(pendingSpin.round);
-                                if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
-                                triggerOutcome(pendingSpin.round);
-                                setPendingSpin(null);
-                                void load();
-                              }
-                              if (animatingRef) animatingRef.current = false;
-                            }}
-                          />
-                          {hasSettledSpin && (
-                            <div className="roulette-result" aria-live="polite">
-                              <strong>{rawWinningNumber}</strong>
-                            </div>
-                          )}
-                        </div>
-                        <RouletteBets
-                          selectedBets={rouletteSelected}
-                          onToggleBet={handleRouletteToggle}
-                          onClearBets={handleRouletteClear}
-                          winningNumber={hasSettledSpin ? rawWinningNumber : null}
-                          disabled={spinning || rouletteWaiting}
+              <div className="w-full flex-1 flex items-center justify-center relative z-10 my-auto">
+                <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full flex items-center justify-center`}>
+                  {game === "roulette" && (
+                    <>
+                      <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
+                        <RouletteWheelVisual
+                          mustStartSpinning={spinning}
+                          prizeNumber={prize}
+                          turbo={turbo}
+                          onStopSpinning={() => {
+                            setSpinning(false);
+                            if (pendingSpin) {
+                              setLast(pendingSpin.round);
+                              if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                              triggerOutcome(pendingSpin.round);
+                              setPendingSpin(null);
+                              void load();
+                            }
+                            if (animatingRef) animatingRef.current = false;
+                          }}
                         />
-                      </>
-                    )}
+                        {hasSettledSpin && (
+                          <div className="roulette-result" aria-live="polite">
+                            <strong>{rawWinningNumber}</strong>
+                          </div>
+                        )}
+                      </div>
+                      <RouletteBets
+                        selectedBets={rouletteSelected}
+                        onToggleBet={handleRouletteToggle}
+                        onClearBets={handleRouletteClear}
+                        winningNumber={hasSettledSpin ? rawWinningNumber : null}
+                        disabled={spinning || rouletteWaiting}
+                      />
+                    </>
+                  )}
 
-                    {game === "slots" && <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />}
-                    {game === "blackjack" && <BlackjackTable round={blackjackPreview || round} last={last} />}
-                    {game === "mines" && <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />}
-                    {game === "chicken" && <ChickenTable round={round} last={last} post={post} loading={loading} turbo={turbo} triggerOutcome={triggerOutcome} animatingRef={animatingRef} onBusyChange={setChickenBusy} />}
-                    {game === "coinflip" && <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />}
-                    {game === "rps" && <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />}
-                    {game === "plinko" && <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />}
-                    {game === "limbo" && <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />}
-                    {game === "crash" && <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />}
-                  </div>
-                </div>
-
-                <div className="z-10 mt-1 sm:mt-3 px-3 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
-                  <span className="text-xs sm:text-sm font-mono font-black text-amber-400">{money(bet)}</span>
-                  <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">Stawka</span>
+                  {game === "slots" && <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />}
+                  {game === "blackjack" && <BlackjackTable round={blackjackPreview || round} last={last} />}
+                  {game === "mines" && <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />}
+                  {game === "chicken" && <ChickenTable round={round} last={last} post={post} loading={loading} turbo={turbo} triggerOutcome={triggerOutcome} animatingRef={animatingRef} onBusyChange={setChickenBusy} />}
+                  {game === "coinflip" && <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />}
+                  {game === "rps" && <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />}
+                  {game === "plinko" && <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />}
+                  {game === "limbo" && <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />}
+                  {game === "crash" && <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />}
                 </div>
               </div>
 
-              {/* Box 3 (Możliwa Wygrana + Action Button): Mobile Order 2, Desktop Order 3 */}
-              <div className={`order-2 lg:order-3 ${isWideGame ? "lg:col-span-3" : "lg:col-span-4"} flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-1.5 sm:gap-5`}>
-                {winInfo && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Możliwa Wygrana</span>
-                      <span className="sm:hidden text-[11px] font-bold text-slate-400">×{winInfo.mult}</span>
-                    </div>
-
-                    <div className="px-3 py-2 sm:p-8 rounded-lg sm:rounded-2xl bg-[#131d2e] border border-slate-700/80 sm:border-2 flex flex-row sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center shadow-inner">
-                      <div className="sm:hidden flex flex-col">
-                        <span className="text-xs text-slate-400 font-medium">{winInfo.label || "Zysk"}:</span>
-                        <span className="text-xs font-mono font-bold text-emerald-400">+{money(winInfo.profit)}</span>
-                      </div>
-                      <span className="text-xl xs:text-2xl sm:text-4xl md:text-5xl font-black font-mono text-emerald-400 tracking-tight">{money(winInfo.payout)}</span>
-                      <span className="hidden sm:inline-block text-xs sm:text-sm font-bold text-slate-400 mt-1 sm:mt-2">
-                        Mnożnik: <strong className="text-white">×{winInfo.mult}</strong> • Zysk: +{money(winInfo.profit)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Actions */}
-                {(() => {
-                  if (round?.game === "blackjack" && !blackjackPreview) {
-                    return (
-                      <div className="grid grid-cols-3 gap-2">
-                        <button type="button" className="py-3 sm:py-5 rounded-xl font-black text-sm sm:text-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading} onClick={() => showSettledBlackjack("stand")}>Pas</button>
-                        <button type="button" className="py-3 sm:py-5 rounded-xl font-black text-sm sm:text-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading || round.payload.cards.length !== 2} onClick={() => showSettledBlackjack("double")}>Podwój</button>
-                        <button type="button" className="py-3 sm:py-5 rounded-xl font-black text-sm sm:text-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30" disabled={loading} onClick={() => showSettledBlackjack("hit")}>Dobierz</button>
-                      </div>
-                    );
-                  }
-
-                  if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
-                    return (
-                      <button type="button" className="w-full py-3 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-2xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300" onClick={handleManualCrashCashout}>
-                        <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
-                      </button>
-                    );
-                  }
-
-                  if (game === "chicken" && round) {
-                    const currentLane = round.payload?.currentLane || 0;
-                    const currentMult = round.payload?.multiplier ?? 1.00;
-                    return (
-                      <button
-                        type="button"
-                        disabled={currentLane < 1 || loading || chickenBusy}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-2xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
-                          currentLane >= 1 && !chickenBusy && !loading
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        }`}
-                      >
-                        <span>WYPŁAĆ {currentLane >= 1 ? money(Math.floor(bet * currentMult)) : ""}</span>
-                      </button>
-                    );
-                  }
-
-                  const isChoiceMissing = (game === "coinflip" && !choice) || (game === "rps" && !choice) || (game === "roulette" && rouletteTotalBet <= 0);
-                  const isButtonDisabled = !tosAccepted || isChoiceMissing || (game !== "plinko" && (loading || isBusy));
-
-                  return (
-                    <button
-                      type="button"
-                      disabled={isButtonDisabled}
-                      onClick={start}
-                      className={`w-full py-3 sm:py-5 rounded-xl sm:rounded-2xl font-black text-base sm:text-2xl flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
-                        isButtonDisabled
-                          ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                          : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
-                      }`}
-                    >
-                      {isBusy || loading ? (
-                        <>
-                          <RotateCw size={20} className="animate-spin sm:w-7 sm:h-7" />
-                          <span>{getPlayButtonText()}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={20} className="fill-slate-950 sm:w-7 sm:h-7" />
-                          <span>{getPlayButtonText()}</span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })()}
+              <div className="z-10 mt-1 sm:mt-2 px-3 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
+                <span className="text-xs sm:text-sm font-mono font-black text-amber-400">{money(bet)}</span>
+                <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">Stawka</span>
               </div>
+            </div>
 
-              {/* Box 1 (Stawka & Controls): Mobile Order 3, Desktop Order 1 */}
-              <div className={`order-3 lg:order-1 ${isWideGame ? "lg:col-span-3" : "lg:col-span-4"} flex flex-col justify-between p-2 sm:p-6 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-5`}>
+            {/* BOTTOM: 3-Column Control Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+              
+              {/* Panel 1 (Stawka & Szybkie stawki): md:col-span-4 */}
+              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
+                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
                     {typeof turbo === "boolean" && (
                       <button
                         type="button"
@@ -866,7 +775,7 @@ export function GameTableDialog({
                     )}
                   </div>
 
-                  <div className="relative flex items-center mb-1.5 sm:mb-3">
+                  <div className="relative flex items-center mb-1.5 sm:mb-2.5">
                     <input
                       type="number"
                       min="1"
@@ -874,27 +783,43 @@ export function GameTableDialog({
                       value={bet}
                       disabled={loading || isBusy}
                       onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-3 py-1.5 sm:py-3.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 sm:border-2 text-white font-mono font-black text-sm sm:text-xl focus:outline-none focus:border-amber-500 shadow-inner"
+                      className="w-full px-3 py-1.5 sm:py-3 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-lg focus:outline-none focus:border-amber-500 shadow-inner"
                     />
                     <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                  <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-2">
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-1">
+                    {[5, 10, 25, 50, 100, 500].map((inc) => (
+                      <button
+                        key={inc}
+                        type="button"
+                        disabled={loading || isBusy}
+                        onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
+                        className="py-1 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
+                      >
+                        +{inc}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </div>
 
-                {/* Specific controls */}
+              {/* Panel 2 (Opcje / Konfiguracja gry): md:col-span-4 */}
+              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-3">
                 {game === "crash" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
                       <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
                     </div>
-                    <div className="relative flex items-center mb-1.5 sm:mb-3">
+                    <div className="relative flex items-center mb-1.5 sm:mb-2">
                       <input
                         type="number"
                         step="0.05"
@@ -910,9 +835,9 @@ export function GameTableDialog({
                       />
                       <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                       {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
-                        <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                        <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
                       ))}
                     </div>
                   </div>
@@ -921,12 +846,12 @@ export function GameTableDialog({
                 {game === "limbo" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
                       <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-1.5 sm:mb-3">
+                    <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
                       {[1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0].map((val) => (
-                        <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                        <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
                       ))}
                     </div>
                     <div className="relative flex items-center">
@@ -941,7 +866,7 @@ export function GameTableDialog({
                           const v = parseFloat(e.target.value);
                           if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
                         }}
-                        className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                        className="w-full px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
                         placeholder="Własny mnożnik..."
                       />
                       <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
@@ -952,10 +877,10 @@ export function GameTableDialog({
                 {game === "mines" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
                       <span className="text-[10px] text-amber-400 font-mono font-bold">{mineCount} / 24</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
                       {[2, 3, 5, 10, 15, 20].map((c) => (
                         <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c} min</button>
                       ))}
@@ -966,14 +891,14 @@ export function GameTableDialog({
                 {game === "coinflip" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-2.5 sm:py-4 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-2.5 sm:py-3.5 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
                         <span className="text-xl sm:text-2xl">🦅</span>
                         <span className="text-xs sm:text-sm font-bold">Orzeł</span>
                       </button>
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-2.5 sm:py-4 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-2.5 sm:py-3.5 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
                         <span className="text-xl sm:text-2xl">👑</span>
                         <span className="text-xs sm:text-sm font-bold">Reszka</span>
                       </button>
@@ -984,15 +909,15 @@ export function GameTableDialog({
                 {game === "rps" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
                       {[
                         { id: "rock", icon: "✊", name: "Kamień" },
                         { id: "paper", icon: "✋", name: "Papier" },
                         { id: "scissors", icon: "✌️", name: "Nożyce" },
                       ].map((item) => (
-                        <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-2 sm:py-3.5 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                        <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-2 sm:py-3 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
                           <span className="text-xl sm:text-2xl">{item.icon}</span>
                           <span className="text-[11px] sm:text-xs font-bold">{item.name}</span>
                         </button>
@@ -1002,10 +927,10 @@ export function GameTableDialog({
                 )}
 
                 {game === "plinko" && (
-                  <div className="flex flex-col gap-2 sm:gap-3">
+                  <div className="flex flex-col gap-2">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
                         <span className="text-[10px] text-amber-400 font-mono font-bold">{plinkoRows}</span>
                       </div>
                       <div className="grid grid-cols-5 gap-1">
@@ -1016,7 +941,7 @@ export function GameTableDialog({
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-300">Poziom Ryzyka</span>
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-300">Poziom Ryzyka</span>
                       </div>
                       <div className="grid grid-cols-3 gap-1">
                         {[
@@ -1034,7 +959,7 @@ export function GameTableDialog({
                 {game === "roulette" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybrane zakłady</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybrane zakłady</span>
                       {rouletteSelected.size > 0 && (
                         <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
                           <Trash2 size={11} />
@@ -1055,39 +980,10 @@ export function GameTableDialog({
                   </div>
                 )}
 
-                {game === "blackjack" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Dodaj do stawki</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                      {[5, 10, 25, 50, 100, 500].map((inc) => (
-                        <button key={inc} type="button" disabled={loading || round?.game === "blackjack"} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))} className="py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 border border-slate-700/60 cursor-pointer active:scale-95">+{inc}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {game === "slots" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Tabela Wypłat</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 text-[11px] font-mono">
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">777: <span className="text-amber-400 font-bold">100×</span></div>
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">💎: <span className="text-amber-400 font-bold">50×</span></div>
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">👑: <span className="text-amber-400 font-bold">25×</span></div>
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">🔔: <span className="text-amber-400 font-bold">10×</span></div>
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">🍒: <span className="text-amber-400 font-bold">5×</span></div>
-                      <div className="p-1 rounded bg-[#131d2e] border border-slate-700/60 text-center">🍋: <span className="text-amber-400 font-bold">2×</span></div>
-                    </div>
-                  </div>
-                )}
-
                 {game === "chicken" && (
                   <div>
                     <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-[11px] sm:text-sm font-black uppercase tracking-wider text-slate-300">Przeprawa Kurczaka</span>
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Przeprawa Kurczaka</span>
                     </div>
                     <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
                       <div className="flex justify-between">
@@ -1101,7 +997,132 @@ export function GameTableDialog({
                     </div>
                   </div>
                 )}
+
+                {game === "slots" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1 sm:mb-2">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Midnight Slots</span>
+                    </div>
+                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
+                      <div className="flex justify-between">
+                        <span>Układ:</span>
+                        <strong className="text-white font-mono">5 bębnów</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Główny Jackpot:</span>
+                        <strong className="text-amber-400 font-mono">200× (5× ♛)</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {game === "blackjack" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1 sm:mb-2">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Zasady Stołu</span>
+                    </div>
+                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
+                      <div className="flex justify-between">
+                        <span>Blackjack:</span>
+                        <strong className="text-amber-400 font-mono font-bold">3:2 (2.5×)</strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Krupier:</span>
+                        <strong className="text-white font-mono">Pasuje na 17+</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Panel 3 (Możliwa Wygrana + Action Button): md:col-span-4 */}
+              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
+                {winInfo && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Możliwa Wygrana</span>
+                      <span className="text-xs font-bold text-slate-400">×{winInfo.mult}</span>
+                    </div>
+
+                    <div className="px-3 py-2 sm:py-3 rounded-xl bg-[#131d2e] border border-slate-700/80 flex items-center justify-between shadow-inner">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-slate-400 font-medium">{winInfo.label || "Zysk"}:</span>
+                        <span className="text-xs font-mono font-bold text-emerald-400">+{money(winInfo.profit)}</span>
+                      </div>
+                      <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight">{money(winInfo.payout)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                {(() => {
+                  if (round?.game === "blackjack" && !blackjackPreview) {
+                    return (
+                      <div className="grid grid-cols-3 gap-2">
+                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading} onClick={() => showSettledBlackjack("stand")}>Pas</button>
+                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading || round.payload.cards.length !== 2} onClick={() => showSettledBlackjack("double")}>Podwój</button>
+                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30" disabled={loading} onClick={() => showSettledBlackjack("hit")}>Dobierz</button>
+                      </div>
+                    );
+                  }
+
+                  if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
+                    return (
+                      <button type="button" className="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300" onClick={handleManualCrashCashout}>
+                        <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
+                      </button>
+                    );
+                  }
+
+                  if (game === "chicken" && round) {
+                    const currentLane = round.payload?.currentLane || 0;
+                    const currentMult = round.payload?.multiplier ?? 1.00;
+                    return (
+                      <button
+                        type="button"
+                        disabled={currentLane < 1 || loading || chickenBusy}
+                        onClick={handleChickenCashout}
+                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
+                          currentLane >= 1 && !chickenBusy && !loading
+                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        }`}
+                      >
+                        <span>WYPŁAĆ {currentLane >= 1 ? money(Math.floor(bet * currentMult)) : ""}</span>
+                      </button>
+                    );
+                  }
+
+                  const isChoiceMissing = (game === "coinflip" && !choice) || (game === "rps" && !choice) || (game === "roulette" && rouletteTotalBet <= 0);
+                  const isButtonDisabled = !tosAccepted || isChoiceMissing || (game !== "plinko" && (loading || isBusy));
+
+                  return (
+                    <button
+                      type="button"
+                      disabled={isButtonDisabled}
+                      onClick={start}
+                      className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
+                        isButtonDisabled
+                          ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                          : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                      }`}
+                    >
+                      {isBusy || loading ? (
+                        <>
+                          <RotateCw size={20} className="animate-spin sm:w-6 sm:h-6" />
+                          <span>{getPlayButtonText()}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
+                          <span>{getPlayButtonText()}</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })()}
+              </div>
+
             </div>
           </div>
         )}
