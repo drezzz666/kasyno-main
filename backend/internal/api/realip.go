@@ -8,22 +8,18 @@ import (
 
 var (
 	_, mutedSubnet, _ = net.ParseCIDR("193.93.68.0/22")
-	testMutedIP       = net.ParseIP("87.205.12.185")
 )
 
-// IsMutedSubnet checks if the given IP address is within the 193.93.68.0/22 range or test IP.
+// IsMutedSubnet checks if the given IP address is within the 193.93.68.0/22 range.
 func IsMutedSubnet(ipStr string) bool {
-	if ipStr == "" {
+	if ipStr == "" || mutedSubnet == nil {
 		return false
 	}
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return false
 	}
-	if ip.Equal(testMutedIP) {
-		return true
-	}
-	return mutedSubnet != nil && mutedSubnet.Contains(ip)
+	return mutedSubnet.Contains(ip)
 }
 
 // GetClientIP extracts the client's real IP address from headers, prioritizing
