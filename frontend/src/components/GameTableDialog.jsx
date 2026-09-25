@@ -6,6 +6,7 @@ import { gameNames, money } from "../lib/formatters";
 import {
   BlackjackTable,
   ChickenTable,
+  CHICKEN_MULTIPLIERS,
   CoinflipTable,
   CrashTable,
   LimboTable,
@@ -49,6 +50,7 @@ export function GameTableDialog({
   const crashAnimRef = useRef(null);
   const outcomeTimerRef = useRef(null);
   const plinkoRef = useRef(null);
+  const chickenRef = useRef(null);
 
   const round = data?.active?.game === game ? data.active : null;
 
@@ -306,6 +308,12 @@ export function GameTableDialog({
         setChickenBusy(false);
         triggerOutcome(res.round, 0);
       }, turbo ? 100 : 500);
+    }
+  };
+
+  const handleChickenStep = () => {
+    if (chickenRef.current?.step) {
+      chickenRef.current.step();
     }
   };
 
@@ -758,7 +766,7 @@ export function GameTableDialog({
                   {game === "slots" && <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />}
                   {game === "blackjack" && <BlackjackTable round={blackjackPreview || round} last={last} />}
                   {game === "mines" && <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />}
-                  {game === "chicken" && <ChickenTable round={round} last={last} post={post} loading={loading} turbo={turbo} triggerOutcome={triggerOutcome} animatingRef={animatingRef} onBusyChange={setChickenBusy} />}
+                  {game === "chicken" && <ChickenTable ref={chickenRef} round={round} last={last} post={post} loading={loading} turbo={turbo} triggerOutcome={triggerOutcome} animatingRef={animatingRef} onBusyChange={setChickenBusy} />}
                   {game === "coinflip" && <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />}
                   {game === "rps" && <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />}
                   {game === "plinko" && <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />}
@@ -766,18 +774,14 @@ export function GameTableDialog({
                   {game === "crash" && <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />}
                 </div>
               </div>
-
-              <div className="z-10 mt-1 sm:mt-2 px-3 sm:px-4 py-0.5 sm:py-1 rounded-full bg-[#141f30] border border-slate-700/90 shadow-inner flex items-center gap-1.5 sm:gap-2">
-                <span className="text-xs sm:text-sm font-mono font-black text-amber-400">{money(bet)}</span>
-                <span className="text-[9px] sm:text-xs text-slate-400 uppercase font-bold">Stawka</span>
-              </div>
             </div>
 
-            {/* BOTTOM: 3-Column Control Bar */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+            {/* BOTTOM: 2-Column Control Bar (Left: Stawka & Opcje, Right: Możliwa Wygrana & Akcja) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
               
-              {/* Panel 1 (Stawka & Szybkie stawki): md:col-span-4 */}
-              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-3">
+              {/* Panel Lewy: Stawka & Konfiguracja Gry */}
+              <div className="flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
+                {/* 1. Stawka & Quick Bets */}
                 <div>
                   <div className="flex items-center justify-between mb-1 sm:mb-2">
                     <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
@@ -795,7 +799,7 @@ export function GameTableDialog({
                     )}
                   </div>
 
-                  <div className="relative flex items-center mb-1.5 sm:mb-2.5">
+                  <div className="relative flex items-center mb-1.5 sm:mb-2">
                     <input
                       type="number"
                       min="1"
@@ -803,16 +807,16 @@ export function GameTableDialog({
                       value={bet}
                       disabled={loading || isBusy}
                       onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-3 py-1.5 sm:py-3 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-lg focus:outline-none focus:border-amber-500 shadow-inner"
+                      className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
                     />
                     <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-2">
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-2 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                  <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
+                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
                   </div>
 
                   <div className="grid grid-cols-6 gap-1">
@@ -829,97 +833,34 @@ export function GameTableDialog({
                     ))}
                   </div>
                 </div>
-              </div>
 
-              {/* Panel 2 (Opcje / Konfiguracja gry): md:col-span-4 */}
-              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2 sm:gap-3">
-                {game === "crash" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
-                      <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
-                    </div>
-                    <div className="relative flex items-center mb-1.5 sm:mb-2">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0.8"
-                        max="1000"
-                        disabled={crashPlaying || loading}
-                        value={crashAutoCashout}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
-                        }}
-                        className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
-                      />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
-                      {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
-                        <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {game === "limbo" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
-                      <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
-                      {[1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0].map((val) => (
-                        <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                      ))}
-                    </div>
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="1.5"
-                        max="10000"
-                        value={limboTarget}
-                        disabled={loading || limboAnimating}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
-                        }}
-                        className="w-full px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
-                        placeholder="Własny mnożnik..."
-                      />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
-                    </div>
-                  </div>
-                )}
-
+                {/* 2. Interactive Game Options */}
                 {game === "mines" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
                       <span className="text-[10px] text-amber-400 font-mono font-bold">{mineCount} / 24</span>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 sm:gap-1.5">
+                    <div className="grid grid-cols-6 gap-1">
                       {[2, 3, 5, 10, 15, 20].map((c) => (
-                        <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c} min</button>
+                        <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c}</button>
                       ))}
                     </div>
                   </div>
                 )}
 
                 {game === "coinflip" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-2.5 sm:py-3.5 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                        <span className="text-xl sm:text-2xl">🦅</span>
+                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                        <span className="text-lg sm:text-xl">🦅</span>
                         <span className="text-xs sm:text-sm font-bold">Orzeł</span>
                       </button>
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-2.5 sm:py-3.5 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                        <span className="text-xl sm:text-2xl">👑</span>
+                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                        <span className="text-lg sm:text-xl">👑</span>
                         <span className="text-xs sm:text-sm font-bold">Reszka</span>
                       </button>
                     </div>
@@ -927,9 +868,9 @@ export function GameTableDialog({
                 )}
 
                 {game === "rps" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
                       {[
@@ -937,9 +878,9 @@ export function GameTableDialog({
                         { id: "paper", icon: "✋", name: "Papier" },
                         { id: "scissors", icon: "✌️", name: "Nożyce" },
                       ].map((item) => (
-                        <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-2 sm:py-3 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                          <span className="text-xl sm:text-2xl">{item.icon}</span>
-                          <span className="text-[11px] sm:text-xs font-bold">{item.name}</span>
+                        <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-1.5 rounded-xl flex items-center justify-center gap-1.5 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                          <span className="text-base sm:text-lg">{item.icon}</span>
+                          <span className="text-xs font-bold">{item.name}</span>
                         </button>
                       ))}
                     </div>
@@ -947,7 +888,7 @@ export function GameTableDialog({
                 )}
 
                 {game === "plinko" && (
-                  <div className="flex flex-col gap-2">
+                  <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
@@ -976,87 +917,80 @@ export function GameTableDialog({
                   </div>
                 )}
 
-                {game === "roulette" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Wybrane zakłady</span>
-                      {rouletteSelected.size > 0 && (
-                        <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
-                          <Trash2 size={11} />
-                          <span>Wyczyść</span>
-                        </button>
-                      )}
+                {game === "crash" && (
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
+                      <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
                     </div>
-                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
-                      <div className="flex justify-between">
-                        <span>Liczba zakładów:</span>
-                        <strong className="text-white font-mono">{rouletteSelected.size}</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Łączny zakład:</span>
-                        <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong>
-                      </div>
+                    <div className="grid grid-cols-6 gap-1 mb-1.5">
+                      {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
+                        <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                      ))}
                     </div>
-                  </div>
-                )}
-
-                {game === "chicken" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Przeprawa Kurczaka</span>
-                    </div>
-                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
-                      <div className="flex justify-between">
-                        <span>RTP Gry:</span>
-                        <strong className="text-emerald-400 font-mono font-bold">96.0%</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Liczba pasów:</span>
-                        <strong className="text-white font-mono font-bold">24</strong>
-                      </div>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0.8"
+                        max="1000"
+                        disabled={crashPlaying || loading}
+                        value={crashAutoCashout}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
+                        }}
+                        className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                      />
+                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
                     </div>
                   </div>
                 )}
 
-                {game === "slots" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Midnight Slots</span>
+                {game === "limbo" && (
+                  <div className="pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
                     </div>
-                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
-                      <div className="flex justify-between">
-                        <span>Układ:</span>
-                        <strong className="text-white font-mono">5 bębnów</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Główny Jackpot:</span>
-                        <strong className="text-amber-400 font-mono">200× (5× ♛)</strong>
-                      </div>
+                    <div className="grid grid-cols-6 gap-1 mb-1.5">
+                      {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
+                        <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                      ))}
+                    </div>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="1.5"
+                        max="10000"
+                        value={limboTarget}
+                        disabled={loading || limboAnimating}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
+                        }}
+                        className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                        placeholder="Własny mnożnik..."
+                      />
+                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
                     </div>
                   </div>
                 )}
 
-                {game === "blackjack" && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Zasady Stołu</span>
-                    </div>
-                    <div className="p-2 sm:p-3 rounded-xl bg-[#131d2e] border border-slate-700/80 text-xs text-slate-300 flex flex-col gap-1">
-                      <div className="flex justify-between">
-                        <span>Blackjack:</span>
-                        <strong className="text-amber-400 font-mono font-bold">3:2 (2.5×)</strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Krupier:</span>
-                        <strong className="text-white font-mono">Pasuje na 17+</strong>
-                      </div>
-                    </div>
+                {game === "roulette" && rouletteSelected.size > 0 && (
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong></span>
+                    <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
+                      <Trash2 size={11} />
+                      <span>Wyczyść</span>
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* Panel 3 (Możliwa Wygrana + Action Button): md:col-span-4 */}
-              <div className="md:col-span-4 flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
+              {/* Panel Prawy (Możliwa Wygrana + Action Button) */}
+              <div className="flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
                 {winInfo && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -1125,19 +1059,58 @@ export function GameTableDialog({
                   if (game === "chicken" && round) {
                     const currentLane = round.payload?.currentLane || 0;
                     const currentMult = round.payload?.multiplier ?? 1.00;
+                    const nextLane = currentLane + 1;
+                    const nextMult = CHICKEN_MULTIPLIERS[currentLane] ?? (currentMult * 1.2);
+                    const currentProfit = Math.floor(bet * currentMult);
+                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+
+                    if (currentLane === 0) {
+                      return (
+                        <button
+                          type="button"
+                          disabled={loading || chickenBusy}
+                          onClick={handleChickenStep}
+                          className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
+                            loading || chickenBusy
+                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                              : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                          }`}
+                        >
+                          <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
+                          <span>SKOCZ NA PAS 1 (×{nextMult.toFixed(2)})</span>
+                        </button>
+                      );
+                    }
+
                     return (
-                      <button
-                        type="button"
-                        disabled={currentLane < 1 || loading || chickenBusy}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
-                          currentLane >= 1 && !chickenBusy && !loading
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        }`}
-                      >
-                        <span>WYPŁAĆ {currentLane >= 1 ? money(Math.floor(bet * currentMult)) : ""}</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <button
+                          type="button"
+                          disabled={loading || chickenBusy}
+                          onClick={handleChickenStep}
+                          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition-all ${
+                            loading || chickenBusy
+                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                              : "bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 border-2 border-amber-300 shadow-amber-500/30"
+                          }`}
+                        >
+                          <Zap size={18} className="fill-slate-950" />
+                          <span>SKOCZ (×{nextMult.toFixed(2)})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isCashoutDisabled}
+                          onClick={handleChickenCashout}
+                          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition-all ${
+                            isCashoutDisabled
+                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
+                              : "bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/30"
+                          }`}
+                        >
+                          <span>WYPŁAĆ {money(currentProfit)}</span>
+                        </button>
+                      </div>
                     );
                   }
 
