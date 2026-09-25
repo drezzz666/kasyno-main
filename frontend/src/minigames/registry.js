@@ -16,7 +16,7 @@ export const MINIGAMES = [
     badge: "Do 100 000 ₽",
     reward: "Do 100 000 ₽",
     desc: "Otwieraj skrzynki dzienne, kupuj wersje premium i odbieraj skrzynki za poziom!",
-    img: "/musor-logo.webp",
+    img: "/musor-drop-hero.webp",
     logo: "/musor-logo.webp",
     icon: Package,
     iconColor: "text-amber-400",
