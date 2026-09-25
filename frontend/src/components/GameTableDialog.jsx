@@ -669,28 +669,26 @@ export function GameTableDialog({
         </div>
 
         {game === "upgrader" ? (
-          <div className="table-visual upgrader">
-            <UpgraderTable
-              bet={bet}
-              setBet={setBet}
-              maxBalance={data?.player?.balance ?? 0}
-              target={upgraderTarget}
-              setTarget={setUpgraderTarget}
-              rollType={upgraderRollType}
-              setRollType={setUpgraderRollType}
-              last={last}
-              loading={loading}
-              onPlay={(opts) => {
-                if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
-                if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
-                start();
-              }}
-              animatingRef={animatingRef}
-              onBusyChange={setUpgraderBusy}
-              triggerOutcome={triggerOutcome}
-              turbo={turbo}
-            />
-          </div>
+          <UpgraderTable
+            bet={bet}
+            setBet={setBet}
+            maxBalance={data?.player?.balance ?? 0}
+            target={upgraderTarget}
+            setTarget={setUpgraderTarget}
+            rollType={upgraderRollType}
+            setRollType={setUpgraderRollType}
+            last={last}
+            loading={loading}
+            onPlay={(opts) => {
+              if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
+              if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
+              start();
+            }}
+            animatingRef={animatingRef}
+            onBusyChange={setUpgraderBusy}
+            triggerOutcome={triggerOutcome}
+            turbo={turbo}
+          />
         ) : (
           <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-2 sm:gap-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 items-stretch">
