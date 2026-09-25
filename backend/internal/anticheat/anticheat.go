@@ -524,8 +524,8 @@ func ValidateLimboTarget(target float64) error {
 }
 
 func ValidateUpgraderTarget(target float64) error {
-	if target < 1.05 || target > 10000.0 {
-		return fmt.Errorf("%w: cel w Upgrader musi wynosić od 1.05x do 10,000x", ErrInvalidGameParam)
+	if target < 1.50 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Upgrader musi wynosić od 1.50x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }
