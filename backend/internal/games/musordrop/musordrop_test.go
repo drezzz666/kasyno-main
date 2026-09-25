@@ -22,6 +22,21 @@ func TestRollBoxValid(t *testing.T) {
 	}
 }
 
+func TestTierWeightsSum(t *testing.T) {
+	checkSum := func(name string, tiers []PrizeTier) {
+		sum := 0
+		for _, tier := range tiers {
+			sum += tier.WeightBps
+		}
+		if sum != 10000 {
+			t.Fatalf("%s weight sum is %d, expected 10000", name, sum)
+		}
+	}
+	checkSum("Plebs", PlebsPrizes)
+	checkSum("Arystokracja", ArystokracjaPrizes)
+	checkSum("Lepsza", LepszaPrizes)
+}
+
 func TestRollBoxInvalid(t *testing.T) {
 	_, err := RollBox(BoxType("nieznana"))
 	if err == nil {
