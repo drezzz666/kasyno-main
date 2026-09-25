@@ -5,55 +5,72 @@ import (
 )
 
 func TestSlotsEvaluation(t *testing.T) {
-	// 5 of a kind: ♛ on middle line (Jackpot 100x)
-	reels5 := [][]string{
-		{"2", "♛", "F"},
-		{"F", "♛", "G"},
-		{"T", "♛", "2"},
-		{"◆", "♛", "F"},
-		{"2", "♛", "T"},
+	// 3 of a kind: 777 on middle line (Jackpot 50x)
+	reels7 := [][]string{
+		{"🍒", "7", "💎"},
+		{"⭐", "7", "🔔"},
+		{"🍋", "7", "🍒"},
 	}
-	res5 := EvaluateReels(reels5, 100)
-	if !res5.Win || res5.Multiplier != 100.0 || res5.Payout != 10000 {
-		t.Errorf("expected 5 of a kind 100x payout 10000, got mult %.2f payout %d", res5.Multiplier, res5.Payout)
+	res7 := EvaluateReels(reels7, 100)
+	if !res7.Win || res7.Multiplier != 50.0 || res7.Payout != 5000 {
+		t.Errorf("expected 3x 7 50x payout 5000, got mult %.2f payout %d", res7.Multiplier, res7.Payout)
 	}
 
-	// 4 of a kind: "F" (5x)
-	reels4 := [][]string{
-		{"2", "F", "F"},
-		{"F", "F", "G"},
-		{"T", "F", "2"},
-		{"◆", "F", "F"},
-		{"2", "2", "T"},
+	// 3 of a kind: Diamonds (25x)
+	reelsDiam := [][]string{
+		{"7", "💎", "⭐"},
+		{"🍒", "💎", "🔔"},
+		{"🍋", "💎", "7"},
 	}
-	res4 := EvaluateReels(reels4, 50)
-	if !res4.Win || res4.Multiplier != 5.0 || res4.Payout != 250 {
-		t.Errorf("expected 4 of a kind 5x payout 250, got mult %.2f payout %d", res4.Multiplier, res4.Payout)
+	resDiam := EvaluateReels(reelsDiam, 100)
+	if !resDiam.Win || resDiam.Multiplier != 25.0 || resDiam.Payout != 2500 {
+		t.Errorf("expected 3x 💎 25x payout 2500, got mult %.2f payout %d", resDiam.Multiplier, resDiam.Payout)
 	}
 
-	// 3 of a kind: "G" (1.5x)
-	reels3 := [][]string{
-		{"2", "G", "F"},
-		{"F", "G", "G"},
-		{"T", "G", "2"},
-		{"◆", "2", "F"},
-		{"2", "T", "T"},
+	// Pair of 7s (2.0x)
+	reelsPair7 := [][]string{
+		{"🍒", "7", "💎"},
+		{"⭐", "7", "🔔"},
+		{"🍋", "🍒", "7"},
 	}
-	res3 := EvaluateReels(reels3, 10)
-	if !res3.Win || res3.Multiplier != 1.5 || res3.Payout != 15 {
-		t.Errorf("expected 3 of a kind 1.5x payout 15, got mult %.2f payout %d", res3.Multiplier, res3.Payout)
+	resPair7 := EvaluateReels(reelsPair7, 10)
+	if !resPair7.Win || resPair7.Multiplier != 2.0 || resPair7.Payout != 20 {
+		t.Errorf("expected pair of 7s 2.0x payout 20, got mult %.2f payout %d", resPair7.Multiplier, resPair7.Payout)
 	}
 
 	// Loss: all different symbols on middle line
 	reelsLoss := [][]string{
-		{"2", "2", "F"},
-		{"F", "F", "G"},
-		{"T", "G", "2"},
-		{"◆", "T", "F"},
-		{"2", "◆", "T"},
+		{"7", "🍒", "💎"},
+		{"⭐", "🍋", "🔔"},
+		{"🍋", "🔔", "7"},
 	}
 	resLoss := EvaluateReels(reelsLoss, 100)
 	if resLoss.Win || resLoss.Payout != 0 {
 		t.Errorf("expected loss for all different, got win %v payout %d", resLoss.Win, resLoss.Payout)
+	}
+}
+
+func TestSlotsRTP(t *testing.T) {
+	var totalPayout float64
+	var totalSpins float64
+
+	for i0 := 0; i0 < len(Symbols); i0++ {
+		for i1 := 0; i1 < len(Symbols); i1++ {
+			for i2 := 0; i2 < len(Symbols); i2++ {
+				reels := [][]string{
+					{"X", Symbols[i0], "X"},
+					{"X", Symbols[i1], "X"},
+					{"X", Symbols[i2], "X"},
+				}
+				res := EvaluateReels(reels, 100)
+				totalPayout += float64(res.Payout)
+				totalSpins++
+			}
+		}
+	}
+
+	rtp := totalPayout / (totalSpins * 100.0)
+	if rtp < 0.95 || rtp > 0.98 {
+		t.Errorf("expected balanced RTP between 95%% and 98%%, got %.4f (%.2f%%)", rtp, rtp*100)
 	}
 }

@@ -489,7 +489,7 @@ export function GameTableDialog({
         if (turbo) finalize();
         else {
           setPendingSlotsRound(j.round);
-          setTimeout(finalize, 1200);
+          setTimeout(finalize, 1900);
         }
       } else {
         setSlotsSpinning(false);

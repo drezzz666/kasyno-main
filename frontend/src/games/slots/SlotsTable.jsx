@@ -1,123 +1,100 @@
 import React, { useEffect, useState, useRef } from "react";
 import { sounds } from "../../lib/sounds";
 
-const ALL_SYMBOLS = ["2", "F", "G", "T", "◆", "♛"];
+const ALL_SYMBOLS = ["7", "💎", "⭐", "🔔", "🍒", "🍋"];
+const STRIP_LENGTH = 24;
 
 export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
-  const lastRef = useRef(last);
-  lastRef.current = last;
+  const [displayedReels, setDisplayedReels] = useState(() => [
+    ["🍒", "7", "💎"],
+    ["⭐", "7", "🔔"],
+    ["🍋", "7", "🍒"],
+  ]);
 
-  const currentReels = last?.payload?.reels || [
-    ["2", "2", "F"],
-    ["F", "F", "G"],
-    ["G", "G", "T"],
-    ["T", "T", "◆"],
-    ["◆", "◆", "♛"],
-  ];
+  const [reelStrips, setReelStrips] = useState(() => [
+    ["🍒", "7", "💎"],
+    ["⭐", "7", "🔔"],
+    ["🍋", "7", "🍒"],
+  ]);
 
-  const [stoppedReels, setStoppedReels] = useState([true, true, true, true, true]);
-  const [displayedReels, setDisplayedReels] = useState(currentReels);
+  const [reelStates, setReelStates] = useState(["idle", "idle", "idle"]);
   const [isWinHighlighted, setIsWinHighlighted] = useState(false);
-  const spinIntervalsRef = useRef([]);
-  const stopTimersRef = useRef([]);
+  const timersRef = useRef([]);
 
-  // Handle spin lifecycle & staggered reel stopping
   useEffect(() => {
-    // Clear any prior intervals / timers
-    spinIntervalsRef.current.forEach((id) => id && clearInterval(id));
-    spinIntervalsRef.current = [];
-    stopTimersRef.current.forEach((id) => id && clearTimeout(id));
-    stopTimersRef.current = [];
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
 
     if (slotsSpinning) {
       setIsWinHighlighted(false);
-      setStoppedReels([false, false, false, false, false]);
 
-      const intervalSpeed = turbo ? 25 : 45;
-      const stoppedMask = [false, false, false, false, false];
+      const targetReels = last?.payload?.reels || [
+        ["7", "7", "7"],
+        ["7", "7", "7"],
+        ["7", "7", "7"],
+      ];
 
-      // Single synchronized rolling loop for active reels (eliminates 80% re-renders)
-      const rollInterval = setInterval(() => {
-        setDisplayedReels((prev) => {
-          let changed = false;
-          const next = [...prev];
-          for (let i = 0; i < 5; i++) {
-            if (!stoppedMask[i]) {
-              changed = true;
-              next[i] = [
-                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-                ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ];
-            }
-          }
-          return changed ? next : prev;
-        });
-      }, intervalSpeed);
-      spinIntervalsRef.current = [rollInterval];
+      // Build continuous strips starting with current symbols and ending with target outcome
+      const newStrips = [0, 1, 2].map((i) => {
+        const topSymbols = displayedReels[i] || ["7", "7", "7"];
+        const bottomSymbols = targetReels[i] || ["7", "7", "7"];
+        const middle = [];
+        for (let k = 0; k < STRIP_LENGTH - 6; k++) {
+          middle.push(ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)]);
+        }
+        return [...topSymbols, ...middle, ...bottomSymbols];
+      });
 
-      // Staggered reel landings (lightning fast in turbo)
-      const stopDelays = turbo
-        ? [40, 75, 110, 145, 180]
-        : [220, 420, 620, 820, 1020];
+      setReelStrips(newStrips);
+      setReelStates(["idle", "idle", "idle"]);
 
-      const newStopTimers = stopDelays.map((delay, reelIdx) => {
-        return setTimeout(() => {
-          stoppedMask[reelIdx] = true;
+      // Trigger spin transition in next animation frame
+      const animFrame = requestAnimationFrame(() => {
+        setReelStates(["spinning", "spinning", "spinning"]);
+      });
 
-          // Lock in the final symbols for this reel from current backend round
-          const targetReels = lastRef.current?.payload?.reels || currentReels;
-          setDisplayedReels((prev) => {
+      const stopDurations = turbo ? [120, 220, 320] : [950, 1350, 1750];
+
+      stopDurations.forEach((dur, reelIdx) => {
+        const t = setTimeout(() => {
+          setReelStates((prev) => {
             const next = [...prev];
-            next[reelIdx] = targetReels[reelIdx] || [
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-              ALL_SYMBOLS[Math.floor(Math.random() * ALL_SYMBOLS.length)],
-            ];
+            next[reelIdx] = "stopped";
             return next;
           });
-
-          // Mark this reel as stopped for snap/bounce animation
-          setStoppedReels((prev) => {
-            const next = [...prev];
-            next[reelIdx] = true;
-            return next;
-          });
-
-          // Play lock sound
           sounds.playPegTick();
 
-          // If last reel locked, stop roll timer and check for win animation
-          if (reelIdx === 4) {
-            clearInterval(rollInterval);
-            const round = lastRef.current;
-            const hasWon = Boolean(round?.payload?.winning || (round?.payout && round.payout > 0));
+          if (reelIdx === 2) {
+            setDisplayedReels(targetReels);
+            const hasWon = Boolean(last?.payload?.winning || (last?.payout && last.payout > 0));
             if (hasWon) {
-              setTimeout(() => {
+              const winT = setTimeout(() => {
                 setIsWinHighlighted(true);
                 sounds.playWin();
               }, turbo ? 20 : 60);
+              timersRef.current.push(winT);
             }
           }
-        }, delay);
+        }, dur);
+        timersRef.current.push(t);
       });
-      stopTimersRef.current = newStopTimers;
 
       return () => {
-        clearInterval(rollInterval);
-        stopTimersRef.current.forEach((id) => id && clearTimeout(id));
+        cancelAnimationFrame(animFrame);
+        timersRef.current.forEach((t) => clearTimeout(t));
       };
     } else {
-      // Idle state
-      const targetReels = last?.payload?.reels || currentReels;
-      setDisplayedReels(targetReels);
-      setStoppedReels([true, true, true, true, true]);
+      if (last?.payload?.reels) {
+        setDisplayedReels(last.payload.reels);
+        setReelStrips(last.payload.reels);
+      }
+      setReelStates(["idle", "idle", "idle"]);
       const hasWon = Boolean(last?.payload?.winning || (last?.payout && last.payout > 0));
       setIsWinHighlighted(hasWon);
     }
-  }, [slotsSpinning, turbo]);
+  }, [slotsSpinning, turbo, last]);
 
-  // Check which middle symbols are part of the winning combo
+  // Middle payline symbols
   const middleSymbols = displayedReels.map((col) => col[1]);
   const symbolCounts = {};
   middleSymbols.forEach((s) => {
@@ -130,7 +107,7 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
 
   const winningSymbolsSet = new Set(
     Object.entries(symbolCounts)
-      .filter(([sym, cnt]) => cnt >= 2 || (sym === "♛" && isWinningSpin))
+      .filter(([sym, cnt]) => cnt >= 2 || isWinningSpin)
       .map(([sym]) => sym)
   );
 
@@ -141,40 +118,47 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
       <div className={`payline-indicator right ${isWinningSpin ? "active" : ""}`} />
       {isWinningSpin && <div className="payline-laser" />}
 
-      {/* 5-Reel Slot Grid */}
-      <div className="slots-reels-grid">
-        {[0, 1, 2, 3, 4].map((reelIdx) => {
-          const isSpinning = !stoppedReels[reelIdx];
-          const isJustStopped = stoppedReels[reelIdx] && slotsSpinning;
+      {/* 3-Reel Classic Slot Grid */}
+      <div className="slots-reels-grid classic-3reel">
+        {[0, 1, 2].map((reelIdx) => {
+          const state = reelStates[reelIdx];
+          const isSpinning = state === "spinning";
+          const strip = reelStrips[reelIdx] || displayedReels[reelIdx];
+          const totalItems = strip.length;
+          const shiftPercent = totalItems > 3 && isSpinning
+            ? -((totalItems - 3) / totalItems) * 100
+            : 0;
+
+          const duration = turbo ? 120 + reelIdx * 100 : 950 + reelIdx * 400;
 
           return (
-            <div
-              key={reelIdx}
-              className={`slot-reel-column ${isSpinning ? "spinning" : ""} ${
-                isJustStopped ? "reel-snap-bounce" : ""
-              }`}
-            >
-              {[0, 1, 2].map((rowIdx) => {
-                const symbol = displayedReels[reelIdx]?.[rowIdx] || "2";
-                const isCenter = rowIdx === 1;
-                const isWinningBox =
-                  isCenter &&
-                  isWinningSpin &&
-                  winningSymbolsSet.has(symbol);
+            <div key={reelIdx} className="slot-reel-viewport">
+              <div
+                className={`slot-reel-strip ${isSpinning ? "is-accelerating-spinning" : state === "stopped" ? "reel-snap-bounce" : ""}`}
+                style={{
+                  transform: isSpinning ? `translate3d(0, ${shiftPercent}%, 0)` : "translate3d(0, 0, 0)",
+                  transition: isSpinning ? `transform ${duration}ms cubic-bezier(0.12, 0.85, 0.22, 1.05)` : "none",
+                }}
+              >
+                {strip.map((symbol, sIdx) => {
+                  const isCenter = sIdx === 1 || (totalItems > 3 && sIdx === totalItems - 2);
+                  const isVisibleInFinal = !isSpinning && sIdx === 1;
+                  const isWinningBox = isVisibleInFinal && isWinningSpin && winningSymbolsSet.has(symbol);
 
-                return (
-                  <div
-                    key={rowIdx}
-                    className={`slot-symbol-box ${isCenter ? "center-line" : ""} ${
-                      isWinningBox ? "win-symbol-pulse" : ""
-                    } ${isSpinning ? "symbol-blur" : ""}`}
-                  >
-                    <span className={`symbol-glyph symbol-${symbol}`}>
-                      {symbol}
-                    </span>
-                  </div>
-                );
-              })}
+                  return (
+                    <div
+                      key={sIdx}
+                      className={`slot-symbol-box ${isCenter ? "center-line" : ""} ${
+                        isWinningBox ? "win-symbol-pulse" : ""
+                      } ${isSpinning ? "symbol-blur" : ""}`}
+                    >
+                      <span className={`symbol-glyph symbol-${symbol}`}>
+                        {symbol}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })}
