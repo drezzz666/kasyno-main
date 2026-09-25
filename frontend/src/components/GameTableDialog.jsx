@@ -609,8 +609,8 @@ export function GameTableDialog({
     if (game === "coinflip") return choice ? `Rzuć monetą (${choice === "heads" ? "Orzeł 🦅" : "Reszka 👑"})` : "Wybierz Orła lub Reszkę";
     if (game === "rps") return choice ? `Zagraj (${{ rock: "Kamień ✊", paper: "Papier ✋", scissors: "Nożyce ✌️" }[choice] || choice})` : "Wybierz swój gest";
     if (game === "roulette") return rouletteTotalBet > 0 ? `Zakręć kołem (${rouletteTotalBet} $FGT)` : "Wybierz pole lub kolor";
-    if (game === "upgrader") return upgraderBusy ? "Ulepszanie…" : `UPGRADE (×${upgraderTarget.toFixed(2)})`;
-    if (game === "limbo") return `ZAGRAJ (×${limboTarget.toFixed(2)})`;
+    if (game === "upgrader") return upgraderBusy ? "Ulepszanie…" : `UPGRADE (×${(Number(upgraderTarget) || 2.0).toFixed(2)})`;
+    if (game === "limbo") return `ZAGRAJ (×${(Number(limboTarget) || 2.0).toFixed(2)})`;
     if (game === "slots") return "ZAKRĘĆ BĘBNAMI";
     if (game === "blackjack") return "ROZDAJ KARTY";
     return last ? "Zagraj ponownie" : "Rozpocznij rundę";
@@ -735,7 +735,7 @@ export function GameTableDialog({
                         <span>
                           {currentLane === 0
                             ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
                       </button>
                     );
@@ -1248,7 +1248,7 @@ export function GameTableDialog({
                         onClick={handleManualCrashCashout}
                       >
                         <CheckCircle2 size={22} />
-                        <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
+                        <span>WYPŁAĆ ({(Number(crashMult) || 1.0).toFixed(2)}×)</span>
                       </button>
                     );
                   }
@@ -1275,7 +1275,7 @@ export function GameTableDialog({
                         <span>
                           {revealed.length === 0
                             ? "Wybierz pole na planszy"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
                       </button>
                     );

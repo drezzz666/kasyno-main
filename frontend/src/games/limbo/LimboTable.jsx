@@ -55,16 +55,16 @@ export function LimboTable({
           }`}
         >
           {animating
-            ? `${(displayMult || 1.0).toFixed(2)}x`
-            : outcome
-              ? `${Number(outcome).toFixed(2)}x`
+            ? `${(Number(displayMult) || 1.0).toFixed(2)}x`
+            : outcome !== undefined && outcome !== null
+              ? `${(Number(outcome) || 1.0).toFixed(2)}x`
               : "1.00x"}
         </div>
 
         {/* Target Badge */}
         <div className="limbo-target-badge">
           <span className="limbo-target-label">CEL:</span>
-          <span className="limbo-target-val">{target.toFixed(2)}×</span>
+          <span className="limbo-target-val">{(Number(target) || 2.0).toFixed(2)}×</span>
         </div>
       </div>
     </div>

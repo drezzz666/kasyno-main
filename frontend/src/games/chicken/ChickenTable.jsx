@@ -829,7 +829,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                       : "bg-[#141d28] text-slate-400 border border-slate-700/60"
                   }`}
                 >
-                  {mult.toFixed(2)}x
+                  {(Number(mult) || 1.0).toFixed(2)}x
                 </div>
               </div>
             );

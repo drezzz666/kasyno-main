@@ -211,10 +211,10 @@ export function UpgraderTable({
             }`}
           >
             {lastOutcome.won
-              ? `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • WYGRANA ${money(
+              ? `Wylosowano ${(Number(lastOutcome.rolled) || 0).toFixed(2)}% • WYGRANA ${money(
                   lastOutcome.payout
                 )}!`
-              : `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • Przegrana`}
+              : `Wylosowano ${(Number(lastOutcome.rolled) || 0).toFixed(2)}% • Przegrana`}
           </div>
         )}
       </div>
@@ -344,10 +344,10 @@ export function UpgraderTable({
             }`}
           >
             {lastOutcome.won
-              ? `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • WYGRANA ${money(
+              ? `Wylosowano ${(Number(lastOutcome.rolled) || 0).toFixed(2)}% • WYGRANA ${money(
                   lastOutcome.payout
                 )}!`
-              : `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • Przegrana`}
+              : `Wylosowano ${(Number(lastOutcome.rolled) || 0).toFixed(2)}% • Przegrana`}
           </div>
         )}
       </div>
