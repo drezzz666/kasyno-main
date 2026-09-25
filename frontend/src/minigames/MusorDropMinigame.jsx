@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Package, Sparkles, Gift, Crown, Trophy, ChevronDown, ChevronUp, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Package, Sparkles, Gift, Crown, Trophy, AlertCircle, CheckCircle2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
-import { postCasinoAction, fetchCasinoState } from "../lib/api";
+import { postCasinoAction } from "../lib/api";
 import { money } from "../lib/formatters";
 
 const BOXES_CONFIG = [
@@ -17,16 +17,10 @@ const BOXES_CONFIG = [
     btnColor: "bg-emerald-600 hover:bg-emerald-500 text-white",
     cost: 0,
     costLabel: "Za darmo",
+    maxWin: "5 000 ₽",
     icon: Gift,
     iconColor: "text-emerald-400",
     description: "5 darmowych skrzynek każdego dnia. Otwieraj codziennie i odbieraj ruble!",
-    prizes: [
-      { name: "Nic", chance: "55.0%", amount: 0 },
-      { name: "100 ₽", chance: "25.0%", amount: 100 },
-      { name: "500 ₽", chance: "12.0%", amount: 500 },
-      { name: "1 500 ₽", chance: "6.0%", amount: 1500 },
-      { name: "5 000 ₽ (Jackpot)", chance: "2.0%", amount: 5000, isJackpot: true },
-    ],
   },
   {
     id: "arystokracja",
@@ -38,17 +32,10 @@ const BOXES_CONFIG = [
     btnColor: "bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold",
     cost: 500,
     costLabel: "500 ₽",
+    maxWin: "50 000 ₽",
     icon: Crown,
     iconColor: "text-amber-400",
-    description: "Dla graczy z grubszym portfelem. Szansa na podwojenie stawki lub Główny Jackpot!",
-    prizes: [
-      { name: "Nic", chance: "60.0%", amount: 0 },
-      { name: "250 ₽ (Zwrot 50%)", chance: "24.0%", amount: 250 },
-      { name: "1 000 ₽ (Podwojenie)", chance: "11.0%", amount: 1000 },
-      { name: "3 000 ₽", chance: "4.0%", amount: 3000 },
-      { name: "10 000 ₽", chance: "0.8%", amount: 10000 },
-      { name: "50 000 ₽ (Główny Jackpot)", chance: "0.2%", amount: 50000, isJackpot: true },
-    ],
+    description: "Dla graczy z grubszym portfelem. Szansa na natychmiastowe mnożniki i Jackpot!",
   },
   {
     id: "lepsza",
@@ -60,18 +47,10 @@ const BOXES_CONFIG = [
     btnColor: "bg-purple-600 hover:bg-purple-500 text-white font-bold",
     cost: 0,
     costLabel: "1 szt. z ekwipunku",
+    maxWin: "100 000 ₽",
     icon: Trophy,
     iconColor: "text-purple-400",
     description: "Przyznawana automatycznie (+1 sztuka) przy każdym nowym poziomie. Nie do kupienia!",
-    prizes: [
-      { name: "Nic", chance: "52.5%", amount: 0 },
-      { name: "1 000 ₽", chance: "25.0%", amount: 1000 },
-      { name: "5 000 ₽", chance: "10.0%", amount: 5000 },
-      { name: "10 000 ₽", chance: "5.0%", amount: 10000 },
-      { name: "25 000 ₽", chance: "3.0%", amount: 25000 },
-      { name: "50 000 ₽", chance: "2.0%", amount: 50000, isJackpot: true },
-      { name: "100 000 ₽ (Główny Jackpot)", chance: "0.5%", amount: 100000, isJackpot: true },
-    ],
   },
 ];
 
@@ -86,7 +65,6 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
   });
   const [openingBox, setOpeningBox] = useState(null);
   const [lastOutcome, setLastOutcome] = useState(null);
-  const [openChancesFor, setOpenChancesFor] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const refreshStatus = async () => {
@@ -315,8 +293,6 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
               : "Brak w ekwipunku (Wbij lvl)";
           }
 
-          const showChances = openChancesFor === box.id;
-
           return (
             <div
               key={box.id}
@@ -358,8 +334,14 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
                 <p className="text-xs text-slate-300 mb-4 min-h-[36px]">{box.description}</p>
               </div>
 
-              {/* Card Actions & Probability Accordion */}
+              {/* Card Bottom: Max Win Highlight & Button */}
               <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                {/* Highlight Max Win */}
+                <div className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-bold tracking-wide shadow-sm">
+                  <Trophy size={14} className="text-amber-400 shrink-0" />
+                  <span>Do wygrania aż <strong className="text-white font-extrabold">{box.maxWin}</strong>!</span>
+                </div>
+
                 <button
                   type="button"
                   disabled={!isAvailable || loading}
@@ -382,39 +364,6 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
                     </>
                   )}
                 </button>
-
-                {/* Chances Dropdown Toggle */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setOpenChancesFor(showChances ? null : box.id)}
-                    className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 py-1"
-                  >
-                    <span>Szanse na nagrody ({box.prizes.length} pozycji)</span>
-                    {showChances ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-
-                  {showChances && (
-                    <div className="mt-2 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1 text-[11px] animate-in fade-in">
-                      {box.prizes.map((p, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-slate-300">
-                          <span
-                            className={
-                              p.isJackpot
-                                ? "text-amber-400 font-bold"
-                                : p.amount > 0
-                                ? "text-slate-200 font-medium"
-                                : "text-slate-400"
-                            }
-                          >
-                            {p.name}
-                          </span>
-                          <span className="font-mono text-slate-400">{p.chance}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           );
