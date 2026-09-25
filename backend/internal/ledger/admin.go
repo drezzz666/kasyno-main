@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // AdminCreateUser creates a new player with an optional custom ID, nick, email and initial balance.
@@ -645,6 +646,134 @@ func (s *Service) AdminRevertBalanceAll(ctx context.Context, untilMillis int64) 
 	}
 
 	return affectedUsers, deletedEntries, deletedRounds, nil
+}
+
+// GrantMusorBoxesAll adds (or removes) Musor Drop boxes for ALL registered players.
+func (s *Service) GrantMusorBoxesAll(ctx context.Context, amount int, reason string) (int, int, error) {
+	if amount == 0 {
+		return 0, 0, fmt.Errorf("ilość skrzynek musi być różna od 0")
+	}
+
+	t := NowMs()
+	tag, err := s.db.Pool.Exec(ctx, `
+		UPDATE players
+		SET musor_lepsza_boxes = GREATEST(0, musor_lepsza_boxes + $1),
+		    updated_at = $2
+	`, amount, t)
+	if err != nil {
+		return 0, 0, fmt.Errorf("błąd aktualizacji skrzynek dla wszystkich: %w", err)
+	}
+
+	count := int(tag.RowsAffected())
+	total := count * amount
+	return count, total, nil
+}
+
+// GrantMusorBoxes adds or removes Musor Drop boxes for a single player or all (*).
+func (s *Service) GrantMusorBoxes(ctx context.Context, identifier string, amount int, reason string) (string, int, int, error) {
+	if amount == 0 {
+		return "", 0, 0, fmt.Errorf("ilość skrzynek musi być różna od 0")
+	}
+
+	trimmed := strings.TrimSpace(identifier)
+	if trimmed == "*" || strings.EqualFold(trimmed, "all") || strings.EqualFold(trimmed, "wszyscy") || strings.EqualFold(trimmed, "@everyone") {
+		count, total, err := s.GrantMusorBoxesAll(ctx, amount, reason)
+		if err != nil {
+			return "", 0, 0, err
+		}
+		return fmt.Sprintf("Wszyscy gracze (%d kont, łącznie: %+d skrzynek)", count, total), 0, amount, nil
+	}
+
+	var p Player
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT user_id, nick, COALESCE(musor_lepsza_boxes, 0)
+		FROM players
+		WHERE user_id = $1 OR nick = $1 OR email = $1
+		LIMIT 1
+	`, identifier).Scan(&p.UserID, &p.Nick, &p.MusorLepszaBoxes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, 0, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)
+	}
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	t := NowMs()
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(p.UserID))
+
+	var curBoxes int
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(musor_lepsza_boxes, 0) FROM players WHERE user_id = $1`, p.UserID).Scan(&curBoxes)
+	if curBoxes+amount < 0 {
+		return "", 0, 0, fmt.Errorf("gracz ma tylko %d skrzynek, nie można odjąć %d", curBoxes, -amount)
+	}
+	newBoxes := curBoxes + amount
+
+	_, err = tx.Exec(ctx, `
+		UPDATE players
+		SET musor_lepsza_boxes = $1, updated_at = $2
+		WHERE user_id = $3
+	`, newBoxes, t, p.UserID)
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("błąd aktualizacji stanu skrzynek gracza: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", 0, 0, err
+	}
+
+	return p.Nick, curBoxes, newBoxes, nil
+}
+
+// ResetMusorDropDaily resets daily opened box counters for a user (or all users).
+func (s *Service) ResetMusorDropDaily(ctx context.Context, identifier, boxType string) (int, error) {
+	dayKey := TodayString()
+	trimmed := strings.TrimSpace(identifier)
+	isAll := trimmed == "" || trimmed == "*" || strings.EqualFold(trimmed, "all") || strings.EqualFold(trimmed, "wszyscy") || strings.EqualFold(trimmed, "@everyone")
+
+	boxType = strings.ToLower(strings.TrimSpace(boxType))
+	filterBox := boxType != "" && boxType != "all" && boxType != "wszystkie" && boxType != "*"
+
+	if isAll {
+		var tag pgconn.CommandTag
+		var err error
+		if filterBox {
+			tag, err = s.db.Pool.Exec(ctx, `DELETE FROM musor_drop_daily WHERE day_key = $1 AND box_type = $2`, dayKey, boxType)
+		} else {
+			tag, err = s.db.Pool.Exec(ctx, `DELETE FROM musor_drop_daily WHERE day_key = $1`, dayKey)
+		}
+		if err != nil {
+			return 0, fmt.Errorf("błąd resetu dziennych limitów skrzynek: %w", err)
+		}
+		return int(tag.RowsAffected()), nil
+	}
+
+	var userID string
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT user_id FROM players WHERE user_id = $1 OR nick = $1 OR email = $1 LIMIT 1
+	`, identifier).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	var tag pgconn.CommandTag
+	if filterBox {
+		tag, err = s.db.Pool.Exec(ctx, `DELETE FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2 AND box_type = $3`, userID, dayKey, boxType)
+	} else {
+		tag, err = s.db.Pool.Exec(ctx, `DELETE FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2`, userID, dayKey)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("błąd resetu dziennych limitów skrzynek gracza: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 

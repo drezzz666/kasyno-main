@@ -338,19 +338,34 @@ func (b *Bot) announceDrop(ctx context.Context, res *scheduler.GrantExecutionRes
 		nextRunStr = time.UnixMilli(*res.Grant.NextRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
 	}
 
+	isMusor := res.Grant.GrantType == "musordrop" || res.Grant.GrantType == "musor_box" || res.Grant.GrantType == "box"
+
+	var title string
+	var amountLabel string
+	var totalLabel string
+	if isMusor {
+		title = fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT SKRZYNEK: %s", res.Grant.Name)
+		amountLabel = fmt.Sprintf("**+%d skrzynek Lepszych** / gracz", res.Grant.Amount)
+		totalLabel = fmt.Sprintf("**%d skrzynek**", res.TotalTransferred)
+	} else {
+		title = fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT $FGT: %s", res.Grant.Name)
+		amountLabel = fmt.Sprintf("**+%s** / gracz", formatFGT(res.Grant.Amount))
+		totalLabel = fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred))
+	}
+
 	embed := &discordgo.MessageEmbed{
 		Color:       ColorGold,
-		Title:       fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT $FGT: %s", res.Grant.Name),
-		Description: fmt.Sprintf("Zrealizowano zaplanowane doładowanie środków dla graczy!\nZaloguj się i zagraj na [**%s**](%s)", b.appURL, b.appURL),
+		Title:       title,
+		Description: fmt.Sprintf("Zrealizowano zaplanowany zrzut dla graczy!\nZaloguj się i odbierz na [**%s**](%s)", b.appURL, b.appURL),
 		Fields: []*discordgo.MessageEmbedField{
 			{
-				Name:   "💰 Kwota zrzutu",
-				Value:  fmt.Sprintf("**+%s** / gracz", formatFGT(res.Grant.Amount)),
+				Name:   "🎁 Wartość zrzutu",
+				Value:  amountLabel,
 				Inline: true,
 			},
 			{
 				Name:   "💎 Łącznie rozdano",
-				Value:  fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred)),
+				Value:  totalLabel,
 				Inline: true,
 			},
 			{

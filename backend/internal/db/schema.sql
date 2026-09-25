@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS scheduled_grants (
     name TEXT NOT NULL,
     target_users TEXT NOT NULL,
     amount BIGINT NOT NULL,
+    grant_type TEXT NOT NULL DEFAULT 'money',
     reason TEXT NOT NULL,
     cron_expr TEXT NOT NULL,
     human_schedule TEXT NOT NULL,
@@ -127,6 +128,8 @@ CREATE TABLE IF NOT EXISTS scheduled_grants (
     next_run_at BIGINT,
     enabled BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+ALTER TABLE scheduled_grants ADD COLUMN IF NOT EXISTS grant_type TEXT NOT NULL DEFAULT 'money';
 
 CREATE INDEX IF NOT EXISTS idx_scheduled_grants_enabled ON scheduled_grants (enabled);
 

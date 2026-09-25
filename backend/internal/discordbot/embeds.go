@@ -962,8 +962,14 @@ func (b *Bot) buildScheduledGrantsListEmbed(ctx context.Context, filter string) 
 			shortID = shortID[:8]
 		}
 
+		isMusor := g.GrantType == "musordrop" || g.GrantType == "musor_box" || g.GrantType == "box"
+		rewardLabel := fmt.Sprintf("💰 Kwota: **+%s**", formatFGT(g.Amount))
+		if isMusor {
+			rewardLabel = fmt.Sprintf("📦 Skrzynki: **+%d Lepszych**", g.Amount)
+		}
+
 		sb.WriteString(fmt.Sprintf("**%d. %s** `[%s]` — %s\n", idx+1, g.Name, shortID, statusIcon))
-		sb.WriteString(fmt.Sprintf("└ 💰 Kwota: **+%s** / gracz | Cel: **%s**\n", formatFGT(g.Amount), targetStr))
+		sb.WriteString(fmt.Sprintf("└ %s / gracz | Cel: **%s**\n", rewardLabel, targetStr))
 		sb.WriteString(fmt.Sprintf("└ 🕒 Harmonogram: *%s* (Cron: `%s`)\n", g.HumanSchedule, g.CronExpr))
 		sb.WriteString(fmt.Sprintf("└ ⏳ Następny zrzut: `%s` | Ostatni: `%s`\n", nextRunStr, lastRunStr))
 		sb.WriteString(fmt.Sprintf("└ 📝 Powód: *%s* | ID: `%s`\n\n", g.Reason, g.ID))
@@ -972,14 +978,14 @@ func (b *Bot) buildScheduledGrantsListEmbed(ctx context.Context, filter string) 
 	if matchedCount == 0 {
 		return &discordgo.MessageEmbed{
 			Color:       ColorGold,
-			Title:       "⏰ Harmonogram Automatycznych Zrzutów ($FGT)",
+			Title:       "⏰ Harmonogram Automatycznych Zrzutów",
 			Description: fmt.Sprintf("Brak harmonogramów pasujących do filtra: `%s`", filter),
 		}
 	}
 
 	return &discordgo.MessageEmbed{
 		Color:       ColorGold,
-		Title:       fmt.Sprintf("⏰ Harmonogram Automatycznych Zrzutów ($FGT) [%d]", matchedCount),
+		Title:       fmt.Sprintf("⏰ Harmonogram Automatycznych Zrzutów [%d]", matchedCount),
 		Description: sb.String(),
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: fmt.Sprintf("Strefa czasowa: %s • Zarządzaj: /dodaj-zrzut /usun-zrzut /przelacz-zrzut", b.cfg.Timezone),
@@ -1019,12 +1025,28 @@ func (b *Bot) executeScheduleAdd(ctx context.Context, params scheduler.CreateGra
 		targetDesc = fmt.Sprintf("👥 Gracze: `%s`", targetDesc)
 	}
 
+	isMusor := grant.GrantType == "musordrop" || grant.GrantType == "musor_box" || grant.GrantType == "box"
+	amountField := &discordgo.MessageEmbedField{
+		Name:   "💰 Kwota na konto",
+		Value:  fmt.Sprintf("**+%s**", formatFGT(grant.Amount)),
+		Inline: true,
+	}
+	title := "✅ Utworzono Nowy Harmonogram Zrzutu $FGT"
+	if isMusor {
+		title = "✅ Utworzono Nowy Harmonogram Zrzutu Skrzynek Musor Drop"
+		amountField = &discordgo.MessageEmbedField{
+			Name:   "📦 Skrzynki na konto",
+			Value:  fmt.Sprintf("**+%d skrzynek Lepszych**", grant.Amount),
+			Inline: true,
+		}
+	}
+
 	return &discordgo.MessageEmbed{
 		Color: ColorEmerald,
-		Title: "✅ Utworzono Nowy Harmonogram Zrzutu $FGT",
+		Title: title,
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "📌 Nazwa", Value: fmt.Sprintf("**%s**", grant.Name), Inline: true},
-			{Name: "💰 Kwota na konto", Value: fmt.Sprintf("**+%s**", formatFGT(grant.Amount)), Inline: true},
+			amountField,
 			{Name: "🎯 Cel zrzutu", Value: targetDesc, Inline: false},
 			{Name: "🕒 Harmonogram", Value: fmt.Sprintf("%s\n*(Cron: `%s`)*", grant.HumanSchedule, grant.CronExpr), Inline: false},
 			{Name: "⏳ Następne uruchomienie", Value: fmt.Sprintf("`%s`", nextRunStr), Inline: true},
@@ -1211,5 +1233,118 @@ func (b *Bot) buildMusorDropResultEmbed(playerNick string, outcome *ledger.Musor
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 }
+
+func (b *Bot) executeGrantMusorDrop(ctx context.Context, identifier string, amount int, reason string) *discordgo.MessageEmbed {
+	if reason == "" {
+		if amount >= 0 {
+			reason = "Admin Musor Drop Grant"
+		} else {
+			reason = "Admin Musor Drop Deduction"
+		}
+	}
+
+	if isAllUsersIdentifier(identifier) {
+		count, total, err := b.ledger.GrantMusorBoxesAll(ctx, amount, reason)
+		if err != nil {
+			return &discordgo.MessageEmbed{
+				Color:       ColorRose,
+				Title:       "❌ Błąd masowej operacji na skrzynkach",
+				Description: fmt.Sprintf("Nie udało się zaktualizować skrzynek dla wszystkich graczy: **%v**", err),
+			}
+		}
+
+		b.invalidatePlayerCache()
+
+		actionTitle := "🎁 [GLOBAL] Przyznano skrzynki Musor Drop dla WSZYSTKICH graczy (*)"
+		actionColor := ColorEmerald
+		if amount < 0 {
+			actionTitle = "📦 [GLOBAL] Odjęto skrzynki Musor Drop od WSZYSTKICH graczy (*)"
+			actionColor = ColorGold
+		}
+
+		return &discordgo.MessageEmbed{
+			Color: actionColor,
+			Title: actionTitle,
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
+				{Name: "📦 Zmiana na konto", Value: fmt.Sprintf("**%+d skrzynek Lepszych**", amount), Inline: true},
+				{Name: "💎 Łącznie", Value: fmt.Sprintf("**%+d skrzynek**", total), Inline: true},
+				{Name: "📝 Powód", Value: reason, Inline: false},
+			},
+			Footer:    &discordgo.MessageEmbedFooter{Text: "Operacja masowa (*) na skrzynkach została pomyślnie zrealizowana"},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
+	nick, prevBoxes, newBoxes, err := b.ledger.GrantMusorBoxes(ctx, identifier, amount, reason)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd operacji na skrzynkach",
+			Description: fmt.Sprintf("Nie udało się zaktualizować skrzynek dla gracza `%s`: **%v**", identifier, err),
+		}
+	}
+
+	b.invalidatePlayerCache()
+
+	actionTitle := "🎁 Przyznano skrzynki Musor Drop"
+	actionColor := ColorEmerald
+	if amount < 0 {
+		actionTitle = "📦 Odjęto skrzynki Musor Drop"
+		actionColor = ColorGold
+	}
+
+	return &discordgo.MessageEmbed{
+		Color: actionColor,
+		Title: actionTitle,
+		Fields: []*discordgo.MessageEmbedField{
+			{Name: "👤 Gracz", Value: fmt.Sprintf("**%s**", nick), Inline: true},
+			{Name: "📦 Zmiana", Value: fmt.Sprintf("**%+d skrzynek**", amount), Inline: true},
+			{Name: "📊 Stan skrzynek Lepszych", Value: fmt.Sprintf("`%d` ➔ **%d**", prevBoxes, newBoxes), Inline: true},
+			{Name: "📝 Powód", Value: reason, Inline: false},
+		},
+		Footer:    &discordgo.MessageEmbedFooter{Text: "Musor Drop • Ekwipunek skrzynek"},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
+func (b *Bot) executeResetMusorDrop(ctx context.Context, identifier, boxType string) *discordgo.MessageEmbed {
+	affected, err := b.ledger.ResetMusorDropDaily(ctx, identifier, boxType)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd resetowania limitów Musor Drop",
+			Description: fmt.Sprintf("Nie udało się zresetować dziennych limitów: **%v**", err),
+		}
+	}
+
+	b.invalidatePlayerCache()
+
+	boxLabel := "wszystkie dzienne skrzynki (Plebsowa i Arystokracka)"
+	switch strings.ToLower(boxType) {
+	case "plebs", "plebsowa":
+		boxLabel = "skrzynka Plebsowa"
+	case "arystokracja", "arystokracka":
+		boxLabel = "skrzynka Arystokracka"
+	}
+
+	targetLabel := fmt.Sprintf("dla gracza `%s`", identifier)
+	if isAllUsersIdentifier(identifier) {
+		targetLabel = "dla WSZYSTKICH graczy (*)"
+	}
+
+	return &discordgo.MessageEmbed{
+		Color: ColorEmerald,
+		Title: "🔄 Zresetowano dzienne limity Musor Drop",
+		Fields: []*discordgo.MessageEmbedField{
+			{Name: "🎯 Cel", Value: targetLabel, Inline: true},
+			{Name: "📦 Typ skrzynki", Value: boxLabel, Inline: true},
+			{Name: "🧹 Usunięto wpisów dziennych", Value: fmt.Sprintf("**%d**", affected), Inline: true},
+		},
+		Footer:    &discordgo.MessageEmbedFooter{Text: "Gracz może ponownie otworzyć dzisiejsze darmowe/płatne skrzynki"},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
 
 

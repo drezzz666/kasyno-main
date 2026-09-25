@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
@@ -16,18 +15,85 @@ var adminPerms int64 = discordgo.PermissionAdministrator
 
 var slashCommands = []*discordgo.ApplicationCommand{
 	{
-		Name:        "musordrop",
-		Description: "Otwórz skrzynkę w minigrze Musor Drop",
+		Name:                     "casino-grant-musordrop",
+		Description:              "Dodaj lub odbierz skrzynki Musor Drop (Lepsze) graczowi lub wszystkim (*)",
+		DefaultMemberPermissions: &adminPerms,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "add",
+				Description: "Dodaj skrzynki Musor Drop (Lepsze) graczowi lub wszystkim (*)",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "player",
+						Description:  "Nick/ID gracza lub * (wszyscy)",
+						Required:     true,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "amount",
+						Description: "Liczba skrzynek do dodania",
+						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "reason",
+						Description: "Powód przyznania skrzynek",
+						Required:    false,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "remove",
+				Description: "Odbierz skrzynki Musor Drop graczowi lub wszystkim (*)",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "player",
+						Description:  "Nick/ID gracza lub * (wszyscy)",
+						Required:     true,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "amount",
+						Description: "Liczba skrzynek do odebrania",
+						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "reason",
+						Description: "Powód odebrania skrzynek",
+						Required:    false,
+					},
+				},
+			},
+		},
+	},
+	{
+		Name:                     "casino-reset-musordrop",
+		Description:              "Zresetuj dzienne limity otwarcia skrzynek Musor Drop dla gracza lub wszystkich (*)",
+		DefaultMemberPermissions: &adminPerms,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "player",
+				Description:  "Nick/ID gracza lub * (wszyscy gracze)",
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
 				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "skrzynka",
-				Description: "Wybierz skrzynkę do otwarcia",
-				Required:    true,
+				Name:        "box_type",
+				Description: "Typ skrzynki do zresetowania limitu",
+				Required:    false,
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "Plebsowa (Darmowa, limit 5/dzień)", Value: "plebs"},
-					{Name: "Arystokracka (Koszt: 500 ₽, limit 5/dzień)", Value: "arystokracja"},
-					{Name: "Lepsza (Z awansów poziomu)", Value: "lepsza"},
+					{Name: "Wszystkie dzienne (Plebsowa + Arystokracka)", Value: "all"},
+					{Name: "Plebsowa (Darmowa)", Value: "plebs"},
+					{Name: "Arystokracka (Płatna 500 ₽)", Value: "arystokracja"},
 				},
 			},
 		},
@@ -294,6 +360,16 @@ var slashCommands = []*discordgo.ApplicationCommand{
 					},
 					{
 						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "type",
+						Description: "Typ nagrody: $FGT Waluta lub Skrzynki Musor Drop (Lepsze)",
+						Required:    false,
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{Name: "💰 $FGT Waluta", Value: "money"},
+							{Name: "📦 Skrzynki Musor Drop (Lepsze)", Value: "musordrop"},
+						},
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
 						Name:        "reason",
 						Description: "Reason for grant (saved in history)",
 						Required:    false,
@@ -515,14 +591,35 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 	case "stats", "statystyki":
 		b.respondInteraction(s, i, b.buildGlobalStatsEmbed(ctx))
 
-	case "musordrop":
-		skrzynka := "plebs"
+	case "casino-grant-musordrop", "grant-musordrop", "grantmusor":
+		var gracz, powod string
+		var kwota int64
 		for _, opt := range options {
-			if opt.Name == "skrzynka" || opt.Name == "box" || opt.Name == "type" {
-				skrzynka = opt.StringValue()
+			if opt.Name == "player" || opt.Name == "gracz" {
+				gracz = opt.StringValue()
+			} else if opt.Name == "amount" || opt.Name == "kwota" || opt.Name == "ilosc" {
+				kwota = opt.IntValue()
+			} else if opt.Name == "reason" || opt.Name == "powod" {
+				powod = opt.StringValue()
 			}
 		}
-		b.handleMusorDropInteraction(s, i, ctx, skrzynka)
+		if subCmd == "remove" {
+			if kwota > 0 {
+				kwota = -kwota
+			}
+		}
+		b.respondInteraction(s, i, b.executeGrantMusorDrop(ctx, gracz, int(kwota), powod))
+
+	case "casino-reset-musordrop", "reset-musordrop", "resetmusor":
+		var gracz, boxType string
+		for _, opt := range options {
+			if opt.Name == "player" || opt.Name == "gracz" {
+				gracz = opt.StringValue()
+			} else if opt.Name == "box_type" || opt.Name == "skrzynka" || opt.Name == "type" {
+				boxType = opt.StringValue()
+			}
+		}
+		b.respondInteraction(s, i, b.executeResetMusorDrop(ctx, gracz, boxType))
 
 	case "help", "pomoc":
 		b.respondInteraction(s, i, b.buildHelpEmbed(true))
@@ -754,7 +851,7 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 	case "schedule":
 		switch subCmd {
 		case "add":
-			var nazwa, gracze, dzien, godzina, customCron, powod string
+			var nazwa, gracze, dzien, godzina, customCron, powod, typ string
 			var kwota int64
 			for _, opt := range options {
 				switch opt.Name {
@@ -764,6 +861,8 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 					kwota = opt.IntValue()
 				case "players", "gracze":
 					gracze = opt.StringValue()
+				case "type", "typ", "grant_type":
+					typ = opt.StringValue()
 				case "day_of_week", "dzien_tygodnia":
 					dzien = opt.StringValue()
 				case "time_of_day", "godzina":
@@ -782,6 +881,7 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 				Name:        nazwa,
 				TargetUsers: gracze,
 				Amount:      kwota,
+				GrantType:   typ,
 				Reason:      powod,
 				DayOfWeek:   dzien,
 				TimeOfDay:   godzina,
@@ -827,7 +927,7 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 		}
 
 	case "schedule-add", "dodaj-zrzut", "casino-schedule-add":
-		var nazwa, gracze, dzien, godzina, customCron, powod string
+		var nazwa, gracze, dzien, godzina, customCron, powod, typ string
 		var kwota int64
 		for _, opt := range options {
 			switch opt.Name {
@@ -837,6 +937,8 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 				kwota = opt.IntValue()
 			case "players", "gracze":
 				gracze = opt.StringValue()
+			case "type", "typ", "grant_type":
+				typ = opt.StringValue()
 			case "day_of_week", "dzien_tygodnia":
 				dzien = opt.StringValue()
 			case "time_of_day", "godzina":
@@ -855,6 +957,7 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 			Name:        nazwa,
 			TargetUsers: gracze,
 			Amount:      kwota,
+			GrantType:   typ,
 			Reason:      powod,
 			DayOfWeek:   dzien,
 			TimeOfDay:   godzina,
@@ -982,10 +1085,10 @@ func (b *Bot) handleAutocomplete(s *discordgo.Session, i *discordgo.InteractionC
 		searchToken = strings.TrimSpace(currentVal)
 	}
 
-	// If this is a money management command and no multiple players selected yet, offer wildcard * option
+	// If this is a money/musordrop management command and no multiple players selected yet, offer wildcard * option
 	if len(selectedNicks) == 0 {
-		isMoneyCmd := cmd == "money" || strings.HasPrefix(cmd, "money-") || strings.Contains(cmd, "kase")
-		if (isMoneyCmd && (focusedOptName == "player" || focusedOptName == "gracz")) ||
+		isPlayerWildcardCmd := cmd == "money" || strings.HasPrefix(cmd, "money-") || strings.Contains(cmd, "kase") || strings.Contains(cmd, "grant") || strings.Contains(cmd, "reset") || strings.Contains(cmd, "musor")
+		if (isPlayerWildcardCmd && (focusedOptName == "player" || focusedOptName == "gracz")) ||
 			((cmd == "schedule" || strings.Contains(cmd, "schedule") || strings.Contains(cmd, "zrzut")) && (focusedOptName == "players" || focusedOptName == "gracze")) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
 				Name:  "⭐ * (All registered players)",
@@ -1479,60 +1582,5 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Nieznana podkomenda `!schedule`. Dostępne: `list`, `add`, `remove`, `toggle`, `run`.")
 		}
 	}
-}
-
-func (b *Bot) handleMusorDropInteraction(s *discordgo.Session, i *discordgo.InteractionCreate, ctx context.Context, boxType string) {
-	var userID string
-	var nick string
-	if i.Member != nil && i.Member.User != nil {
-		userID = i.Member.User.ID
-		nick = i.Member.User.Username
-		if i.Member.Nick != "" {
-			nick = i.Member.Nick
-		}
-	} else if i.User != nil {
-		userID = i.User.ID
-		nick = i.User.Username
-	}
-
-	if userID == "" {
-		b.respondInteraction(s, i, &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Błąd",
-			Description: "Nie można zidentyfikować konta Discord.",
-		})
-		return
-	}
-
-	player, _, _, err := b.ledger.AdminGetUser(ctx, userID)
-	if err != nil || player == nil {
-		player, _, _, err = b.ledger.AdminGetUser(ctx, nick)
-	}
-	if err != nil || player == nil {
-		b.respondInteraction(s, i, &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Nie znaleziono konta",
-			Description: fmt.Sprintf("Twoje konto Discord (**%s**) nie jest połączone z profilem gracza.\nZaloguj się najpierw na stronie kasyna [**%s**](%s).", nick, b.appURL, b.appURL),
-		})
-		return
-	}
-
-	bType := musordrop.BoxType(boxType)
-	outcome, err := b.ledger.OpenMusorBox(ctx, player.UserID, bType)
-	if err != nil {
-		b.respondInteraction(s, i, &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Nie można otworzyć skrzynki",
-			Description: err.Error(),
-		})
-		return
-	}
-
-	if outcome.Prize > 0 {
-		b.AnnounceMusorDropWin(player.Nick, boxType, outcome.PrizeName, outcome.Prize, outcome.IsJackpot)
-	}
-
-	embed := b.buildMusorDropResultEmbed(player.Nick, outcome)
-	b.respondInteraction(s, i, embed)
 }
 
