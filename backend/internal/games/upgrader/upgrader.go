@@ -68,8 +68,8 @@ func GenerateRollProvablyFair(serverSeed, clientSeed string, nonce int64) float6
 
 // PlayUpgrader executes a round of Upgrader game.
 func PlayUpgrader(bet int64, targetMultiplier float64, rollType string) (*Result, error) {
-	if targetMultiplier < 1.05 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.05x - 10000x")
+	if targetMultiplier < 1.50 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.50x - 10000x")
 	}
 
 	if rollType != "over" {
@@ -113,8 +113,8 @@ func PlayUpgrader(bet int64, targetMultiplier float64, rollType string) (*Result
 
 // PlayUpgraderProvablyFair executes a deterministic provably fair round.
 func PlayUpgraderProvablyFair(bet int64, targetMultiplier float64, rollType string, serverSeed, clientSeed string, nonce int64) (*Result, error) {
-	if targetMultiplier < 1.05 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.05x - 10000x")
+	if targetMultiplier < 1.50 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik musi mieścić się w przedziale 1.50x - 10000x")
 	}
 
 	if rollType != "over" {

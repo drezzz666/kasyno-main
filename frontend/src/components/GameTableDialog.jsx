@@ -970,11 +970,11 @@ export function GameTableDialog({
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-2.5 sm:py-4 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
                         <span className="text-xl sm:text-2xl">🦅</span>
-                        <span className="text-xs sm:text-sm font-bold">Orzeł (Awers)</span>
+                        <span className="text-xs sm:text-sm font-bold">Orzeł</span>
                       </button>
                       <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-2.5 sm:py-4 rounded-xl flex flex-col items-center gap-1 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300 scale-102" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
                         <span className="text-xl sm:text-2xl">👑</span>
-                        <span className="text-xs sm:text-sm font-bold">Reszka (Rewers)</span>
+                        <span className="text-xs sm:text-sm font-bold">Reszka</span>
                       </button>
                     </div>
                   </div>
