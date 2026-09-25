@@ -108,7 +108,13 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
     setLoading(true);
     setOpeningBox(boxId);
     setLastOutcome(null);
-    sounds.playClick();
+    try {
+      if (sounds && typeof sounds.playClick === "function") {
+        sounds.playClick();
+      } else if (sounds && typeof sounds.playTileClick === "function") {
+        sounds.playTileClick();
+      }
+    } catch (_) {}
 
     try {
       const res = await postCasinoAction(
@@ -134,7 +140,13 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
 
         if (out.prize > 0) {
           if (out.isJackpot || out.prize >= 10000) {
-            sounds.playBigWin();
+            try {
+              if (sounds && typeof sounds.playBigWin === "function") {
+                sounds.playBigWin();
+              } else if (sounds && typeof sounds.playWin === "function") {
+                sounds.playWin(10);
+              }
+            } catch (_) {}
             confetti({
               particleCount: 120,
               spread: 90,
@@ -143,7 +155,11 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
             });
             toast.success(`🔥 JACKPOT! Wygrałeś +${money(out.prize)}!`);
           } else {
-            sounds.playCoins();
+            try {
+              if (sounds && typeof sounds.playCoins === "function") {
+                sounds.playCoins();
+              }
+            } catch (_) {}
             confetti({
               particleCount: 60,
               spread: 60,
@@ -152,7 +168,11 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
             toast.success(`Wygrałeś +${money(out.prize)}!`);
           }
         } else {
-          sounds.playLoss();
+          try {
+            if (sounds && typeof sounds.playLoss === "function") {
+              sounds.playLoss();
+            }
+          } catch (_) {}
           toast.info("Pusta skrzynka. Spróbuj ponownie!");
         }
       }

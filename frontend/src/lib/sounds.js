@@ -220,6 +220,14 @@ class CasinoSoundEngine {
     }
   }
 
+  playBigWin() {
+    this.playWin(10);
+  }
+
+  playClick() {
+    this.playTileClick();
+  }
+
   playCoins() {
     if (this.muted) return;
     try {
