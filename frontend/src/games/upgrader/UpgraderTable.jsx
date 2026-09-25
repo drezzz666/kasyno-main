@@ -223,16 +223,6 @@ export function UpgraderTable({
               </defs>
             </svg>
 
-            {/* Exact Cut-off Divider Marker at the boundary angle */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                transform: `rotate(${boundaryAngle}deg)`,
-              }}
-            >
-              <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-1 h-5 bg-white shadow-lg shadow-white rounded-full z-15" />
-            </div>
-
             {/* Rotating Pointer Needle (Starts from exact top 0deg every time) */}
             <div
               ref={pointerRef}

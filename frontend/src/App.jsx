@@ -564,7 +564,7 @@ export default function App() {
       badge: "RTP 96%",
       mult: "Do ×10000",
       desc: "Wpisz kwotę, wybierz mnożnik i zakręć kołem szansy na Upgrade!",
-      img: "/limbo-hero.webp",
+      img: "/upgrader-hero.webp",
     },
   ];
 
