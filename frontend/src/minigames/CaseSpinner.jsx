@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Volume2, VolumeX, Sparkles, Trophy, Package, CheckCircle2, RotateCcw, Flame, Gem, Crown, Coins } from "lucide-react";
+import { ArrowLeft, Sparkles, Trophy, Package, CheckCircle2, RotateCcw, Flame, Gem, Crown, Coins } from "lucide-react";
 import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 import { money } from "../lib/formatters";
@@ -98,7 +98,6 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
   const [isSpinning, setIsSpinning] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
   const [translateX, setTranslateX] = useState(0);
-  const [soundMuted, setSoundMuted] = useState(false);
 
   const containerRef = useRef(null);
   const soundTickRef = useRef(null);
@@ -195,7 +194,7 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
 
       if (currentCenterCardIndex !== lastTickCardRef.current) {
         lastTickCardRef.current = currentCenterCardIndex;
-        if (!soundMuted && sounds && typeof sounds.playCaseTick === "function") {
+        if (sounds && typeof sounds.playCaseTick === "function") {
           sounds.playCaseTick();
         }
       }
@@ -271,19 +270,11 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
           POWRÓT
         </button>
 
-        {/* Box Name Header with Audio Toggle */}
+        {/* Box Name Header */}
         <div className="flex items-center gap-2">
           <span className="text-xs sm:text-sm font-black tracking-wider uppercase text-amber-300">
             {boxConfig.name}
           </span>
-          <button
-            type="button"
-            onClick={() => setSoundMuted(!soundMuted)}
-            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
-            title={soundMuted ? "Włącz dźwięk" : "Wycisz dźwięk"}
-          >
-            {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} className="text-amber-400" />}
-          </button>
         </div>
 
         <div className="text-xs font-semibold text-slate-400 bg-slate-800/60 border border-slate-700/60 px-2.5 py-1 rounded-lg">
