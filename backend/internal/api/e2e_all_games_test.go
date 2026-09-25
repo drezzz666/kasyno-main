@@ -332,14 +332,14 @@ func TestGameBlackjack_InteractiveSimulation(t *testing.T) {
 
 // 10. GAME: CRASH (ROCKET)
 func TestGameCrash_InteractiveSimulation(t *testing.T) {
-	// 1. Multiplier formula starts at 0.80x
+	// 1. Multiplier formula starts at 1.00x
 	m0 := crash.MultiplierAtElapsed(0, crash.FlightSpeed)
-	if m0 != 0.80 {
-		t.Fatalf("crash: start multiplier at t=0 must be 0.80, got %f", m0)
+	if m0 != 1.00 {
+		t.Fatalf("crash: start multiplier at t=0 must be 1.00, got %f", m0)
 	}
 
 	m10 := crash.MultiplierAtElapsed(10, crash.FlightSpeed)
-	expectedM10 := math.Floor(0.80*math.Exp(crash.FlightSpeed*10)*100.0) / 100.0
+	expectedM10 := math.Floor(1.00*math.Exp(crash.FlightSpeed*10)*100.0) / 100.0
 	if m10 != expectedM10 {
 		t.Fatalf("crash: multiplier formula mismatch at t=10: got %f want %f", m10, expectedM10)
 	}
@@ -407,8 +407,8 @@ func TestUpgrader_SecurityAndServerSided(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upgrader under: %v", err)
 	}
-	if resUnder.Payload.WinChance != 48.00 {
-		t.Fatalf("upgrader: expected 48.00 win chance, got %f", resUnder.Payload.WinChance)
+	if resUnder.Payload.WinChance != 47.50 {
+		t.Fatalf("upgrader: expected 47.50 win chance, got %f", resUnder.Payload.WinChance)
 	}
 	if resUnder.Won {
 		if resUnder.Payout != 200 {
@@ -424,8 +424,8 @@ func TestUpgrader_SecurityAndServerSided(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upgrader over: %v", err)
 	}
-	if resOver.Payload.WinChance != 19.20 {
-		t.Fatalf("upgrader: expected 19.20 win chance, got %f", resOver.Payload.WinChance)
+	if resOver.Payload.WinChance != 19.00 {
+		t.Fatalf("upgrader: expected 19.00 win chance, got %f", resOver.Payload.WinChance)
 	}
 
 	// B. Invalid multiplier bounds must be rejected

@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrRateLimitExceeded   = errors.New("RATE_LIMIT_EXCEEDED: Zbyt wiele akcji naraz. Zwolnij tempo.")
-	ErrInvalidBetAmount    = errors.New("INVALID_BET: Stawka musi wynosić od 1 do 10,000,000 $FGT.")
+	ErrInvalidBetAmount    = errors.New("INVALID_BET: Stawka przekracza dozwolony limit lub jest nieprawidłowa.")
 	ErrInsufficientBalance = errors.New("INSUFFICIENT_BALANCE: Brak wystarczających środków na koncie.")
 	ErrInvalidGameParam    = errors.New("INVALID_PARAM: Nieprawidłowe parametry gry.")
 	ErrInvalidMove         = errors.New("INVALID_MOVE: Niedozwolony ruch w obecnym stanie gry.")
@@ -62,7 +62,7 @@ func LogSuspiciousActivity(category, ip, userID, nick, action, details string) {
 	now := time.Now().UTC()
 	line := fmt.Sprintf(
 		"[%s] [%s] ip=%s | user_id=%s | nick=%q | action=%q | details=%s",
-		now.Format("2006-01-02 15:04:05 UTC"),
+		now.Format("2006-01-02 15:04:05 UxTC"),
 		category, ip, userID, nick, action, details,
 	)
 
@@ -395,11 +395,111 @@ func countSince(ts []time.Time, now time.Time, window time.Duration) int {
 }
 
 // ============================================================================
+// Profit Velocity Tracker (Alert Only, No Blocking)
+// ============================================================================
+
+const (
+	// LargeWinAlertThreshold triggers a Discord security alert when net profit exceeds 500k $FGT per session
+	LargeWinAlertThreshold = 500_000
+	VelocityWindowMins     = 60
+)
+
+type velocityEntry struct {
+	hourlyNet   int64
+	hourlyStart time.Time
+	dailyNet    int64
+	dayKey      string // UTC date "2006-01-02"
+	lastAlertAt time.Time
+}
+
+var (
+	velocityMu  sync.Mutex
+	// ponytail: in-memory map; restart resets counters — fine for virtual currency
+	velocityMap = map[string]*velocityEntry{}
+)
+
+func init() {
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		for range ticker.C {
+			velocityMu.Lock()
+			cutoff := time.Now().Add(-25 * time.Hour)
+			for uid, e := range velocityMap {
+				if e.hourlyStart.Before(cutoff) {
+					delete(velocityMap, uid)
+				}
+			}
+			velocityMu.Unlock()
+		}
+	}()
+}
+
+// RecordWin records a net profit for velocity tracking. Call after payout > bet.
+func RecordWin(userID string, netProfit int64) {
+	if netProfit <= 0 {
+		return
+	}
+	now := time.Now()
+	dayKey := now.UTC().Format("2006-01-02")
+	velocityMu.Lock()
+	defer velocityMu.Unlock()
+	e, ok := velocityMap[userID]
+	if !ok {
+		velocityMap[userID] = &velocityEntry{
+			hourlyNet:   netProfit,
+			hourlyStart: now,
+			dailyNet:    netProfit,
+			dayKey:      dayKey,
+		}
+		return
+	}
+	// Reset hourly window if expired
+	if now.Sub(e.hourlyStart) > time.Duration(VelocityWindowMins)*time.Minute {
+		e.hourlyNet = 0
+		e.hourlyStart = now
+	}
+	// Reset daily counter on new day
+	if e.dayKey != dayKey {
+		e.dailyNet = 0
+		e.dayKey = dayKey
+	}
+	e.hourlyNet += netProfit
+	e.dailyNet += netProfit
+}
+
+// CheckProfitVelocity logs an alert to Discord if a player hits high net profit, without blocking them.
+func CheckProfitVelocity(userID string) {
+	now := time.Now()
+	dayKey := now.UTC().Format("2006-01-02")
+	velocityMu.Lock()
+	defer velocityMu.Unlock()
+	e, ok := velocityMap[userID]
+	if !ok {
+		return
+	}
+	// Reset stale windows
+	if now.Sub(e.hourlyStart) > time.Duration(VelocityWindowMins)*time.Minute {
+		e.hourlyNet = 0
+		e.hourlyStart = now
+	}
+	if e.dayKey != dayKey {
+		e.dailyNet = 0
+		e.dayKey = dayKey
+	}
+	if (e.hourlyNet >= LargeWinAlertThreshold || e.dailyNet >= LargeWinAlertThreshold) && now.Sub(e.lastAlertAt) > 5*time.Minute {
+		e.lastAlertAt = now
+		LogSuspiciousActivity("LARGE_WIN_ALERT", "unknown", userID, "", "high_net_profit",
+			fmt.Sprintf("Wykryto dużą wygraną: godzinowy zysk netto=%d, dzienny zysk netto=%d $FGT", e.hourlyNet, e.dailyNet))
+	}
+}
+
+// ============================================================================
 // Parameter & State Sanitization Rules
 // ============================================================================
 
+// ValidateBet allows all-in and open betting up to player's balance.
 func ValidateBet(bet int64, playerBalance int64) error {
-	if bet < 1 || bet > 10_000_000 {
+	if bet < 1 {
 		return ErrInvalidBetAmount
 	}
 	if bet > playerBalance {
@@ -531,15 +631,15 @@ func ValidateUpgraderTarget(target float64) error {
 }
 
 func ValidateCrashTarget(target float64) error {
-	if target < 0.80 || target > 1000.0 {
-		return fmt.Errorf("%w: cel w Crash musi wynosić od 0.80x do 1,000x", ErrInvalidGameParam)
+	if target < 1.00 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Crash musi wynosić od 1.00x do 10,000x", ErrInvalidGameParam)
 	}
 	return nil
 }
 
 func ValidateMinesStart(mineCount int) error {
-	if mineCount < 2 || mineCount > 24 {
-		return fmt.Errorf("%w: liczba min musi wynosić od 2 do 24", ErrInvalidGameParam)
+	if mineCount < 3 || mineCount > 15 {
+		return fmt.Errorf("%w: liczba min musi wynosić od 3 do 15", ErrInvalidGameParam)
 	}
 	return nil
 }

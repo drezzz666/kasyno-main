@@ -1,19 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg-dark: #090a0f;
-  --bg-card: #12141c;
-  --bg-card-hover: #181a24;
-  --bg-surface: #1b1e2a;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-active: #f59e0b;
-  --gold: #f59e0b;
-  --green: #10b981;
-  --red: #f43f5e;
-  --accent: #f59e0b;
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'Space Grotesk', sans-serif;
+  /* Atlantic Privé '91 Design Tokens */
+  --bg-0: #07080e;
+  --bg-1: #0e1018;
+  --bg-2: #14172a;
+  --bg-dark: #07080e;
+  --bg-card: #0e1018;
+  --bg-card-hover: #14172a;
+  --bg-surface: #14172a;
+
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+
+  --gold: #fbbf24;
+  --green: #34d399;
+  --red: #fb7185;
+  --purple: #c084fc;
+  --accent: #fbbf24;
+
+  --border-subtle: rgba(251, 191, 36, 0.15);
+  --border-active: #fbbf24;
+  --glow-gold: 0 0 24px rgba(251, 191, 36, 0.35);
+
+  --gold-metallic: linear-gradient(
+    135deg,
+    #cf9e38 0%,
+    #fbbf24 25%,
+    #fef08a 50%,
+    #b45309 75%,
+    #d97706 100%
+  );
+  --gold-border-bevel: linear-gradient(
+    135deg,
+    rgba(254, 240, 138, 0.7) 0%,
+    rgba(251, 191, 36, 0.25) 50%,
+    rgba(180, 83, 9, 0.7) 100%
+  );
+
+  --font-family: 'IBM Plex Serif', Georgia, serif;
+  --font-sans: 'IBM Plex Serif', Georgia, serif;
+  --font-mono: 'IBM Plex Serif', Georgia, serif;
+  --font-display: 'IBM Plex Serif', Georgia, serif;
 }
 
 * {
@@ -21,9 +50,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Global focus management:
-   - Remove default outline for mouse users
-   - Show a clean gold ring for keyboard users (Tab / Shift+Tab) */
+/* Global focus management */
 *:focus {
   outline: none;
 }
@@ -35,9 +62,12 @@
 
 body {
   margin: 0;
-  background-color: var(--bg-dark);
-  color: #e2e8f0;
-  font-family: var(--font-sans);
+  background-color: var(--bg-0);
+  background-image: 
+    radial-gradient(ellipse at 50% 0%, rgba(20, 23, 42, 0.85) 0%, transparent 60%),
+    radial-gradient(circle at center, rgba(14, 16, 24, 0.9) 0%, var(--bg-0) 100%);
+  color: var(--text-main);
+  font-family: var(--font-family);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,7 +78,119 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  background-color: var(--bg-dark);
+  background-color: var(--bg-0);
+}
+
+/* ==========================================================================
+   Atlantic Privé '91 Design System Components
+   ========================================================================== */
+
+.headline-gold {
+  font-family: var(--font-family);
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--gold-metallic);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
+}
+
+.label-brass {
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* Table Card / Solid Box (Clean Metal Bevel, No Backdrop Lag) */
+.table-card,
+.glass-card,
+.prive-card {
+  position: relative;
+  background: linear-gradient(180deg, #14172a 0%, #0e1018 100%);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-image: var(--gold-border-bevel) 1;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.7), inset 0 0 12px rgba(0, 0, 0, 0.5);
+  padding: 18px 16px;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.table-card::after,
+.glass-card::after,
+.prive-card::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--border-subtle);
+  pointer-events: none;
+}
+
+.table-card:hover,
+.glass-card:hover,
+.prive-card:hover {
+  box-shadow: var(--glow-gold), 0 20px 40px rgba(0, 0, 0, 0.8);
+  border-image: linear-gradient(135deg, #fef08a, #fbbf24, #b45309) 1;
+  transform: translateY(-2px);
+}
+
+/* Enamel Plaque Button */
+.btn-plaque {
+  position: relative;
+  font-family: var(--font-family);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #fef08a;
+  background: radial-gradient(circle at 50% 0%, #1c2035 0%, #08090f 100%);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-image: var(--gold-border-bevel) 1;
+  padding: 10px 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 
+    inset 0 1px 0 rgba(254, 240, 138, 0.3),
+    inset 0 0 12px rgba(0, 0, 0, 0.9),
+    0 8px 16px rgba(0, 0, 0, 0.7);
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-plaque:hover:not(:disabled) {
+  color: #ffffff;
+  border-image: linear-gradient(135deg, #fef08a, #fbbf24, #d97706) 1;
+  box-shadow: 
+    inset 0 1px 0 rgba(254, 240, 138, 0.5),
+    var(--glow-gold);
+  transform: translateY(-1px);
+}
+
+.btn-plaque:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.btn-plaque:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+/* Brass Divider */
+.brass-divider {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 50%, transparent 100%);
+  margin: 16px 0;
+  border: none;
 }
 
 

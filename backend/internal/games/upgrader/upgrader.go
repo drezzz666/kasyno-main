@@ -25,12 +25,12 @@ type Result struct {
 	Payload    Payload `json:"payload"`
 }
 
-// CalculateWinChance returns win percentage (0.01% - 95.00%) for target multiplier with 96% RTP.
+// CalculateWinChance returns win percentage (0.01% - 95.00%) for target multiplier with ~95% RTP (~1% off precision).
 func CalculateWinChance(targetMultiplier float64) float64 {
 	if targetMultiplier <= 1.01 {
 		return 95.00
 	}
-	chance := 96.00 / targetMultiplier
+	chance := 95.00 / targetMultiplier
 	chance = math.Floor(chance*100) / 100
 	if chance < 0.01 {
 		chance = 0.01

@@ -42,15 +42,15 @@ func ParsePayload(data string) (*ActivePayload, error) {
 	return &p, nil
 }
 
-// MultiplierAtElapsed returns the flight multiplier at given elapsed seconds starting from 0.80x.
+// MultiplierAtElapsed returns the flight multiplier at given elapsed seconds starting from 1.00x.
 func MultiplierAtElapsed(elapsedSec float64, flightSpeed float64) float64 {
 	if elapsedSec <= 0 {
-		return 0.80
+		return 1.00
 	}
 	if flightSpeed <= 0 {
 		flightSpeed = FlightSpeed
 	}
-	m := 0.80 * math.Exp(flightSpeed*elapsedSec)
+	m := 1.00 * math.Exp(flightSpeed*elapsedSec)
 	return math.Floor(m*100.0) / 100.0
 }
 
@@ -68,28 +68,30 @@ type Result struct {
 	Payload    Payload `json:"payload"`
 }
 
-// GenerateCrashPoint generates a cryptographically secure crash multiplier with 99% RTP starting from 0.80x.
+// GenerateCrashPoint generates a cryptographically secure crash multiplier with balanced curve starting from 1.00x.
+// Low probability (~2%) to exceed 10x to maintain steady economy.
 func GenerateCrashPoint() float64 {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
-		return 0.80
+		return 1.00
 	}
 	val := binary.BigEndian.Uint64(buf[:]) >> 12
 	u := float64(val) / float64(uint64(1)<<52)
 
-	// 1 in 100 rounds instant crash at 0.80x
-	if u < 0.01 {
-		return 0.80
+	// 2% instant crash at 1.00x
+	if u < 0.02 {
+		return 1.00
 	}
 
 	if u >= 0.9999999999 {
 		u = 0.9999999999
 	}
 
-	raw := (0.80 * 0.99) / (1.0 - u)
+	// Smooth curve where only top ~2% exceeds 10.00x
+	raw := 0.97 / (1.0 - (u * 0.93))
 	mult := math.Floor(raw*100.0) / 100.0
-	if mult < 0.80 {
-		mult = 0.80
+	if mult < 1.00 {
+		mult = 1.00
 	}
 	if mult > 10000.00 {
 		mult = 10000.00
@@ -100,8 +102,8 @@ func GenerateCrashPoint() float64 {
 // PlayCrash executes a single round of Crash.
 // targetMultiplier is the player's cashout point (manual or auto-cashout).
 func PlayCrash(bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 0.80 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 0.80x - 10000x")
+	if targetMultiplier < 1.00 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 1.00x - 10000x")
 	}
 
 	crashPoint := GenerateCrashPoint()
@@ -138,19 +140,18 @@ func PlayCrash(bet int64, targetMultiplier float64) (*Result, error) {
 func GenerateCrashPointProvablyFair(serverSeed, clientSeed string, nonce int64) float64 {
 	u := provablyfair.GenerateFloat(serverSeed, clientSeed, nonce)
 
-	// 1 in 100 rounds instant crash at 0.80x
-	if u < 0.01 {
-		return 0.80
+	if u < 0.02 {
+		return 1.00
 	}
 
 	if u >= 0.9999999999 {
 		u = 0.9999999999
 	}
 
-	raw := (0.80 * 0.99) / (1.0 - u)
+	raw := 0.97 / (1.0 - (u * 0.93))
 	mult := math.Floor(raw*100.0) / 100.0
-	if mult < 0.80 {
-		mult = 0.80
+	if mult < 1.00 {
+		mult = 1.00
 	}
 	if mult > 10000.00 {
 		mult = 10000.00
@@ -160,8 +161,8 @@ func GenerateCrashPointProvablyFair(serverSeed, clientSeed string, nonce int64) 
 
 // PlayCrashProvablyFair executes a deterministic single round of Crash
 func PlayCrashProvablyFair(serverSeed, clientSeed string, nonce int64, bet int64, targetMultiplier float64) (*Result, error) {
-	if targetMultiplier < 0.80 || targetMultiplier > 10000.00 {
-		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 0.80x - 10000x")
+	if targetMultiplier < 1.00 || targetMultiplier > 10000.00 {
+		return nil, fmt.Errorf("docelowy mnożnik wypłaty musi mieścić się w przedziale 1.00x - 10000x")
 	}
 
 	crashPoint := GenerateCrashPointProvablyFair(serverSeed, clientSeed, nonce)

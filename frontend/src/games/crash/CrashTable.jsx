@@ -4,7 +4,7 @@ import { money } from "../../lib/formatters";
 export function CrashTable({
   bet,
   isPlaying,
-  currentMult = 0.8,
+  currentMult = 1.0,
   isCrashed,
   isCashedOut,
   graphPoints = [],
@@ -64,19 +64,19 @@ export function CrashTable({
     // 2. Draw Exponential Curve
     ctx.beginPath();
     ctx.strokeStyle = isCrashed
-      ? "#f43f5e"
+      ? "#fb7185"
       : isCashedOut
         ? "#34d399"
         : currentMult >= 2.0
-          ? "#10b981"
-          : "#38bdf8";
+          ? "#fbbf24"
+          : "#c084fc";
     ctx.lineWidth = 3.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
     graphPoints.forEach((pt, idx) => {
       const x = (pt.x / maxTime) * (width - 30) + 15;
-      const y = height - ((pt.y - 0.8) / (maxMult - 0.8)) * (height - 40) - 20;
+      const y = height - ((pt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
       if (idx === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     });
@@ -85,7 +85,7 @@ export function CrashTable({
     // 3. Fill Gradient Area Under Curve
     const lastPt = graphPoints[graphPoints.length - 1];
     const lastX = (lastPt.x / maxTime) * (width - 30) + 15;
-    const lastY = height - ((lastPt.y - 0.8) / (maxMult - 0.8)) * (height - 40) - 20;
+    const lastY = height - ((lastPt.y - 1.0) / (maxMult - 1.0)) * (height - 40) - 20;
 
     ctx.lineTo(lastX, height);
     ctx.lineTo(15, height);
@@ -93,14 +93,14 @@ export function CrashTable({
 
     const grad = ctx.createLinearGradient(0, 0, 0, height);
     if (isCrashed) {
-      grad.addColorStop(0, "rgba(244, 63, 94, 0.35)");
-      grad.addColorStop(1, "rgba(244, 63, 94, 0.0)");
+      grad.addColorStop(0, "rgba(251, 113, 133, 0.35)");
+      grad.addColorStop(1, "rgba(251, 113, 133, 0.0)");
     } else if (isCashedOut) {
       grad.addColorStop(0, "rgba(52, 211, 153, 0.35)");
       grad.addColorStop(1, "rgba(52, 211, 153, 0.0)");
     } else {
-      grad.addColorStop(0, "rgba(56, 189, 248, 0.35)");
-      grad.addColorStop(1, "rgba(56, 189, 248, 0.0)");
+      grad.addColorStop(0, "rgba(192, 132, 252, 0.35)");
+      grad.addColorStop(1, "rgba(192, 132, 252, 0.0)");
     }
     ctx.fillStyle = grad;
     ctx.fill();
@@ -110,14 +110,12 @@ export function CrashTable({
       ctx.beginPath();
       ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#38bdf8";
+      ctx.shadowColor = "#fbbf24";
       ctx.shadowBlur = 12;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
   }, [graphPoints, isCrashed, isCashedOut, currentMult]);
-
-  const livePayout = Math.floor(bet * currentMult);
 
   return (
     <div className="crash-container">
@@ -144,7 +142,7 @@ export function CrashTable({
                 ? `ROZBITO @ ${(last?.payload?.crash_point || currentMult).toFixed(2)}x`
                 : isCashedOut
                   ? `WYPŁACONO @ ${(last?.payload?.cashed_at || currentMult).toFixed(2)}x`
-                  : `${(last?.payload?.crash_point || 0.8).toFixed(2)}x`}
+                  : `${(last?.payload?.crash_point || 1.0).toFixed(2)}x`}
           </div>
         </div>
       </div>
