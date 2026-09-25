@@ -1,10 +1,4 @@
 @import "tailwindcss";
-@theme {
-  --font-sans: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
-  --font-serif: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
-}
 
 :root {
   --bg-dark: #090a0f;
@@ -17,10 +11,9 @@
   --green: #10b981;
   --red: #f43f5e;
   --accent: #f59e0b;
-  --font-sans: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
-  --font-serif: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'IBM Plex Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-display: 'Space Grotesk', sans-serif;
 }
 
 * {
