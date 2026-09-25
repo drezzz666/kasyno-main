@@ -93,7 +93,7 @@ const TOTAL_ITEMS = 65;
 const WINNING_INDEX = 48; // Exact winning slot index
 const SPIN_DURATION_MS = 5200; // 5.2s duration
 
-export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, canReopen, reopenButtonText }) {
+export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, canReopen, reopenButtonText, onSpinStateChange }) {
   const [items, setItems] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -104,6 +104,12 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
   const soundTickRef = useRef(null);
   const animStartTimeRef = useRef(null);
   const lastTickCardRef = useRef(-1);
+
+  useEffect(() => {
+    return () => {
+      if (onSpinStateChange) onSpinStateChange(false);
+    };
+  }, [onSpinStateChange]);
 
   // Generate full items strip with the winning item placed at WINNING_INDEX
   useEffect(() => {
@@ -176,6 +182,7 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
     const targetX = winningItemCenter - centerPoint + randomInnerCardOffset;
 
     setIsSpinning(true);
+    if (onSpinStateChange) onSpinStateChange(true);
     setTranslateX(targetX);
     animStartTimeRef.current = performance.now();
     lastTickCardRef.current = -1;
@@ -214,6 +221,7 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
   const handleSpinEnd = (winningItem) => {
     setIsSpinning(false);
     setIsFinished(true);
+    if (onSpinStateChange) onSpinStateChange(false);
 
     if (winningItem.prize > 0) {
       if (winningItem.tier === "jackpot" || winningItem.prize >= 10000) {

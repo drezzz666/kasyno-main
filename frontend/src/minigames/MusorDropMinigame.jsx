@@ -52,7 +52,7 @@ const BOXES_CONFIG = [
   },
 ];
 
-export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
+export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setModalLocked }) {
   const [state, setState] = useState({
     plebsUsed: 0,
     plebsLimit: 5,
@@ -76,7 +76,10 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
 
   useEffect(() => {
     refreshStatus();
-  }, []);
+    return () => {
+      if (setModalLocked) setModalLocked(false);
+    };
+  }, [setModalLocked]);
 
   const handleOpen = async (boxId) => {
     if (loading) return;
@@ -104,6 +107,7 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
     }
 
     setLoading(true);
+    if (setModalLocked) setModalLocked(true);
 
     try {
       const res = await postCasinoAction(
@@ -118,9 +122,12 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
         const out = res.outcome;
         setActiveSpinnerBox(cfg);
         setActiveSpinnerOutcome(out);
+      } else {
+        if (setModalLocked) setModalLocked(false);
       }
     } catch (err) {
       toast.error(err.message || "Błąd otwierania skrzynki");
+      if (setModalLocked) setModalLocked(false);
       refreshStatus();
     } finally {
       setLoading(false);
@@ -134,6 +141,7 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
     if (out && typeof out.balance === "number" && syncBalance) {
       syncBalance(out.balance);
     }
+    if (setModalLocked) setModalLocked(false);
   };
 
   // Check if currently active box in spinner can be reopened
@@ -161,7 +169,11 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
           boxConfig={activeSpinnerBox}
           outcome={activeSpinnerOutcome}
           onComplete={handleSpinnerComplete}
+          onSpinStateChange={(spinning) => {
+            if (setModalLocked) setModalLocked(spinning);
+          }}
           onBack={() => {
+            if (setModalLocked) setModalLocked(false);
             setActiveSpinnerBox(null);
             setActiveSpinnerOutcome(null);
             refreshStatus();

@@ -6,6 +6,7 @@ import { money } from "../lib/formatters";
 
 export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "musordrop" }) {
   const [selectedGameId, setSelectedGameId] = useState(initialGame);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (initialGame) {
@@ -13,14 +14,32 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
     }
   }, [initialGame, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (!isLocked) {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isLocked, onClose]);
+
   if (!isOpen) return null;
+
+  const handleSafeClose = () => {
+    if (isLocked) return;
+    onClose();
+  };
 
   const activeGameMeta = getMinigameById(selectedGameId);
   const ActiveComponent = activeGameMeta?.component;
   const ActiveIcon = activeGameMeta?.icon || Gamepad2;
 
   return (
-    <div className="modal-backdrop captcha-modal-backdrop" onClick={onClose} role="presentation">
+    <div className="modal-backdrop captcha-modal-backdrop" onClick={handleSafeClose} role="presentation">
       <div
         className={`modal-dialog minigames-modal-card ${selectedGameId === "captcha" ? "is-compact" : ""}`}
         onClick={(e) => e.stopPropagation()}
@@ -58,8 +77,9 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
             )}
             <button
               type="button"
-              onClick={onClose}
-              className="captcha-close-btn"
+              disabled={isLocked}
+              onClick={handleSafeClose}
+              className={`captcha-close-btn ${isLocked ? "opacity-30 cursor-not-allowed pointer-events-none" : ""}`}
               aria-label="Zamknij"
             >
               <X size={18} />
@@ -72,7 +92,8 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
           <ActiveComponent
             syncBalance={syncBalance}
             currentBalance={currentBalance}
-            onClose={onClose}
+            onClose={handleSafeClose}
+            setModalLocked={setIsLocked}
           />
         ) : (
           <div className="p-6 text-center text-slate-400 text-sm">
