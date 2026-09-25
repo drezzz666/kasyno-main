@@ -701,7 +701,6 @@ export default function App() {
                       <div className="game-card-info">
                         <div className="game-card-title-row">
                           <h3 className="game-card-title">{g.name}</h3>
-                          <span className="game-card-mult">{g.mult}</span>
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
                         <span className="btn-play-game" aria-hidden="true">
