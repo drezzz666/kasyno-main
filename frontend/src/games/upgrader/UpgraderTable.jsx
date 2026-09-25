@@ -118,7 +118,7 @@ export function UpgraderTable({
     rollType === "under" ? (winChance / 100) * 360 : ((100 - winChance) / 100) * 360;
 
   return (
-    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 gap-2 sm:gap-6">
+    <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-2 sm:gap-6">
       {/* Responsive Grid: Stacks cleanly on mobile with button higher up, expansive 3 columns on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-6 items-stretch">
         
