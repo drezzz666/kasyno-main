@@ -31,7 +31,7 @@ func TestSlotsEvaluation(t *testing.T) {
 		t.Errorf("expected 4 of a kind 5x payout 250, got mult %.2f payout %d", res4.Multiplier, res4.Payout)
 	}
 
-	// 3 of a kind: "G" (1.2x)
+	// 3 of a kind: "G" (1.5x)
 	reels3 := [][]string{
 		{"2", "G", "F"},
 		{"F", "G", "G"},
@@ -40,8 +40,8 @@ func TestSlotsEvaluation(t *testing.T) {
 		{"2", "T", "T"},
 	}
 	res3 := EvaluateReels(reels3, 10)
-	if !res3.Win || res3.Multiplier != 1.2 || res3.Payout != 12 {
-		t.Errorf("expected 3 of a kind 1.2x payout 12, got mult %.2f payout %d", res3.Multiplier, res3.Payout)
+	if !res3.Win || res3.Multiplier != 1.5 || res3.Payout != 15 {
+		t.Errorf("expected 3 of a kind 1.5x payout 15, got mult %.2f payout %d", res3.Multiplier, res3.Payout)
 	}
 
 	// Loss: all different symbols on middle line

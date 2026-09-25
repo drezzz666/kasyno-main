@@ -96,31 +96,19 @@ func EvaluateReels(reels [][]string, bet int64) *SpinResult {
 			comboName = fmt.Sprintf("4x Symbol %s", sym)
 		}
 	} else if len(triples) > 0 && len(pairs) > 0 {
-		multiplier = 3.5
+		multiplier = 6.0
 		comboName = fmt.Sprintf("Full House (%s & %s)", triples[0], pairs[0])
 	} else if len(triples) > 0 {
 		sym := triples[0]
 		if sym == "♛" {
-			multiplier = 2.5
+			multiplier = 4.0
 			comboName = "3x Korona ♛"
 		} else if sym == "◆" {
-			multiplier = 1.8
+			multiplier = 2.5
 			comboName = "3x Diament ◆"
 		} else {
-			multiplier = 1.2
+			multiplier = 1.5
 			comboName = fmt.Sprintf("3x Symbol %s", sym)
-		}
-	} else if len(pairs) >= 2 {
-		multiplier = 1.0
-		comboName = fmt.Sprintf("Dwie Pary (%s & %s)", pairs[0], pairs[1])
-	} else if len(pairs) == 1 {
-		sym := pairs[0]
-		if sym == "♛" {
-			multiplier = 0.8
-			comboName = "Para Koron ♛"
-		} else if sym == "◆" {
-			multiplier = 0.5
-			comboName = "Para Diamentów ◆"
 		}
 	}
 
@@ -129,11 +117,7 @@ func EvaluateReels(reels [][]string, bet int64) *SpinResult {
 
 	resultText := "Brak wygranej"
 	if win {
-		if multiplier >= 1.0 {
-			resultText = fmt.Sprintf("%s — Wygrana ×%.2f", comboName, multiplier)
-		} else {
-			resultText = fmt.Sprintf("%s — Zwrot ×%.2f", comboName, multiplier)
-		}
+		resultText = fmt.Sprintf("%s — Wygrana ×%.2f", comboName, multiplier)
 	}
 
 	return &SpinResult{
