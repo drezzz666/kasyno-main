@@ -195,6 +195,11 @@ export default function App() {
     onGlobalWin: handleGlobalWin,
   });
 
+  const hasConnectedOnce = useRef(false);
+  if (connected && !hasConnectedOnce.current) {
+    hasConnectedOnce.current = true;
+  }
+
   const load = useCallback(async (isPolling = false) => {
     if (isPolling && isAnimatingRef.current) return;
     try {
@@ -1247,7 +1252,7 @@ export default function App() {
         currentBalance={data?.player?.balance}
       />
 
-      {/* Full-Screen Centered Reconnecting Blur Overlay */}
+      {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (
         <div className="reconnecting-overlay" role="alert" aria-live="assertive">
           <div className="reconnecting-card">
@@ -1255,9 +1260,13 @@ export default function App() {
               <div className="reconnecting-spinner" />
               <div className="reconnecting-pulse" />
             </div>
-            <h2 className="reconnecting-title">Łączenie ponownie...</h2>
+            <h2 className="reconnecting-title">
+              {hasConnectedOnce.current ? "Łączenie ponownie..." : "Ładowanie..."}
+            </h2>
             <p className="reconnecting-subtitle">
-              Utracono połączenie z serwerem kasyna. Trwa próba ponownego nawiązania sesji na żywo.
+              {hasConnectedOnce.current
+                ? "Utracono połączenie z serwerem kasyna. Trwa próba ponownego nawiązania sesji na żywo."
+                : "Otwieramy stoliki..."}
             </p>
           </div>
         </div>
