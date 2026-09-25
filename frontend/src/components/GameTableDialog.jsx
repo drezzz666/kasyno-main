@@ -75,10 +75,10 @@ export function GameTableDialog({
   const [limboDisplayMult, setLimboDisplayMult] = useState(1.0);
   const [crashAutoCashout, setCrashAutoCashout] = useState(2.0);
   const [crashPlaying, setCrashPlaying] = useState(false);
-  const [crashMult, setCrashMult] = useState(1.0);
+  const [crashMult, setCrashMult] = useState(0.8);
   const [crashCrashed, setCrashCrashed] = useState(false);
   const [crashCashedOut, setCrashCashedOut] = useState(false);
-  const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 1.0 }]);
+  const [crashGraphPoints, setCrashGraphPoints] = useState([{ x: 0, y: 0.8 }]);
   const [chickenBusy, setChickenBusy] = useState(false);
   const [upgraderTarget, setUpgraderTarget] = useState(2.0);
   const [upgraderRollType, setUpgraderRollType] = useState("under");
@@ -923,7 +923,7 @@ export function GameTableDialog({
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
                     <div className="flex items-center gap-1.5">
-                      {[3, 5, 8, 10, 12, 15].map((c) => (
+                      {[2, 3, 5, 10, 15, 20].map((c) => (
                         <button
                           key={c}
                           type="button"

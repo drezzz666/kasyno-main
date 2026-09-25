@@ -66,10 +66,6 @@ func (h *CasinoHandler) recordGameRound(game, action string, bet, payout int64, 
 	if h.telemetry != nil {
 		h.telemetry.RecordGameRound(game, action, bet, payout, result, multiplier, duration)
 	}
-	if payout > bet && p != nil {
-		anticheat.RecordWin(p.UserID, payout-bet)
-		anticheat.CheckProfitVelocity(p.UserID)
-	}
 }
 
 func (h *CasinoHandler) reportBackendError(category string, err error, details map[string]interface{}) {

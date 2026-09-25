@@ -9,8 +9,8 @@ func TestPlayUpgrader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res.Payload.WinChance != 47.50 {
-		t.Errorf("expected 47.50 win chance for 2.0x, got %f", res.Payload.WinChance)
+	if res.Payload.WinChance != 48.00 {
+		t.Errorf("expected 48.00 win chance for 2.0x, got %f", res.Payload.WinChance)
 	}
 
 	resPF, err := PlayUpgraderProvablyFair(100, 5.0, "over", "test_server_seed", "test_client_seed", 1)

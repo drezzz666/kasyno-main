@@ -478,17 +478,94 @@ export default function App() {
   };
 
   const gamesList = [
-    { id: "chicken", name: "Chicken Cross", img: "/chicken-hero.webp" },
-    { id: "crash", name: "Crash", img: "/crash-hero.webp" },
-    { id: "limbo", name: "Limbo", img: "/limbo-hero.webp" },
-    { id: "plinko", name: "Plinko", img: "/plinko-hero.webp" },
-    { id: "mines", name: "Mines", img: "/mines-hero.webp" },
-    { id: "coinflip", name: "Coinflip", img: "/coinflip-hero.webp" },
-    { id: "rps", name: "Kamień Papier Nożyce", img: "/rps-hero.webp" },
-    { id: "roulette", name: "Ruletka", img: "/roulette-hero.webp" },
-    { id: "blackjack", name: "Blackjack", img: "/blackjack-hero.webp" },
-    { id: "slots", name: "Slots", img: "/slot-hero.webp" },
-    { id: "upgrader", name: "Upgrader", img: "/upgrader-hero.webp" },
+    {
+      id: "chicken",
+      name: "Chicken Cross",
+      badge: "RTP 98%",
+      mult: "Do ×181 060",
+      desc: "Przeprowadź kurczaka przez ruchliwą trasę 10 pasów. 4 poziomy ryzyka.",
+      img: "/chicken-hero.webp",
+    },
+    {
+      id: "crash",
+      name: "Crash",
+      badge: "RTP 99%",
+      mult: "Do ×1000",
+      desc: "Obserwuj rosnący mnożnik. Wypłać zanim nastąpi crash.",
+      img: "/crash-hero.webp",
+    },
+    {
+      id: "limbo",
+      name: "Limbo",
+      badge: "RTP 99%",
+      mult: "Do ×10000",
+      desc: "Ustaw docelowy mnożnik i obstaw wynik wyższy od celu.",
+      img: "/limbo-hero.webp",
+    },
+    {
+      id: "plinko",
+      name: "Plinko",
+      badge: "Do ×1000",
+      mult: "8–16 rzędów",
+      desc: "Upuszczaj kule przez piramidę kołków. Trzy poziomy ryzyka.",
+      img: "/plinko-hero.webp",
+    },
+    {
+      id: "mines",
+      name: "Mines",
+      badge: "RTP 97%",
+      mult: "Do ×100",
+      desc: "Odkrywaj diamenty na siatce 5×5. Wypłać kiedy chcesz.",
+      img: "/mines-hero.webp",
+    },
+    {
+      id: "coinflip",
+      name: "Coinflip",
+      badge: "RTP 99%",
+      mult: "×1.98",
+      desc: "Rzut monetą. Wybierz Orła lub Reszkę.",
+      img: "/coinflip-hero.webp",
+    },
+    {
+      id: "rps",
+      name: "Kamień Papier Nożyce",
+      badge: "PvE",
+      mult: "×1.98",
+      desc: "Klasyczny pojedynek z krupierem.",
+      img: "/rps-hero.webp",
+    },
+    {
+      id: "roulette",
+      name: "Ruletka",
+      badge: "RTP 97.3%",
+      mult: "Do ×36",
+      desc: "Europejska ruletka z pojedynczym zerem. Numery, kolory, tuziny.",
+      img: "/roulette-hero.webp",
+    },
+    {
+      id: "blackjack",
+      name: "Blackjack",
+      badge: "Wypłata 3:2",
+      mult: "×1.5",
+      desc: "Graj przeciwko krupierowi. Dobieraj karty do 21.",
+      img: "/blackjack-hero.webp",
+    },
+    {
+      id: "slots",
+      name: "Slots",
+      badge: "5 bębnów",
+      mult: "Do ×12",
+      desc: "Klasyczny automat. Trafiaj linie 3, 4 lub 5 symboli.",
+      img: "/slot-hero.webp",
+    },
+    {
+      id: "upgrader",
+      name: "Upgrader",
+      badge: "RTP 96%",
+      mult: "Do ×10000",
+      desc: "Wpisz kwotę, wybierz mnożnik i zakręć kołem szansy na Upgrade!",
+      img: "/upgrader-hero.webp",
+    },
   ];
 
   return (
@@ -503,6 +580,7 @@ export default function App() {
 
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
+
           <button
             type="button"
             className="icon-btn"
@@ -533,6 +611,9 @@ export default function App() {
         </div>
       </header>
 
+      {/* Live Wins Ticker */}
+      <LiveTicker wins={recentWins} />
+
       {/* Main Content Area */}
       <main className="main-content">
         {loading && !data ? (
@@ -543,7 +624,7 @@ export default function App() {
         ) : (
           <>
             {/* Player Utility Strip */}
-            <section className="player-summary-card table-card mb-4">
+            <section className="player-summary-card">
               <div className="player-summary-left">
                 <div className="player-strip-avatar-wrap">
                   {data?.player?.avatar ? (
@@ -554,8 +635,8 @@ export default function App() {
                 </div>
                 <div className="flex flex-col">
                   <div className="player-nick-row">
-                    <span className="player-name font-bold text-base text-slate-100">{userNick}</span>
-                    <span className="label-brass text-xs">POZIOM {data?.player?.level || 1}</span>
+                    <span className="player-name">{userNick}</span>
+                    <span className="level-pill">POZIOM {data?.player?.level || 1}</span>
                   </div>
                   <div className="xp-wrap">
                     <div className="xp-meter">
@@ -570,7 +651,7 @@ export default function App() {
                 <button
                   type="button"
                   disabled={!bonusAvailable || loading}
-                  className="btn-plaque"
+                  className={`streak-bonus-btn ${bonusAvailable ? "ready" : "done"}`}
                   onClick={async () => {
                     const j = await post({ action: "bonus" });
                     if (j?.amount) toast.success(`Odebrano +${money(j.amount)} do salda!`);
@@ -579,7 +660,7 @@ export default function App() {
                   <Flame size={14} className={bonusAvailable ? "text-amber-400" : "text-slate-500"} />
                   <span>
                     {bonusAvailable
-                      ? `Bonus +${money(dailyBonus((data?.player?.streak || 0) + 1))}`
+                      ? `Odbierz +${money(dailyBonus((data?.player?.streak || 0) + 1))}`
                       : `Seria: ${data?.player?.streak || 0} dni`}
                   </span>
                 </button>
@@ -600,24 +681,35 @@ export default function App() {
               <section className="games-section">
                 <div className="games-grid">
                   {gamesList.map((g) => (
-                    <div
+                    <button
                       key={g.id}
-                      className="table-card flex flex-col justify-between"
+                      type="button"
+                      className="game-card"
+                      aria-label={`Zagraj w ${g.name}`}
+                      onClick={() => handleOpenGame(g.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleOpenGame(g.id);
+                        }
+                      }}
                     >
-                      <div className="game-card-media rounded-lg overflow-hidden mb-3">
-                        <img src={g.img} alt={g.name} className="game-card-img" />
+                      <div className="game-card-media">
+                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
+                        <div className="game-card-gradient" />
+                        <span className="tag-badge">{g.badge}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-2 mt-auto">
-                        <h3 className="font-bold text-sm tracking-wide text-slate-100 uppercase">{g.name}</h3>
-                        <button
-                          type="button"
-                          className="btn-plaque !py-1.5 !px-3 !text-xs"
-                          onClick={() => handleOpenGame(g.id)}
-                        >
-                          Graj <ChevronRight size={13} />
-                        </button>
+                      <div className="game-card-info">
+                        <div className="game-card-title-row">
+                          <h3 className="game-card-title">{g.name}</h3>
+                          <span className="game-card-mult">{g.mult}</span>
+                        </div>
+                        <p className="game-card-desc">{g.desc}</p>
+                        <span className="btn-play-game" aria-hidden="true">
+                          Zagraj <ChevronRight size={13} />
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>

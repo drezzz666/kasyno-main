@@ -28,6 +28,9 @@ func TestValidateBet(t *testing.T) {
 	if err := ValidateBet(100, 50); err == nil {
 		t.Errorf("expected bet exceeding balance to fail")
 	}
+	if err := ValidateBet(20_000_000, 100_000_000); err == nil {
+		t.Errorf("expected bet over 10M cap to fail")
+	}
 }
 
 func TestValidateRouletteChoice(t *testing.T) {
