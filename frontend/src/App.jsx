@@ -570,11 +570,8 @@ export default function App() {
           </button>
 
           <div className="balance-chip" title="Stan Twojego portfela">
-            <div className="balance-icon-wrap" aria-hidden="true">$</div>
-            <div className="balance-val-group">
-              <span className="balance-val">{data ? format(data.player.balance) : "—"}</span>
-              <span className="balance-curr">$FGT</span>
-            </div>
+            <span className="balance-val">{data ? format(data.player.balance) : "—"}</span>
+            <span className="balance-unit">$FGT</span>
           </div>
 
           <button
