@@ -345,6 +345,8 @@ body {
   border: 1px solid rgba(245, 158, 11, 0.25);
   padding: 3px 8px;
   border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .balance-val {

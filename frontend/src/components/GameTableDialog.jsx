@@ -20,6 +20,7 @@ import {
   UpgraderTable,
 } from "../games";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
+import { FgtChip } from "./BetControls";
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";
 
@@ -628,6 +629,10 @@ export function GameTableDialog({
             <p>Stolik klubowy $FGT</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="balance-chip" title="Stan Twojego portfela">
+              <FgtChip small />
+              <span className="balance-val">{data?.player ? money(data.player.balance) : "—"}</span>
+            </div>
             <span className="hidden sm:inline-block text-[10px] font-mono text-slate-500 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.5 rounded">
               ESC
             </span>

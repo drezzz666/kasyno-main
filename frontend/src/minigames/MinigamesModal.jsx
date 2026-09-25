@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Gamepad2, X } from "lucide-react";
 import { getMinigameById } from "./registry";
+import { FgtChip } from "../components/BetControls";
+import { money } from "../lib/formatters";
 
 export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "captcha" }) {
   const [selectedGameId, setSelectedGameId] = useState(initialGame);
@@ -31,14 +33,22 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
               </h2>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="captcha-close-btn"
-            aria-label="Zamknij"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {typeof currentBalance === "number" && (
+              <div className="balance-chip" title="Stan Twojego portfela">
+                <FgtChip small />
+                <span className="balance-val">{money(currentBalance)}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="captcha-close-btn"
+              aria-label="Zamknij"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Active Mini-Game View */}
