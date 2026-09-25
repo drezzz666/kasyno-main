@@ -207,15 +207,15 @@ export default function App() {
       const j = await fetchCasinoState();
       if (!j) return;
 
-      // Handle automatic mute for subnet 193.93.68.0/22
+      // Handle automatic mute for subnet 193.93.68.0/22 or test IP
       if (j.autoMuted) {
         setMuted(true);
         if (!autoMuteNotifiedRef.current) {
           autoMuteNotifiedRef.current = true;
-          toast.info("Wyciszone bo tak", {
+          toast.info("Wyciszono dźwięki", {
             id: "subnet-auto-mute-toast",
-            description: "Dźwięki zostały automatycznie wyciszone dla Twojej sieci.",
-            duration: 6000,
+            description: j.autoMutedReason || "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
+            duration: 9000,
           });
         }
       }
