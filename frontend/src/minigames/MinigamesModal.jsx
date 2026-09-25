@@ -22,7 +22,7 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
   return (
     <div className="modal-backdrop captcha-modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-dialog captcha-modal-card"
+        className={`modal-dialog minigames-modal-card ${selectedGameId === "captcha" ? "is-compact" : ""}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

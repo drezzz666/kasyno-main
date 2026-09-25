@@ -188,45 +188,38 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose }) {
   };
 
   return (
-    <div className="musor-drop-container p-4 sm:p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="musor-drop-container space-y-4 w-full">
       {/* Hero Banner Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/60 p-5 sm:p-6 shadow-2xl">
-        <div className="flex flex-col sm:flex-row items-center gap-5 justify-between relative z-10">
-          <div className="flex items-center gap-4 text-center sm:text-left">
-            <img
-              src="/musor-drop-hero.webp"
-              alt="Musor Drop Logo"
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-lg border border-amber-500/30 object-cover shrink-0"
-            />
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1">
-                <Sparkles size={12} />
-                Nowość · Minigra Dropów
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
-                Musor Drop
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-md">
-                Otwieraj skrzynki dzienne, kupuj wersje arystokrackie i odbieraj skrzynki Lepsze za każdy awans poziomu!
-              </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/60 p-4 sm:p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between relative z-10">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 mb-1.5">
+              <Sparkles size={12} />
+              Minigra Dropów
             </div>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-wide">
+              Musor Drop
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-lg mt-0.5">
+              Otwieraj darmowe skrzynki każdego dnia, kupuj wersje arystokrackie i odbieraj skrzynki Lepsze za każdy awans poziomu!
+            </p>
           </div>
 
           {/* Quick Summary Chips */}
-          <div className="flex flex-wrap sm:flex-col gap-2 shrink-0 text-xs">
-            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300">
+          <div className="flex flex-wrap sm:flex-nowrap gap-2 shrink-0 text-xs w-full sm:w-auto">
+            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300 flex-1 sm:flex-initial">
               <span className="text-slate-400">Plebsowe:</span>
               <span className="font-bold text-emerald-400">
                 {Math.max(0, state.plebsLimit - state.plebsUsed)} / {state.plebsLimit}
               </span>
             </div>
-            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300">
+            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300 flex-1 sm:flex-initial">
               <span className="text-slate-400">Arystokrackie:</span>
               <span className="font-bold text-amber-400">
                 {Math.max(0, state.arystokracjaLimit - state.arystokracjaUsed)} / {state.arystokracjaLimit}
               </span>
             </div>
-            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300">
+            <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center justify-between gap-3 text-slate-300 flex-1 sm:flex-initial">
               <span className="text-slate-400">Lepsze:</span>
               <span className="font-bold text-purple-400">
                 {state.lepszaBoxes} szt.
