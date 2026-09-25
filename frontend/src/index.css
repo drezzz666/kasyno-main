@@ -1977,11 +1977,11 @@ body {
 
 .game-table-dialog,
 .game-dialog-box {
-  max-width: 1440px !important;
-  width: 98vw !important;
-  height: calc(100dvh - 20px) !important;
-  max-height: calc(100dvh - 20px) !important;
-  background: #080c14 !important;
+  max-width: 1060px !important;
+  width: 96vw;
+  max-height: calc(100dvh - 24px) !important;
+  height: calc(100dvh - 24px) !important;
+  background: #0c0f16 !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex !important;
   flex-direction: column !important;
@@ -3415,10 +3415,28 @@ body {
   overflow: hidden;
 }
 
-/* --- MOBILE FULL-SCREEN DIALOG --- */
+/* --- UPGRADER & CHICKEN FULL-WIDTH EXPANSIVE LAYOUT (Desktop) --- */
+.game-dialog-box.is-upgrader-dialog {
+  max-width: 1200px !important;
+  width: 98vw !important;
+  max-height: 96vh !important;
+  overflow-y: auto !important;
+}
+
+.game-dialog-box.is-chicken-dialog {
+  max-width: 1440px !important;
+  width: 98vw !important;
+  height: calc(100dvh - 20px) !important;
+  max-height: calc(100dvh - 20px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* On mobile: upgrader and chicken take full screen like every other game */
 @media (max-width: 859px) {
-  .game-dialog-box,
-  .game-table-dialog {
+  .game-dialog-box.is-upgrader-dialog,
+  .game-dialog-box.is-chicken-dialog {
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
