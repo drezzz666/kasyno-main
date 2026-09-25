@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { X, Target, Zap, RotateCw, Trash2 } from "lucide-react";
+import { X, Target, Zap, RotateCw, Trash2, CheckCircle2 } from "lucide-react";
+import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
 import {
@@ -273,6 +274,25 @@ export function GameTableDialog({
     const res = await post(body, { ...opts, silent: body?.move === "reveal" });
     if (res?.round?.state === "settled") triggerOutcome(res.round);
     return res;
+  };
+
+  const handleMinesCashout = async () => {
+    if (!round || round.game !== "mines" || loading) return;
+    const revealed = round.payload?.revealed || [];
+    if (revealed.length === 0) return;
+    sounds.playCoins();
+    if (animatingRef) animatingRef.current = true;
+    try {
+      const res = await post({ action: "mines", roundId: round.id, move: "cashout" });
+      if (res?.round) {
+        setLast(res.round);
+        if (typeof res.balance === "number") syncBalance(res.balance);
+        triggerOutcome(res.round);
+        void load();
+      }
+    } finally {
+      if (animatingRef) animatingRef.current = false;
+    }
   };
 
   const handleChickenCashout = async () => {
@@ -1070,6 +1090,34 @@ export function GameTableDialog({
                     return (
                       <button type="button" className="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300" onClick={handleManualCrashCashout}>
                         <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
+                      </button>
+                    );
+                  }
+
+                  if (round?.game === "mines") {
+                    const p = round.payload || {};
+                    const revealed = p.revealed || [];
+                    const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
+                    const currentProfit = Math.floor(bet * currentMult);
+                    const canCashout = revealed.length > 0 && !loading;
+
+                    return (
+                      <button
+                        type="button"
+                        disabled={!canCashout}
+                        onClick={handleMinesCashout}
+                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
+                          canCashout
+                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/30"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        }`}
+                      >
+                        <CheckCircle2 size={20} />
+                        <span>
+                          {revealed.length === 0
+                            ? "Wybierz pole na planszy"
+                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                        </span>
                       </button>
                     );
                   }
