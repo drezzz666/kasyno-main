@@ -724,222 +724,217 @@ export function GameTableDialog({
               </div>
             </div>
 
-            {/* BOTTOM: 2-Column Control Bar (Left: Stawka & Opcje, Right: Możliwa Wygrana & Akcja) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
-              
-              {/* Panel Lewy: Stawka & Konfiguracja Gry */}
-              <div className="flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
-                {/* 1. Stawka & Quick Bets */}
-                <div>
-                  <div className="flex items-center justify-between mb-1 sm:mb-2">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
-                    {typeof turbo === "boolean" && (
-                      <button
-                        type="button"
-                        onClick={() => setTurbo(!turbo)}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                          turbo ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
-                        }`}
-                      >
-                        <Zap size={10} className={turbo ? "fill-amber-400" : ""} />
-                        <span>Turbo</span>
-                      </button>
-                    )}
-                  </div>
+            {/* BOTTOM: Unified Control Card */}
+            <div className="flex flex-col p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3 sm:gap-4">
+              {/* 1. Stawka & Quick Bets */}
+              <div>
+                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
+                  {typeof turbo === "boolean" && (
+                    <button
+                      type="button"
+                      onClick={() => setTurbo(!turbo)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                        turbo ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <Zap size={10} className={turbo ? "fill-amber-400" : ""} />
+                      <span>Turbo</span>
+                    </button>
+                  )}
+                </div>
 
-                  <div className="relative flex items-center mb-1.5 sm:mb-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max={data?.player?.balance || 1000000}
-                      value={bet}
+                <div className="relative flex items-center mb-1.5 sm:mb-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max={data?.player?.balance || 1000000}
+                    value={bet}
+                    disabled={loading || isBusy}
+                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
+                  />
+                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                </div>
+
+                <div className="grid grid-cols-6 gap-1">
+                  {[5, 10, 25, 50, 100, 500].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
                       disabled={loading || isBusy}
-                      onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
-                    />
-                    <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
-                  </div>
+                      onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
+                      className="py-1 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
+                    >
+                      +{inc}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                    <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
+              {/* 2. Interactive Game Options */}
+              {game === "mines" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold">{mineCount} / 24</span>
                   </div>
-
                   <div className="grid grid-cols-6 gap-1">
-                    {[5, 10, 25, 50, 100, 500].map((inc) => (
-                      <button
-                        key={inc}
-                        type="button"
-                        disabled={loading || isBusy}
-                        onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                        className="py-1 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
-                      >
-                        +{inc}
+                    {[2, 3, 5, 10, 15, 20].map((c) => (
+                      <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {game === "coinflip" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                      <span className="text-lg sm:text-xl">🦅</span>
+                      <span className="text-xs sm:text-sm font-bold">Orzeł</span>
+                    </button>
+                    <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                      <span className="text-lg sm:text-xl">👑</span>
+                      <span className="text-xs sm:text-sm font-bold">Reszka</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {game === "rps" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: "rock", icon: "✊", name: "Kamień" },
+                      { id: "paper", icon: "✋", name: "Papier" },
+                      { id: "scissors", icon: "✌️", name: "Nożyce" },
+                    ].map((item) => (
+                      <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-1.5 rounded-xl flex items-center justify-center gap-1.5 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
+                        <span className="text-base sm:text-lg">{item.icon}</span>
+                        <span className="text-xs font-bold">{item.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* 2. Interactive Game Options */}
-                {game === "mines" && (
-                  <div className="pt-2 border-t border-slate-800/80">
+              {game === "plinko" && (
+                <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
+                  <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold">{mineCount} / 24</span>
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold">{plinkoRows}</span>
                     </div>
-                    <div className="grid grid-cols-6 gap-1">
-                      {[2, 3, 5, 10, 15, 20].map((c) => (
-                        <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c}</button>
+                    <div className="grid grid-cols-5 gap-1">
+                      {[8, 10, 12, 14, 16].map((r) => (
+                        <button key={r} type="button" disabled={loading} onClick={() => setPlinkoRows(r)} className={`py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${plinkoRows === r ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{r}</button>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {game === "coinflip" && (
-                  <div className="pt-2 border-t border-slate-800/80">
+                  <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Poziom Ryzyka</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                        <span className="text-lg sm:text-xl">🦅</span>
-                        <span className="text-xs sm:text-sm font-bold">Orzeł</span>
-                      </button>
-                      <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                        <span className="text-lg sm:text-xl">👑</span>
-                        <span className="text-xs sm:text-sm font-bold">Reszka</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {game === "rps" && (
-                  <div className="pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-3 gap-1">
                       {[
-                        { id: "rock", icon: "✊", name: "Kamień" },
-                        { id: "paper", icon: "✋", name: "Papier" },
-                        { id: "scissors", icon: "✌️", name: "Nożyce" },
-                      ].map((item) => (
-                        <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-1.5 rounded-xl flex items-center justify-center gap-1.5 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                          <span className="text-base sm:text-lg">{item.icon}</span>
-                          <span className="text-xs font-bold">{item.name}</span>
-                        </button>
+                        { id: "low", label: "Niskie" },
+                        { id: "medium", label: "Średnie" },
+                        { id: "high", label: "Wysokie" },
+                      ].map((rk) => (
+                        <button key={rk.id} type="button" disabled={loading} onClick={() => setPlinkoRisk(rk.id)} className={`py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${plinkoRisk === rk.id ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{rk.label}</button>
                       ))}
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {game === "plinko" && (
-                  <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
-                        <span className="text-[10px] text-amber-400 font-mono font-bold">{plinkoRows}</span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1">
-                        {[8, 10, 12, 14, 16].map((r) => (
-                          <button key={r} type="button" disabled={loading} onClick={() => setPlinkoRows(r)} className={`py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${plinkoRows === r ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{r}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-300">Poziom Ryzyka</span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1">
-                        {[
-                          { id: "low", label: "Niskie" },
-                          { id: "medium", label: "Średnie" },
-                          { id: "high", label: "Wysokie" },
-                        ].map((rk) => (
-                          <button key={rk.id} type="button" disabled={loading} onClick={() => setPlinkoRisk(rk.id)} className={`py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${plinkoRisk === rk.id ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{rk.label}</button>
-                        ))}
-                      </div>
-                    </div>
+              {game === "crash" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
+                    <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
                   </div>
-                )}
-
-                {game === "crash" && (
-                  <div className="pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
-                      <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1 mb-1.5">
-                      {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
-                        <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                      ))}
-                    </div>
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="0.8"
-                        max="1000"
-                        disabled={crashPlaying || loading}
-                        value={crashAutoCashout}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
-                        }}
-                        className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
-                      />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
-                    </div>
+                  <div className="grid grid-cols-6 gap-1 mb-1.5">
+                    {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
+                      <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                    ))}
                   </div>
-                )}
-
-                {game === "limbo" && (
-                  <div className="pt-2 border-t border-slate-800/80">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
-                      <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
-                    </div>
-                    <div className="grid grid-cols-6 gap-1 mb-1.5">
-                      {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
-                        <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                      ))}
-                    </div>
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="1.5"
-                        max="10000"
-                        value={limboTarget}
-                        disabled={loading || limboAnimating}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
-                        }}
-                        className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
-                        placeholder="Własny mnożnik..."
-                      />
-                      <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
-                    </div>
+                  <div className="relative flex items-center">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0.8"
+                      max="1000"
+                      disabled={crashPlaying || loading}
+                      value={crashAutoCashout}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
+                      }}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
                   </div>
-                )}
+                </div>
+              )}
 
-                {game === "roulette" && rouletteSelected.size > 0 && (
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong></span>
-                    <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
-                      <Trash2 size={11} />
-                      <span>Wyczyść</span>
-                    </button>
+              {game === "limbo" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
+                    <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
                   </div>
-                )}
-              </div>
+                  <div className="grid grid-cols-6 gap-1 mb-1.5">
+                    {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
+                      <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
+                    ))}
+                  </div>
+                  <div className="relative flex items-center">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="1.5"
+                      max="10000"
+                      value={limboTarget}
+                      disabled={loading || limboAnimating}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
+                      }}
+                      className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                      placeholder="Własny mnożnik..."
+                    />
+                    <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
+                  </div>
+                </div>
+              )}
 
-              {/* Panel Prawy (Akcje / Action Buttons) */}
-              <div className="flex flex-col justify-center p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
-                {/* Actions */}
+              {game === "roulette" && rouletteSelected.size > 0 && (
+                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-300">Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong></span>
+                  <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
+                    <Trash2 size={11} />
+                    <span>Wyczyść</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 3. Action Buttons Row */}
+              <div className="pt-2 border-t border-slate-800/80">
                 {(() => {
                   if (round?.game === "blackjack" && !blackjackPreview) {
                     return (
@@ -1074,7 +1069,6 @@ export function GameTableDialog({
                   );
                 })()}
               </div>
-
             </div>
           </div>
         )}

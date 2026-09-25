@@ -261,137 +261,132 @@ export function UpgraderTable({
         )}
       </div>
 
-      {/* BOTTOM: 2-Column Control Bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-stretch">
-        
-        {/* Panel Lewy: Stawka & Wybór Mnożnika */}
-        <div className="flex flex-col justify-between p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3">
-          {/* Stawka */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
-                Stawka
-              </span>
-            </div>
-
-            {/* Bet Input */}
-            <div className="relative flex items-center mb-1.5 sm:mb-2">
-              <input
-                type="number"
-                min="1"
-                max={maxBalance || 1000000}
-                value={bet}
-                disabled={loading || spinning}
-                onChange={(e) => {
-                  const v = Math.max(1, parseInt(e.target.value) || 1);
-                  setBet(v);
-                }}
-                className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
-              />
-              <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
-                $FGT
-              </span>
-            </div>
-
-            {/* Quick Bet Buttons */}
-            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet(10)}
-                className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                Min
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
-                className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                ½
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() =>
-                  setBet((b) =>
-                    Math.min(maxBalance || 1000000, Math.floor(b * 2))
-                  )
-                }
-                className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                2×
-              </button>
-              <button
-                type="button"
-                disabled={loading || spinning}
-                onClick={() => setBet(maxBalance || 100)}
-                className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
-              >
-                Max
-              </button>
-            </div>
+      {/* BOTTOM: Unified Control Card */}
+      <div className="flex flex-col p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3 sm:gap-4">
+        {/* Stawka */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
+              Stawka
+            </span>
           </div>
 
-          {/* Wybór Mnożnika */}
-          <div className="pt-2 border-t border-slate-800/80">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                Wybierz Mnożnik
-              </span>
-            </div>
+          {/* Bet Input */}
+          <div className="relative flex items-center mb-1.5 sm:mb-2">
+            <input
+              type="number"
+              min="1"
+              max={maxBalance || 1000000}
+              value={bet}
+              disabled={loading || spinning}
+              onChange={(e) => {
+                const v = Math.max(1, parseInt(e.target.value) || 1);
+                setBet(v);
+              }}
+              className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+            />
+            <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
+              $FGT
+            </span>
+          </div>
 
-            <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5">
-              {MULTIPLIER_PRESETS.map((p) => {
-                const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
-                return (
-                  <button
-                    key={p.label}
-                    type="button"
-                    disabled={loading || spinning}
-                    onClick={() => setTarget(p.val)}
-                    className={`py-1.5 rounded-lg text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-amber-500 text-slate-950 shadow-md scale-102 border-2 border-amber-300"
-                        : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Custom Multiplier Input */}
-            <div className="relative flex items-center">
-              <input
-                type="number"
-                step="0.05"
-                min="1.5"
-                max="10000"
-                value={target}
-                disabled={loading || spinning}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setTarget(isNaN(v) ? "" : v);
-                }}
-                onBlur={() => {
-                  setTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
-                }}
-                className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
-                placeholder="Własny mnożnik..."
-              />
-              <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">
-                × cel
-              </span>
-            </div>
+          {/* Quick Bet Buttons */}
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
+            <button
+              type="button"
+              disabled={loading || spinning}
+              onClick={() => setBet(10)}
+              className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              Min
+            </button>
+            <button
+              type="button"
+              disabled={loading || spinning}
+              onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
+              className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              ½
+            </button>
+            <button
+              type="button"
+              disabled={loading || spinning}
+              onClick={() =>
+                setBet((b) =>
+                  Math.min(maxBalance || 1000000, Math.floor(b * 2))
+                )
+              }
+              className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              2×
+            </button>
+            <button
+              type="button"
+              disabled={loading || spinning}
+              onClick={() => setBet(maxBalance || 100)}
+              className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
+            >
+              Max
+            </button>
           </div>
         </div>
 
-        {/* Panel Prawy (UPGRADE Button) */}
-        <div className="flex flex-col justify-center p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-4">
-          {/* Large Glowing Gold UPGRADE Button */}
+        {/* Wybór Mnożnika */}
+        <div className="pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+              Wybierz Mnożnik
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5">
+            {MULTIPLIER_PRESETS.map((p) => {
+              const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={loading || spinning}
+                  onClick={() => setTarget(p.val)}
+                  className={`py-1.5 rounded-lg text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-amber-500 text-slate-950 shadow-md scale-102 border-2 border-amber-300"
+                      : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Custom Multiplier Input */}
+          <div className="relative flex items-center">
+            <input
+              type="number"
+              step="0.05"
+              min="1.5"
+              max="10000"
+              value={target}
+              disabled={loading || spinning}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setTarget(isNaN(v) ? "" : v);
+              }}
+              onBlur={() => {
+                setTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
+              }}
+              className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+              placeholder="Własny mnożnik..."
+            />
+            <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">
+              × cel
+            </span>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-2 border-t border-slate-800/80">
           <button
             type="button"
             disabled={loading || spinning || bet > maxBalance}
