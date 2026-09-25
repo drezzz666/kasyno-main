@@ -123,9 +123,11 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
         {[0, 1, 2].map((reelIdx) => {
           const state = reelStates[reelIdx];
           const isSpinning = state === "spinning";
+          const isStopped = state === "stopped";
           const strip = reelStrips[reelIdx] || displayedReels[reelIdx];
           const totalItems = strip.length;
-          const shiftPercent = totalItems > 3 && isSpinning
+          const isShifted = totalItems > 3 && (isSpinning || isStopped);
+          const shiftPercent = isShifted
             ? -((totalItems - 3) / totalItems) * 100
             : 0;
 
@@ -134,16 +136,16 @@ export function SlotsTable({ last, loading, slotsSpinning, turbo }) {
           return (
             <div key={reelIdx} className="slot-reel-viewport">
               <div
-                className={`slot-reel-strip ${isSpinning ? "is-accelerating-spinning" : state === "stopped" ? "reel-snap-bounce" : ""}`}
+                className={`slot-reel-strip ${isSpinning ? "is-accelerating-spinning" : isStopped ? "reel-snap-bounce" : ""}`}
                 style={{
-                  transform: isSpinning ? `translate3d(0, ${shiftPercent}%, 0)` : "translate3d(0, 0, 0)",
+                  transform: `translate3d(0, ${shiftPercent}%, 0)`,
                   transition: isSpinning ? `transform ${duration}ms cubic-bezier(0.12, 0.85, 0.22, 1.05)` : "none",
                 }}
               >
                 {strip.map((symbol, sIdx) => {
-                  const isCenter = sIdx === 1 || (totalItems > 3 && sIdx === totalItems - 2);
-                  const isVisibleInFinal = !isSpinning && sIdx === 1;
-                  const isWinningBox = isVisibleInFinal && isWinningSpin && winningSymbolsSet.has(symbol);
+                  const isCenter = totalItems > 3 ? sIdx === totalItems - 2 : sIdx === 1;
+                  const isVisibleCenter = isCenter && (isStopped || state === "idle");
+                  const isWinningBox = isVisibleCenter && isWinningSpin && winningSymbolsSet.has(symbol);
 
                   return (
                     <div

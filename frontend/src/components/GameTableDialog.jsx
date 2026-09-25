@@ -474,9 +474,12 @@ export function GameTableDialog({
 
     if (game === "slots") {
       if (animatingRef) animatingRef.current = true;
-      setSlotsSpinning(!turbo);
       const j = await post({ game, bet }, { deferBalance: true, deferRefresh: true, deductBet: bet });
       if (j?.round) {
+        setPendingSlotsRound(j.round);
+        if (!turbo) {
+          setSlotsSpinning(true);
+        }
         const finalize = () => {
           setLast(j.round);
           if (typeof j.balance === "number") syncBalance(j.balance);
@@ -488,11 +491,11 @@ export function GameTableDialog({
         };
         if (turbo) finalize();
         else {
-          setPendingSlotsRound(j.round);
-          setTimeout(finalize, 1900);
+          setTimeout(finalize, 1950);
         }
       } else {
         setSlotsSpinning(false);
+        setPendingSlotsRound(null);
         if (animatingRef) animatingRef.current = false;
       }
       return;
