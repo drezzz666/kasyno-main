@@ -389,30 +389,8 @@ export function UpgraderTable({
           </div>
         </div>
 
-        {/* Panel Prawy (Możliwa Wygrana + UPGRADE Button) */}
-        <div className="flex flex-col justify-between p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-4">
-          <div>
-            <div className="flex items-center justify-between mb-1 sm:mb-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
-                Możliwa Wygrana
-              </span>
-              <span className="text-xs font-bold text-slate-400">
-                ×{clampedTarget.toFixed(2)}
-              </span>
-            </div>
-
-            {/* Compact Potential Win Card */}
-            <div className="px-3.5 py-2.5 sm:py-3.5 rounded-xl bg-[#131d2e] border border-slate-700/80 flex items-center justify-between shadow-inner">
-              <div className="flex flex-col">
-                <span className="text-[11px] text-slate-400 font-medium">Zysk:</span>
-                <span className="text-xs font-mono font-bold text-emerald-400">+{money(Math.max(0, potentialPayout - bet))}</span>
-              </div>
-              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight">
-                {money(potentialPayout)}
-              </span>
-            </div>
-          </div>
-
+        {/* Panel Prawy (UPGRADE Button) */}
+        <div className="flex flex-col justify-center p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-4">
           {/* Large Glowing Gold UPGRADE Button */}
           <button
             type="button"
@@ -439,7 +417,7 @@ export function UpgraderTable({
             ) : (
               <>
                 <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
-                <span>UPGRADE</span>
+                <span>UPGRADE (×{clampedTarget.toFixed(2)})</span>
               </>
             )}
           </button>

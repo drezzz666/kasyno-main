@@ -588,59 +588,7 @@ export function GameTableDialog({
   const rawWinningNumber = spinResult?.payload?.number ?? 0;
   const prize = Math.max(0, wheelOrder.indexOf(rawWinningNumber));
 
-  const getPotentialWinInfo = () => {
-    if (game === "plinko") return null;
-    if (game === "limbo") {
-      const payout = Math.floor(bet * Math.max(1.5, limboTarget));
-      return { mult: limboTarget.toFixed(2), payout, profit: Math.max(0, payout - bet), label: "Mnożnik docelowy" };
-    }
-    if (game === "crash") {
-      const inFlight = crashPlaying && !crashCrashed && !crashCashedOut;
-      const m = inFlight ? crashMult : crashAutoCashout;
-      const payout = Math.floor(bet * m);
-      return { mult: m.toFixed(2), payout, profit: Math.max(0, payout - bet), label: inFlight ? "Bieżąca wypłata" : "Auto Cashout" };
-    }
-    if (game === "mines") {
-      if (round?.game === "mines") {
-        const p = round.payload || {};
-        const currentMult = p.multiplier !== undefined ? p.multiplier : 1.0;
-        const payout = Math.floor(bet * currentMult);
-        return { mult: currentMult.toFixed(2), payout, profit: Math.max(0, payout - bet), label: "Bieżący zysk" };
-      }
-      const firstMult = Number(((25 / (25 - mineCount)) * 0.96).toFixed(2));
-      const payout = Math.floor(bet * firstMult);
-      return { mult: firstMult.toFixed(2), payout, profit: Math.max(0, payout - bet), label: "1. diament" };
-    }
-    if (game === "chicken") {
-      if (round?.game === "chicken") {
-        const currentMult = round.payload?.multiplier ?? 1.0;
-        const payout = Math.floor(bet * currentMult);
-        return { mult: currentMult.toFixed(2), payout, profit: Math.max(0, payout - bet), label: "Bieżący zysk" };
-      }
-      const payout = Math.floor(bet * 1.15);
-      return { mult: "1.15", payout, profit: Math.max(0, payout - bet), label: "1. pas ruchu" };
-    }
-    if (game === "coinflip") {
-      const payout = Math.floor(bet * 1.96);
-      return { mult: "1.96", payout, profit: Math.max(0, payout - bet), label: "Szansa 50%" };
-    }
-    if (game === "rps") return { mult: "2.00", payout: bet * 2, profit: bet, label: "Pojedynek" };
-    if (game === "slots") return { mult: "100.00", payout: bet * 100, profit: bet * 99, label: "Główny Jackpot" };
-    if (game === "blackjack") return { mult: "2.50", payout: Math.floor(bet * 2.5), profit: Math.max(0, Math.floor(bet * 2.5) - bet), label: "Blackjack 3:2" };
-    if (game === "roulette") {
-      if (rouletteSelected.size === 1) {
-        const single = Array.from(rouletteSelected)[0];
-        const isNum = typeof single === "number" || (!isNaN(Number(single)) && Number(single) >= 0 && Number(single) <= 36);
-        const mult = isNum ? 36 : ["red", "black", "even", "odd", "low", "high"].includes(single) ? 2 : 3;
-        return { mult: `${mult}.00`, payout: bet * mult, profit: Math.max(0, bet * mult - bet), label: "Możliwa wygrana" };
-      }
-      const total = rouletteTotalBet || bet;
-      return { mult: "2.00+", payout: total * 2, profit: total, label: "Zakłady łączne" };
-    }
-    return { mult: "2.00", payout: bet * 2, profit: bet, label: "Wygrana" };
-  };
 
-  const winInfo = getPotentialWinInfo();
 
   const getPlayButtonText = () => {
     if (!tosAccepted) return "Zaakceptuj regulamin";
@@ -989,25 +937,8 @@ export function GameTableDialog({
                 )}
               </div>
 
-              {/* Panel Prawy (Możliwa Wygrana + Action Button) */}
-              <div className="flex flex-col justify-between p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
-                {winInfo && (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Możliwa Wygrana</span>
-                      <span className="text-xs font-bold text-slate-400">×{winInfo.mult}</span>
-                    </div>
-
-                    <div className="px-3 py-2 sm:py-3 rounded-xl bg-[#131d2e] border border-slate-700/80 flex items-center justify-between shadow-inner">
-                      <div className="flex flex-col">
-                        <span className="text-[11px] text-slate-400 font-medium">{winInfo.label || "Zysk"}:</span>
-                        <span className="text-xs font-mono font-bold text-emerald-400">+{money(winInfo.profit)}</span>
-                      </div>
-                      <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-tight">{money(winInfo.payout)}</span>
-                    </div>
-                  </div>
-                )}
-
+              {/* Panel Prawy (Akcje / Action Buttons) */}
+              <div className="flex flex-col justify-center p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-2.5 sm:gap-3">
                 {/* Actions */}
                 {(() => {
                   if (round?.game === "blackjack" && !blackjackPreview) {
