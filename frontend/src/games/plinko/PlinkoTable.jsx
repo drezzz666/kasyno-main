@@ -185,8 +185,14 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
     }
 
-    // Render single initial frame on main canvas
-    drawFrame(performance.now());
+    // Render single initial frame directly on main canvas
+    const mainCanvas = canvasRef.current;
+    if (mainCanvas) {
+      const mainCtx = mainCanvas.getContext("2d");
+      if (mainCtx) {
+        mainCtx.drawImage(offscreen, 0, 0);
+      }
+    }
   }, [rows]);
 
   // Main high-speed rendering function
@@ -563,13 +569,17 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
   const binsStyle = canvasRect
     ? {
-        bottom: canvasRect.bottomOffset,
-        height: Math.max(18, PADDING_BOTTOM * canvasRect.scale),
-        width: `${binsWidthPercent}%`,
+        bottom: `${Math.max(0, canvasRect.bottomOffset)}px`,
+        height: `${Math.max(18, PADDING_BOTTOM * canvasRect.scale)}px`,
+        width: `${(WIDTH - PADDING_X * 2) * canvasRect.scale}px`,
         left: "50%",
         transform: "translateX(-50%)",
       }
-    : { width: `${binsWidthPercent}%` };
+    : {
+        width: `${binsWidthPercent}%`,
+        left: "50%",
+        transform: "translateX(-50%)",
+      };
 
   return (
     <div className="plinko-stake-wrapper">
@@ -627,57 +637,6 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Row & Risk Selection Controls */}
-      <div className="plinko-config-panel">
-        <div className="plinko-config-group">
-          <span className="config-label">Liczba rzędów:</span>
-          <div className="config-pill-row">
-            {[14, 16].map((r) => {
-              const isSelected = Number(rows) === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  disabled={activeBallCount > 0}
-                  aria-pressed={isSelected}
-                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
-                  onClick={() => setRows && setRows(r)}
-                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
-                >
-                  {r} Rows
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="plinko-config-group">
-          <span className="config-label">Poziom ryzyka:</span>
-          <div className="config-pill-row">
-            {[
-              { id: "low", label: "Niskie" },
-              { id: "medium", label: "Średnie" },
-              { id: "high", label: "Wysokie" },
-            ].map((rk) => {
-              const isSelected = risk === rk.id;
-              return (
-                <button
-                  key={rk.id}
-                  type="button"
-                  disabled={activeBallCount > 0}
-                  aria-pressed={isSelected}
-                  className={`config-pill-btn ${isSelected ? "active" : ""}`}
-                  onClick={() => setRisk && setRisk(rk.id)}
-                  title={activeBallCount > 0 ? "Poczekaj na zakończenie spadania kulek" : undefined}
-                >
-                  {rk.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
     </div>

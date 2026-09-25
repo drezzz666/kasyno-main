@@ -454,19 +454,21 @@ export function StakeSidewalkRock() {
   );
 }
 
-export function ChickenTable({
-  round,
-  last,
-  post,
-  loading,
-  turbo,
-  triggerOutcome,
-  animatingRef,
-  onBusyChange,
-}) {
+export const ChickenTable = React.forwardRef(function ChickenTable(
+  {
+    round,
+    last,
+    post,
+    loading,
+    turbo,
+    triggerOutcome,
+    animatingRef,
+    onBusyChange,
+  },
+  ref
+) {
   const [jumping, setJumping] = useState(false);
   const [jumpLane, setJumpLane] = useState(null);
-  const [cashingOut, setCashingOut] = useState(false);
   const [crashAnim, setCrashAnim] = useState(null);
   const [cameraOffset, setCameraOffset] = useState(0);
   const viewportRef = useRef(null);
@@ -587,9 +589,9 @@ export function ChickenTable({
     };
   }, [activeRound?.id, activeChickenLane, isLoss, hazardLane]);
 
-  // Handle jump step (triggered by clicking directly on the board / next lane)
+  // Handle jump step (triggered by clicking directly on the board / next lane / action button / Space)
   const handleStep = async () => {
-    if (!activeRound || loading || jumping || cashingOut || crashAnim) return;
+    if (!activeRound || loading || jumping || crashAnim) return;
     const nextTarget = currentLane + 1;
     setJumping(true);
     setJumpLane(nextTarget);
@@ -636,29 +638,23 @@ export function ChickenTable({
     }
   };
 
-  // Handle cashout
-  const handleCashout = async () => {
-    if (!activeRound || loading || currentLane < 1 || cashingOut || crashAnim) return;
-    setCashingOut(true);
-    sounds.playCoins();
+  React.useImperativeHandle(ref, () => ({
+    step: handleStep,
+    isJumping: jumping,
+  }));
 
-    try {
-      const res = await post({ action: "chicken", roundId: activeRound.id, move: "cashout" });
-      if (res?.round) {
-        if (animatingRef) animatingRef.current = true;
-        if (onBusyChange) onBusyChange(true);
-        const delay = turbo ? 100 : 500;
-        if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
-        outcomeTimeoutRef.current = setTimeout(() => {
-          if (animatingRef) animatingRef.current = false;
-          if (onBusyChange) onBusyChange(false);
-          if (triggerOutcome) triggerOutcome(res.round, 0);
-        }, delay);
+  // Keyboard shortcut Space / ArrowRight / Enter to jump
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!activeRound || jumping || crashAnim || loading) return;
+      if (e.code === "Space" || e.code === "ArrowRight") {
+        e.preventDefault();
+        handleStep();
       }
-    } finally {
-      setCashingOut(false);
-    }
-  };
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeRound, jumping, crashAnim, loading, currentLane]);
 
   return (
     <div className="chicken-game-canvas flex flex-col w-full select-none">
@@ -677,7 +673,16 @@ export function ChickenTable({
         }}
       >
         {/* Left Sidewalk with 3D Curb, Traffic Light, Diamond Sign & Zebra Crossing */}
-        <div className="chicken-left-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
+        <div
+          onClick={() => {
+            if (activeRound && currentLane === 0 && !jumping && !crashAnim && !loading) {
+              handleStep();
+            }
+          }}
+          className={`chicken-left-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg ${
+            activeRound && currentLane === 0 ? "cursor-pointer hover:bg-[#1c293a]" : ""
+          }`}
+        >
           {/* Top Traffic Light & Diamond Priority Sign */}
           <div className="pt-2 flex items-center justify-center gap-2">
             <TrafficLightPole />
@@ -736,12 +741,14 @@ export function ChickenTable({
                 key={laneNum}
                 data-lane={laneNum}
                 onClick={() => {
-                  if (isNext && !jumping && !cashingOut && !crashAnim) {
-                    handleStep();
+                  if (activeRound && !jumping && !crashAnim && !loading) {
+                    if (isNext || isCurrent) {
+                      handleStep();
+                    }
                   }
                 }}
                 className={`chicken-road-lane relative w-36 sm:w-40 md:w-44 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
-                  isNext ? "cursor-pointer hover:bg-slate-800/50" : ""
+                  isNext ? "cursor-pointer hover:bg-slate-800/60 bg-amber-500/[0.04]" : isCurrent && activeRound ? "cursor-pointer" : ""
                 }`}
               >
                 {/* Top Lane Empty Space */}
@@ -848,47 +855,7 @@ export function ChickenTable({
         </div>
       </div>
       </div>
-
-      {/* Bottom HUD Bar / Right-Aligned Cashout */}
-      {activeRound && (
-        <div className="flex items-center justify-between gap-3 mt-3 px-4 py-2.5 rounded-xl bg-[#0e1622] border border-slate-800 shadow-md">
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Postęp</span>
-              <span className="font-mono font-bold text-slate-200">
-                Pas {currentLane} / {TOTAL_LANES}
-              </span>
-            </div>
-            {currentLane >= 1 && (
-              <div className="flex flex-col pl-3 border-l border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Zysk</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {money(currentProfit)} ({currentMult.toFixed(2)}x)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Prominent Cashout Button on the Right */}
-          <button
-            type="button"
-            disabled={loading || jumping || cashingOut || Boolean(crashAnim) || currentLane < 1}
-            onClick={handleCashout}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
-              currentLane >= 1 && !jumping && !cashingOut && !crashAnim
-                ? "bg-[#00e701] hover:bg-[#00c801] text-slate-950 shadow-lg shadow-emerald-500/25 border border-emerald-400/50 cursor-pointer active:scale-95"
-                : "bg-slate-800 text-slate-500 border border-slate-700/80 cursor-not-allowed opacity-60"
-            }`}
-          >
-            <span>WYPŁAĆ {currentLane >= 1 ? money(currentProfit) : ""}</span>
-            {currentLane >= 1 && (
-              <span className="text-xs font-bold font-mono bg-slate-950/20 px-1.5 py-0.5 rounded">
-                ×{currentMult.toFixed(2)}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
-}
+});
+

@@ -146,12 +146,6 @@ export function CrashTable({
                   ? `WYPŁACONO @ ${(last?.payload?.cashed_at || currentMult).toFixed(2)}x`
                   : `${(last?.payload?.crash_point || 0.8).toFixed(2)}x`}
           </div>
-
-          {isPlaying && (
-            <div className="crash-live-profit">
-              Wypłata: <strong>{money(livePayout)}</strong>
-            </div>
-          )}
         </div>
       </div>
     </div>

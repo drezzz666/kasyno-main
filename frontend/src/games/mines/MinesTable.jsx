@@ -296,29 +296,6 @@ export function MinesTable({
           );
         })}
       </div>
-
-      {/* In-Game Cashout Banner during Active Round */}
-      {round && (
-        <div className="mines-active-action-bar">
-          <button
-            type="button"
-            disabled={revealed.length === 0 || isBusy}
-            className={`btn-mines-cashout ${revealed.length > 0 && !isBusy ? "active" : "disabled"}`}
-            onClick={() => void handleCashoutClick()}
-          >
-            {revealed.length === 0 ? (
-              <span>Wybierz pierwsze pole</span>
-            ) : isCashingOut ? (
-              <span>Wypłacanie...</span>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <CheckCircle2 size={16} />
-                WYPŁAĆ {money(currentProfit)} (×{currentMultiplier.toFixed(2)})
-              </span>
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
