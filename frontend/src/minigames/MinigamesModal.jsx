@@ -30,14 +30,24 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
         {/* Header */}
         <div className="captcha-modal-header">
           <div className="captcha-header-title">
-            <div className="captcha-icon-wrap">
-              <ActiveIcon size={20} className={activeGameMeta?.iconColor || "text-amber-400"} />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-white leading-tight">
-                {activeGameMeta?.name || "Minigry"}
-              </h2>
-            </div>
+            {selectedGameId === "musordrop" ? (
+              <img
+                src="/musor-logo.webp"
+                alt="Musor Drop"
+                className="h-9 sm:h-10 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+              />
+            ) : (
+              <>
+                <div className="captcha-icon-wrap">
+                  <ActiveIcon size={20} className={activeGameMeta?.iconColor || "text-amber-400"} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white leading-tight">
+                    {activeGameMeta?.name || "Minigry"}
+                  </h2>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {typeof currentBalance === "number" && (
