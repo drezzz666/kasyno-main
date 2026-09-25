@@ -657,10 +657,10 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
   }, [activeRound, jumping, crashAnim, loading, currentLane]);
 
   return (
-    <div className="chicken-game-canvas flex flex-col w-full select-none">
+    <div className="chicken-game-canvas flex flex-col w-full h-full flex-1 min-h-0 select-none">
       <div
         ref={viewportRef}
-        className="chicken-street-surface relative w-full h-[370px] sm:h-[410px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
+        className="chicken-street-surface relative w-full h-full min-h-0 bg-[#0c131e] overflow-hidden select-none flex-1"
       >
       {/* Smooth Moving Camera Track */}
       <div

@@ -620,7 +620,7 @@ export function GameTableDialog({
     <div className="modal-backdrop game-modal-backdrop" role="presentation">
       <div
         ref={dialogRef}
-        className="modal-dialog game-dialog-box is-upgrader-dialog"
+        className={`modal-dialog game-dialog-box is-upgrader-dialog ${game === "chicken" ? "is-chicken-dialog" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-dialog-title"
@@ -672,6 +672,139 @@ export function GameTableDialog({
             triggerOutcome={triggerOutcome}
             turbo={turbo}
           />
+        ) : game === "chicken" ? (
+          <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
+            {/* Full-size Game Arena taking all available space */}
+            <div className="flex-1 w-full min-h-0 relative flex items-stretch overflow-hidden bg-[#0c131e]">
+              <div
+                className={`absolute inset-0 transition-opacity duration-700 pointer-events-none z-10 ${
+                  isBusy ? "bg-amber-500/10 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/15" : last ? "bg-rose-500/15" : "bg-transparent"
+                }`}
+              />
+              <ChickenTable
+                ref={chickenRef}
+                round={round}
+                last={last}
+                post={post}
+                loading={loading}
+                turbo={turbo}
+                triggerOutcome={triggerOutcome}
+                animatingRef={animatingRef}
+                onBusyChange={setChickenBusy}
+              />
+            </div>
+
+            {/* Docked Bottom Control Bar */}
+            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-3 sm:px-6 py-2.5 sm:py-3.5 z-20 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 shadow-2xl flex-shrink-0">
+              {/* Bet controls */}
+              <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-3 max-w-2xl">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">Stawka</span>
+                  {typeof turbo === "boolean" && (
+                    <button
+                      type="button"
+                      onClick={() => setTurbo(!turbo)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                        turbo ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <Zap size={10} className={turbo ? "fill-amber-400" : ""} />
+                      <span>Turbo</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative flex-1 flex items-center min-w-[100px] max-w-[180px]">
+                  <input
+                    type="number"
+                    min="1"
+                    max={data?.player?.balance || 1000000}
+                    value={bet}
+                    disabled={loading || isBusy}
+                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm focus:outline-none focus:border-amber-500 shadow-inner"
+                  />
+                  <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">$FGT</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">Max</button>
+                </div>
+
+                <div className="hidden md:flex items-center gap-1">
+                  {[10, 50, 100, 500].map((inc) => (
+                    <button
+                      key={inc}
+                      type="button"
+                      disabled={loading || isBusy}
+                      onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
+                      className="py-1 px-1.5 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
+                    >
+                      +{inc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Main Action Button */}
+              <div className="w-full sm:w-auto sm:min-w-[260px]">
+                {round ? (
+                  (() => {
+                    const currentLane = round.payload?.currentLane || 0;
+                    const currentMult = round.payload?.multiplier ?? 1.00;
+                    const currentProfit = Math.floor(bet * currentMult);
+                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+
+                    return (
+                      <button
+                        type="button"
+                        disabled={isCashoutDisabled}
+                        onClick={handleChickenCashout}
+                        className={`w-full py-2.5 px-5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-2xl transition-all ${
+                          !isCashoutDisabled
+                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        }`}
+                      >
+                        <CheckCircle2 size={18} />
+                        <span>
+                          {currentLane === 0
+                            ? "Kliknij na drogę, aby skoczyć"
+                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                        </span>
+                      </button>
+                    );
+                  })()
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!tosAccepted || loading || isBusy}
+                    onClick={start}
+                    className={`w-full py-2.5 px-5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
+                      !tosAccepted || loading || isBusy
+                        ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                    }`}
+                  >
+                    {isBusy || loading ? (
+                      <>
+                        <RotateCw size={18} className="animate-spin" />
+                        <span>{getPlayButtonText()}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap size={18} className="fill-slate-950" />
+                        <span>{getPlayButtonText()}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">
             {/* TOP: Big Game Arena (Full Width & Spacious) */}
@@ -993,58 +1126,27 @@ export function GameTableDialog({
                   if (game === "chicken" && round) {
                     const currentLane = round.payload?.currentLane || 0;
                     const currentMult = round.payload?.multiplier ?? 1.00;
-                    const nextLane = currentLane + 1;
-                    const nextMult = CHICKEN_MULTIPLIERS[currentLane] ?? (currentMult * 1.2);
                     const currentProfit = Math.floor(bet * currentMult);
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
 
-                    if (currentLane === 0) {
-                      return (
-                        <button
-                          type="button"
-                          disabled={loading || chickenBusy}
-                          onClick={handleChickenStep}
-                          className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
-                            loading || chickenBusy
-                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                              : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
-                          }`}
-                        >
-                          <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
-                          <span>SKOCZ NA PAS 1 (×{nextMult.toFixed(2)})</span>
-                        </button>
-                      );
-                    }
-
                     return (
-                      <div className="grid grid-cols-2 gap-2 w-full">
-                        <button
-                          type="button"
-                          disabled={loading || chickenBusy}
-                          onClick={handleChickenStep}
-                          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition-all ${
-                            loading || chickenBusy
-                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                              : "bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 border-2 border-amber-300 shadow-amber-500/30"
-                          }`}
-                        >
-                          <Zap size={18} className="fill-slate-950" />
-                          <span>SKOCZ (×{nextMult.toFixed(2)})</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isCashoutDisabled}
-                          onClick={handleChickenCashout}
-                          className={`py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-1.5 shadow-xl cursor-pointer active:scale-95 transition-all ${
-                            isCashoutDisabled
-                              ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60"
-                              : "bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/30"
-                          }`}
-                        >
-                          <span>WYPŁAĆ {money(currentProfit)}</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        disabled={isCashoutDisabled}
+                        onClick={handleChickenCashout}
+                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                          !isCashoutDisabled
+                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
+                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        }`}
+                      >
+                        <CheckCircle2 size={20} />
+                        <span>
+                          {currentLane === 0
+                            ? "Kliknij na drogę, aby skoczyć"
+                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                        </span>
+                      </button>
                     );
                   }
 

@@ -3415,7 +3415,7 @@ body {
   overflow: hidden;
 }
 
-/* --- UPGRADER FULL-WIDTH EXPANSIVE LAYOUT (Desktop) --- */
+/* --- UPGRADER & CHICKEN FULL-WIDTH EXPANSIVE LAYOUT (Desktop) --- */
 .game-dialog-box.is-upgrader-dialog {
   max-width: 1200px !important;
   width: 98vw !important;
@@ -3423,9 +3423,20 @@ body {
   overflow-y: auto !important;
 }
 
-/* On mobile: upgrader takes full screen like every other game */
+.game-dialog-box.is-chicken-dialog {
+  max-width: 1440px !important;
+  width: 98vw !important;
+  height: calc(100dvh - 20px) !important;
+  max-height: calc(100dvh - 20px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* On mobile: upgrader and chicken take full screen like every other game */
 @media (max-width: 859px) {
-  .game-dialog-box.is-upgrader-dialog {
+  .game-dialog-box.is-upgrader-dialog,
+  .game-dialog-box.is-chicken-dialog {
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100dvh !important;
@@ -5219,10 +5230,12 @@ body {
 
   /* --- Slots Desktop --- */
   .slots-container {
-    max-width: 540px;
+    max-width: 480px;
     width: 100%;
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 1rem;
     border-radius: 20px;
+    --slot-box-h: 90px;
+    --slot-gap: 0.65rem;
   }
 
   .slots-reels-grid {
@@ -5230,21 +5243,11 @@ body {
   }
 
   .slot-reel-column {
-    gap: 0.85rem;
-  }
-
-  .slot-reel-strip {
-    height: 120px;
-    border-radius: 12px;
-  }
-
-  .slot-symbol-box {
-    height: 110px;
-    border-radius: 12px;
+    gap: 0.65rem;
   }
 
   .symbol-glyph {
-    font-size: 3rem;
+    font-size: 2.75rem;
   }
 
   /* --- Plinko Desktop --- */
