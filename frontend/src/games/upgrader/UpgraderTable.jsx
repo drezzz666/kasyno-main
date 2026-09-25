@@ -36,7 +36,7 @@ export function UpgraderTable({
   const spinTimeoutRef = useRef(null);
 
   // 96% RTP formula: chance% = 96.0 / target
-  const clampedTarget = Math.max(1.05, Math.min(10000, Number(target) || 2.0));
+  const clampedTarget = Math.max(1.5, Math.min(10000, Number(target) || 2.0));
   const rawChance = Math.min(95.0, Math.max(0.01, 96.0 / clampedTarget));
   const winChance = Number(rawChance.toFixed(2));
   const potentialPayout = Math.floor(bet * clampedTarget);
@@ -439,13 +439,16 @@ export function UpgraderTable({
               <input
                 type="number"
                 step="0.05"
-                min="1.05"
+                min="1.5"
                 max="10000"
                 value={target}
                 disabled={loading || spinning}
                 onChange={(e) => {
                   const v = parseFloat(e.target.value);
-                  setTarget(isNaN(v) ? 2.0 : v);
+                  setTarget(isNaN(v) ? "" : v);
+                }}
+                onBlur={() => {
+                  setTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
                 }}
                 className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700 sm:border-2 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
                 placeholder="Własny mnożnik..."
