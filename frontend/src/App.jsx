@@ -61,7 +61,7 @@ export default function App() {
     return "games";
   }); // "games" | "minigames" | "missions" | "ranking" | "history" | "tos"
 
-  // ToS Consent State
+  // ToS Consent State (per account)
   const [tosAccepted, setTosAccepted] = useState(() => {
     try {
       return localStorage.getItem("kasyno_tos_accepted_v2") === "true";
@@ -70,24 +70,25 @@ export default function App() {
     }
   });
 
-  const [tosModalOpen, setTosModalOpen] = useState(() => {
-    try {
-      return localStorage.getItem("kasyno_tos_accepted_v2") !== "true";
-    } catch {
-      return true;
-    }
-  });
+  const [tosModalOpen, setTosModalOpen] = useState(false);
 
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
-  const handleAcceptTos = useCallback(() => {
+  const handleAcceptTos = useCallback(async () => {
+    const uid = data?.player?.user_id;
     try {
+      if (uid) localStorage.setItem(`kasyno_tos_accepted_${uid}`, "true");
       localStorage.setItem("kasyno_tos_accepted_v2", "true");
     } catch { }
     setTosAccepted(true);
     setTosModalOpen(false);
     toast.success("Regulamin zaakceptowany. Witamy w grze!");
-  }, []);
+
+    // Save permanently to the player account in backend DB
+    try {
+      await postCasinoAction({ action: "accept_tos" });
+    } catch { }
+  }, [data?.player?.user_id]);
 
   // Per-game bet memory with default 10 $FGT for every game
   const [gameBets, setGameBets] = useState(() => {
@@ -233,6 +234,27 @@ export default function App() {
               : j.player,
         };
       });
+      if (j.player) {
+        const uid = j.player.user_id;
+        const acceptedInDb = Boolean(j.player.tos_accepted && Number(j.player.tos_accepted) > 0);
+        let acceptedLocal = false;
+        try {
+          acceptedLocal =
+            localStorage.getItem(`kasyno_tos_accepted_${uid}`) === "true" ||
+            localStorage.getItem("kasyno_tos_accepted_v2") === "true";
+        } catch { }
+        const isAccepted = acceptedInDb || acceptedLocal;
+        setTosAccepted(isAccepted);
+        if (isAccepted) {
+          setTosModalOpen(false);
+          try {
+            if (uid) localStorage.setItem(`kasyno_tos_accepted_${uid}`, "true");
+          } catch { }
+        } else {
+          setTosModalOpen(true);
+        }
+      }
+
       if (typeof j.hasMoreHistory === "boolean") {
         setHasMoreHistory(j.hasMoreHistory);
       }

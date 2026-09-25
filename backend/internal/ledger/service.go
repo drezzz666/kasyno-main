@@ -65,12 +65,12 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 
 	var p Player
 	err := pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.CreatedAt, &p.UpdatedAt)
 
 	if err == nil {
 		// Existing player: update avatar if newly provided
@@ -160,16 +160,26 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 func (s *Service) GetPlayer(ctx context.Context, userID string) (*Player, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+func (s *Service) AcceptTos(ctx context.Context, userID string) error {
+	now := NowMs()
+	_, err := s.db.Pool.Exec(ctx, `
+		UPDATE players
+		SET tos_accepted = $1, updated_at = $1
+		WHERE user_id = $2
+	`, now, userID)
+	return err
 }
 
 func (s *Service) GetActiveRound(ctx context.Context, userID string) (*GameRound, error) {

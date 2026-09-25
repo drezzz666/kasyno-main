@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 ALTER TABLE players ADD COLUMN IF NOT EXISTS avatar TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS tos_accepted BIGINT NOT NULL DEFAULT 0;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_players_nick_unique ON players (nick);
 

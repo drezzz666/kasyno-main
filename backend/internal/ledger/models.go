@@ -10,6 +10,7 @@ type Player struct {
 	Level        int     `json:"level"`
 	Streak       int     `json:"streak"`
 	LastBonusDay *string `json:"last_bonus_day"`
+	TosAccepted  int64   `json:"tos_accepted"`
 	CreatedAt    int64   `json:"created_at"`
 	UpdatedAt    int64   `json:"updated_at"`
 }

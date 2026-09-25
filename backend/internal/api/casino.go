@@ -332,9 +332,9 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	game, _ := body["game"].(string)
 
 	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge for game actions
-	// Captcha actions (solve_captcha, claim_captcha, get_captcha) are self-verifying human challenges with HMAC signatures
-	isCaptchaAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha"
-	if !isCaptchaAction {
+	// Captcha actions and ToS acceptance are self-verifying / non-gameplay state actions
+	isExemptAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha" || action == "accept_tos" || action == "tos_accept"
+	if !isExemptAction {
 		proofHeader := r.Header.Get("X-Browser-Proof")
 		if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
 			if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
@@ -368,6 +368,13 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch action {
+	case "accept_tos", "tos_accept":
+		_ = h.ledger.AcceptTos(r.Context(), p.UserID)
+		p.TosAccepted = time.Now().UnixMilli()
+		JSON(w, http.StatusOK, map[string]interface{}{
+			"success": true,
+			"player":  p,
+		})
 	case "bonus":
 		h.handleBonus(w, r, p)
 	case "claim_mission", "mission":
