@@ -653,108 +653,108 @@ export function GameTableDialog({
 
         <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
           {/* Full-size Game Arena taking all available space */}
-          <div className={`flex-1 w-full min-h-0 relative flex ${game === "chicken" ? "items-stretch overflow-hidden" : "items-center justify-center overflow-y-auto overflow-x-hidden"} bg-[#0c131e] p-2 sm:p-4`}>
-            <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full h-full flex items-center justify-center relative z-10`}>
-              {game === "roulette" && (
-                <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
-                  <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
-                    <RouletteWheelVisual
-                      mustStartSpinning={spinning}
-                      prizeNumber={prize}
-                      turbo={turbo}
-                      onStopSpinning={() => {
-                        setSpinning(false);
-                        if (pendingSpin) {
-                          setLast(pendingSpin.round);
-                          if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
-                          triggerOutcome(pendingSpin.round);
-                          setPendingSpin(null);
-                          void load();
-                        }
-                        if (animatingRef) animatingRef.current = false;
-                      }}
+          <div className={`flex-1 w-full min-h-0 relative flex ${game === "chicken" ? "items-stretch overflow-hidden p-0" : "items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4"} bg-[#0c131e]`}>
+            {game === "chicken" ? (
+              <ChickenTable
+                ref={chickenRef}
+                round={round}
+                last={last}
+                post={post}
+                loading={loading}
+                turbo={turbo}
+                triggerOutcome={triggerOutcome}
+                animatingRef={animatingRef}
+                onBusyChange={setChickenBusy}
+              />
+            ) : (
+              <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full h-full flex items-center justify-center relative z-10`}>
+                {game === "roulette" && (
+                  <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
+                    <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
+                      <RouletteWheelVisual
+                        mustStartSpinning={spinning}
+                        prizeNumber={prize}
+                        turbo={turbo}
+                        onStopSpinning={() => {
+                          setSpinning(false);
+                          if (pendingSpin) {
+                            setLast(pendingSpin.round);
+                            if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                            triggerOutcome(pendingSpin.round);
+                            setPendingSpin(null);
+                            void load();
+                          }
+                          if (animatingRef) animatingRef.current = false;
+                        }}
+                      />
+                      {hasSettledSpin && (
+                        <div className="roulette-result" aria-live="polite">
+                          <strong>{rawWinningNumber}</strong>
+                        </div>
+                      )}
+                    </div>
+                    <RouletteBets
+                      selectedBets={rouletteSelected}
+                      onToggleBet={handleRouletteToggle}
+                      onClearBets={handleRouletteClear}
+                      winningNumber={hasSettledSpin ? rawWinningNumber : null}
+                      disabled={spinning || rouletteWaiting}
                     />
-                    {hasSettledSpin && (
-                      <div className="roulette-result" aria-live="polite">
-                        <strong>{rawWinningNumber}</strong>
-                      </div>
-                    )}
                   </div>
-                  <RouletteBets
-                    selectedBets={rouletteSelected}
-                    onToggleBet={handleRouletteToggle}
-                    onClearBets={handleRouletteClear}
-                    winningNumber={hasSettledSpin ? rawWinningNumber : null}
-                    disabled={spinning || rouletteWaiting}
+                )}
+
+                {game === "slots" && (
+                  <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />
+                )}
+
+                {game === "blackjack" && (
+                  <BlackjackTable round={blackjackPreview || round} last={last} />
+                )}
+
+                {game === "mines" && (
+                  <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />
+                )}
+
+                {game === "coinflip" && (
+                  <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />
+                )}
+
+                {game === "rps" && (
+                  <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />
+                )}
+
+                {game === "plinko" && (
+                  <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />
+                )}
+
+                {game === "limbo" && (
+                  <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
+                )}
+
+                {game === "crash" && (
+                  <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
+                )}
+
+                {game === "upgrader" && (
+                  <UpgraderTable
+                    arenaOnly
+                    bet={bet}
+                    setBet={setBet}
+                    maxBalance={data?.player?.balance ?? 0}
+                    target={upgraderTarget}
+                    setTarget={setUpgraderTarget}
+                    rollType={upgraderRollType}
+                    setRollType={setUpgraderRollType}
+                    last={last}
+                    loading={loading}
+                    animatingRef={animatingRef}
+                    onBusyChange={setUpgraderBusy}
+                    triggerOutcome={triggerOutcome}
+                    turbo={turbo}
                   />
-                </div>
-              )}
-
-              {game === "slots" && (
-                <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />
-              )}
-
-              {game === "blackjack" && (
-                <BlackjackTable round={blackjackPreview || round} last={last} />
-              )}
-
-              {game === "mines" && (
-                <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />
-              )}
-
-              {game === "chicken" && (
-                <ChickenTable
-                  ref={chickenRef}
-                  round={round}
-                  last={last}
-                  post={post}
-                  loading={loading}
-                  turbo={turbo}
-                  triggerOutcome={triggerOutcome}
-                  animatingRef={animatingRef}
-                  onBusyChange={setChickenBusy}
-                />
-              )}
-
-              {game === "coinflip" && (
-                <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />
-              )}
-
-              {game === "rps" && (
-                <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />
-              )}
-
-              {game === "plinko" && (
-                <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />
-              )}
-
-              {game === "limbo" && (
-                <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
-              )}
-
-              {game === "crash" && (
-                <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
-              )}
-
-              {game === "upgrader" && (
-                <UpgraderTable
-                  arenaOnly
-                  bet={bet}
-                  setBet={setBet}
-                  maxBalance={data?.player?.balance ?? 0}
-                  target={upgraderTarget}
-                  setTarget={setUpgraderTarget}
-                  rollType={upgraderRollType}
-                  setRollType={setUpgraderRollType}
-                  last={last}
-                  loading={loading}
-                  animatingRef={animatingRef}
-                  onBusyChange={setUpgraderBusy}
-                  triggerOutcome={triggerOutcome}
-                  turbo={turbo}
-                />
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Docked Bottom Control Bar */}
@@ -896,26 +896,25 @@ export function GameTableDialog({
               )}
 
               {game === "plinko" && (
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Rzędy:</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 bg-[#131d2e] p-1 rounded-xl border border-slate-700/80">
                     {[14, 16].map((r) => (
                       <button
                         key={r}
                         type="button"
                         disabled={loading}
                         onClick={() => setPlinkoRows(r)}
-                        className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono font-black transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer ${
                           plinkoRows === r
-                            ? "bg-amber-500 text-slate-950 border-2 border-amber-300 shadow-md"
-                            : "bg-[#172336] text-slate-300 hover:bg-slate-700 border border-slate-700/60"
+                            ? "bg-amber-500 text-slate-950 shadow-md"
+                            : "text-slate-400 hover:text-white"
                         }`}
                       >
                         {r}
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5 bg-[#131d2e] p-1 rounded-xl border border-slate-700/80">
                     {[
                       { id: "low", label: "Niskie" },
                       { id: "medium", label: "Średnie" },
@@ -926,10 +925,10 @@ export function GameTableDialog({
                         type="button"
                         disabled={loading}
                         onClick={() => setPlinkoRisk(rk.id)}
-                        className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           plinkoRisk === rk.id
-                            ? "bg-amber-500 text-slate-950 border-2 border-amber-300 shadow-md"
-                            : "bg-[#172336] text-slate-300 hover:bg-slate-700 border border-slate-700/60"
+                            ? "bg-amber-500 text-slate-950 shadow-md"
+                            : "text-slate-400 hover:text-white"
                         }`}
                       >
                         {rk.label}
