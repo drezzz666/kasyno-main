@@ -700,18 +700,6 @@ export function GameTableDialog({
               <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-3 max-w-2xl">
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-400">Stawka</span>
-                  {typeof turbo === "boolean" && (
-                    <button
-                      type="button"
-                      onClick={() => setTurbo(!turbo)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                        turbo ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      <Zap size={10} className={turbo ? "fill-amber-400" : ""} />
-                      <span>Turbo</span>
-                    </button>
-                  )}
                 </div>
 
                 <div className="relative flex-1 flex items-center min-w-[100px] max-w-[180px]">
