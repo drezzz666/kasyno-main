@@ -121,7 +121,6 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const [bouncedBin, setBouncedBin] = useState(null);
   const [activeBallCount, setActiveBallCount] = useState(0);
   const [recentHits, setRecentHits] = useState([]);
-  const [canvasRect, setCanvasRect] = useState(null);
 
   const binColors = getBinColors(currentMults.length);
 
@@ -540,46 +539,10 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     };
   }, []);
 
-  // ResizeObserver: track rendered canvas size to align bins smoothly
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const viewport = viewportRef.current;
-    if (!canvas || !viewport) return;
-
-    const update = () => {
-      const vRect = viewport.getBoundingClientRect();
-      const cRect = canvas.getBoundingClientRect();
-      const bottomOffset = vRect.bottom - cRect.bottom;
-      const scale = cRect.width / WIDTH;
-      setCanvasRect({ scale, bottomOffset, canvasWidth: cRect.width });
-    };
-
-    const ro = new ResizeObserver(update);
-    ro.observe(canvas);
-    ro.observe(viewport);
-    update();
-    return () => ro.disconnect();
-  }, [rows]);
-
-  // Width ratio of bins to perfectly align with bottom pegs
-  const lastRowPinCount = 3 + rows - 1;
-  const pinDistanceX = (WIDTH - PADDING_X * 2) / (lastRowPinCount - 1);
-  const totalBinsWidth = (rows + 1) * pinDistanceX;
-  const binsWidthPercent = (totalBinsWidth / WIDTH) * 100;
-
-  const binsStyle = canvasRect
-    ? {
-        bottom: `${Math.max(0, canvasRect.bottomOffset)}px`,
-        height: `${Math.max(18, PADDING_BOTTOM * canvasRect.scale)}px`,
-        width: `${(WIDTH - PADDING_X * 2) * canvasRect.scale}px`,
-        left: "50%",
-        transform: "translateX(-50%)",
-      }
-    : {
-        width: `${binsWidthPercent}%`,
-        left: "50%",
-        transform: "translateX(-50%)",
-      };
+  // Exact mathematical width and offset of multiplier bins (matches bottom pegs channel 100%)
+  const BINS_WIDTH_PERCENT = ((WIDTH - PADDING_X * 2) / WIDTH) * 100; // 90.5263%
+  const BINS_HEIGHT_PERCENT = (34 / HEIGHT) * 100; // 5.9649%
+  const BINS_BOTTOM_PERCENT = (8 / HEIGHT) * 100; // 1.4035%
 
   return (
     <div className="plinko-stake-wrapper">
@@ -615,7 +578,13 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         {/* Multiplier Bins Row */}
         <div
           className="plinko-bins-container"
-          style={binsStyle}
+          style={{
+            width: `${BINS_WIDTH_PERCENT}%`,
+            height: `${BINS_HEIGHT_PERCENT}%`,
+            bottom: `${BINS_BOTTOM_PERCENT}%`,
+            left: "50%",
+            transform: "translateX(-50%)",
+          }}
         >
           {currentMults.map((mult, idx) => {
             const isBounced = bouncedBin === idx;
@@ -628,7 +597,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
                 className={`plinko-stake-bin ${isBounced ? "bounced" : ""}`}
                 style={{
                   backgroundColor: bg,
-                  boxShadow: `0 3px 0 ${shadow}, 0 0 12px ${isBounced ? bg : "transparent"}`,
+                  boxShadow: `0 2px 0 ${shadow}, 0 0 10px ${isBounced ? bg : "transparent"}`,
                 }}
               >
                 <span className="plinko-bin-text">

@@ -4101,7 +4101,7 @@ body {
    ========================================================================== */
 .plinko-stake-wrapper {
   width: 100%;
-  max-width: 960px;
+  max-width: 860px;
   height: 100%;
   max-height: 100%;
   margin: 0 auto;
@@ -4110,8 +4110,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .plinko-recent-history {
@@ -4162,44 +4163,39 @@ body {
 }
 
 .plinko-viewport {
-  width: auto;
-  height: 100%;
-  max-height: calc(100% - 24px);
+  position: relative;
+  width: 100%;
   max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 760 / 570;
   background: radial-gradient(circle at 50% 20%, #131926, #07090e);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  position: relative;
+  border-radius: 14px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-height: 0;
+  container-type: inline-size;
+  box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .plinko-matter-canvas {
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  aspect-ratio: 760 / 570;
-  object-fit: contain;
   display: block;
 }
 
 .plinko-bins-container {
   position: absolute;
-  bottom: 0;
+  bottom: 1.4%;
   left: 50%;
   transform: translateX(-50%);
+  width: 90.526315%;
+  height: 6%;
   display: flex;
   justify-content: center;
-  gap: 2px;
+  gap: 0;
   z-index: 10;
-  height: clamp(20px, 5%, 32px);
-  transition: width 0.2s ease;
   pointer-events: none;
 }
 
@@ -4210,24 +4206,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  padding: 1px;
+  border-radius: 3px;
+  margin: 0 0.5px;
+  padding: 0;
   transition: transform 0.12s cubic-bezier(0.18, 0.89, 0.32, 1.28), box-shadow 0.12s ease;
   user-select: none;
 }
 
 .plinko-stake-bin.bounced {
-  transform: translateY(3px) scale(1.15);
+  transform: translateY(2px) scale(1.12);
   z-index: 20;
 }
 
 .plinko-bin-text {
-  font-size: clamp(6px, 1.5vw, 9px);
+  font-size: clamp(6px, 2.2cqw, 11px);
   font-family: var(--font-mono);
   font-weight: 900;
   color: #000;
   line-height: 1;
   white-space: nowrap;
+  letter-spacing: -0.4px;
 }
 
 .plinko-config-panel {
@@ -5310,7 +5308,7 @@ body {
 
   /* --- Plinko Desktop --- */
   .plinko-stake-wrapper {
-    max-width: 960px;
+    max-width: 860px;
     width: 100%;
     height: 100%;
     max-height: 100%;
@@ -5319,50 +5317,44 @@ body {
     align-items: center;
     display: flex;
     flex-direction: column;
-    flex: 1;
     min-height: 0;
   }
 
   .plinko-viewport {
-    width: auto;
+    width: 100%;
     max-width: 100%;
+    max-height: 100%;
     aspect-ratio: 760 / 570;
-    height: 100%;
-    max-height: calc(100% - 24px);
-    padding: 0;
     border-radius: 16px;
     position: relative;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 1;
-    min-height: 0;
+    container-type: inline-size;
   }
 
   .plinko-matter-canvas {
     width: 100%;
     height: 100%;
-    max-width: 100%;
-    aspect-ratio: 760 / 570;
-    object-fit: contain;
     display: block;
   }
 
   .plinko-bins-container {
-    height: clamp(24px, 5.2%, 40px);
-    bottom: 0;
-    gap: 3px;
+    width: 90.526315%;
+    height: 6.2%;
+    bottom: 1.4%;
+    gap: 0;
   }
 
   .plinko-stake-bin {
-    padding: 5px 2px;
-    border-radius: 6px;
+    border-radius: 4px;
+    margin: 0 1px;
   }
 
   .plinko-bin-text {
-    font-size: clamp(9px, 0.85vw, 13px);
-    font-weight: 800;
+    font-size: clamp(7px, 2.2cqw, 13px);
+    font-weight: 900;
   }
 
   .plinko-config-panel {
