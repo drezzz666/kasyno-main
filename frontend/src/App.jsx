@@ -212,7 +212,7 @@ export default function App() {
         setMuted(true);
         if (!autoMuteNotifiedRef.current) {
           autoMuteNotifiedRef.current = true;
-          toast.info("Wyciszono dźwięki", {
+          toast.info("🔇 Wyciszono dźwięki", {
             id: "subnet-auto-mute-toast",
             description: j.autoMutedReason || "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
             duration: 9000,
