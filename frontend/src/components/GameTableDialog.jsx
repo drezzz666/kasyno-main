@@ -83,8 +83,11 @@ export function GameTableDialog({
   const [outcomePending, setOutcomePending] = useState(false);
 
   useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     if (game) addBreadcrumb("ui", `Opened Game Table Modal: ${game}`, { game, bet });
     return () => {
+      document.body.style.overflow = originalOverflow;
       if (game) addBreadcrumb("ui", `Closed Game Table Modal: ${game}`);
       if (outcomeTimerRef.current) clearTimeout(outcomeTimerRef.current);
       if (crashAnimRef.current) cancelAnimationFrame(crashAnimRef.current);

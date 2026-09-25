@@ -429,8 +429,8 @@ func TestUpgrader_SecurityAndServerSided(t *testing.T) {
 	}
 
 	// B. Invalid multiplier bounds must be rejected
-	if _, err := upgrader.PlayUpgrader(100, 1.01, "under"); err == nil {
-		t.Fatalf("upgrader: expected error on target multiplier < 1.05x")
+	if _, err := upgrader.PlayUpgrader(100, 1.49, "under"); err == nil {
+		t.Fatalf("upgrader: expected error on target multiplier < 1.50x")
 	}
 	if _, err := upgrader.PlayUpgrader(100, 20000.0, "under"); err == nil {
 		t.Fatalf("upgrader: expected error on target multiplier > 10000x")
