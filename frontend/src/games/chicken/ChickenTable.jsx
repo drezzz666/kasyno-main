@@ -466,7 +466,6 @@ export function ChickenTable({
 }) {
   const [jumping, setJumping] = useState(false);
   const [jumpLane, setJumpLane] = useState(null);
-  const [cashingOut, setCashingOut] = useState(false);
   const [crashAnim, setCrashAnim] = useState(null);
   const [cameraOffset, setCameraOffset] = useState(0);
   const viewportRef = useRef(null);
@@ -589,7 +588,7 @@ export function ChickenTable({
 
   // Handle jump step (triggered by clicking directly on the board / next lane)
   const handleStep = async () => {
-    if (!activeRound || loading || jumping || cashingOut || crashAnim) return;
+    if (!activeRound || loading || jumping || crashAnim) return;
     const nextTarget = currentLane + 1;
     setJumping(true);
     setJumpLane(nextTarget);
@@ -633,30 +632,6 @@ export function ChickenTable({
         setJumping(false);
         setJumpLane(null);
       }, 350);
-    }
-  };
-
-  // Handle cashout
-  const handleCashout = async () => {
-    if (!activeRound || loading || currentLane < 1 || cashingOut || crashAnim) return;
-    setCashingOut(true);
-    sounds.playCoins();
-
-    try {
-      const res = await post({ action: "chicken", roundId: activeRound.id, move: "cashout" });
-      if (res?.round) {
-        if (animatingRef) animatingRef.current = true;
-        if (onBusyChange) onBusyChange(true);
-        const delay = turbo ? 100 : 500;
-        if (outcomeTimeoutRef.current) clearTimeout(outcomeTimeoutRef.current);
-        outcomeTimeoutRef.current = setTimeout(() => {
-          if (animatingRef) animatingRef.current = false;
-          if (onBusyChange) onBusyChange(false);
-          if (triggerOutcome) triggerOutcome(res.round, 0);
-        }, delay);
-      }
-    } finally {
-      setCashingOut(false);
     }
   };
 
@@ -848,47 +823,6 @@ export function ChickenTable({
         </div>
       </div>
       </div>
-
-      {/* Bottom HUD Bar / Right-Aligned Cashout */}
-      {activeRound && (
-        <div className="flex items-center justify-between gap-3 mt-3 px-4 py-2.5 rounded-xl bg-[#0e1622] border border-slate-800 shadow-md">
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Postęp</span>
-              <span className="font-mono font-bold text-slate-200">
-                Pas {currentLane} / {TOTAL_LANES}
-              </span>
-            </div>
-            {currentLane >= 1 && (
-              <div className="flex flex-col pl-3 border-l border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Zysk</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  {money(currentProfit)} ({currentMult.toFixed(2)}x)
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Prominent Cashout Button on the Right */}
-          <button
-            type="button"
-            disabled={loading || jumping || cashingOut || Boolean(crashAnim) || currentLane < 1}
-            onClick={handleCashout}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg font-black text-xs sm:text-sm transition-all ${
-              currentLane >= 1 && !jumping && !cashingOut && !crashAnim
-                ? "bg-[#00e701] hover:bg-[#00c801] text-slate-950 shadow-lg shadow-emerald-500/25 border border-emerald-400/50 cursor-pointer active:scale-95"
-                : "bg-slate-800 text-slate-500 border border-slate-700/80 cursor-not-allowed opacity-60"
-            }`}
-          >
-            <span>WYPŁAĆ {currentLane >= 1 ? money(currentProfit) : ""}</span>
-            {currentLane >= 1 && (
-              <span className="text-xs font-bold font-mono bg-slate-950/20 px-1.5 py-0.5 rounded">
-                ×{currentMult.toFixed(2)}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
