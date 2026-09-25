@@ -1320,12 +1320,12 @@ func (b *Bot) executeResetMusorDrop(ctx context.Context, identifier, boxType str
 
 	b.invalidatePlayerCache()
 
-	boxLabel := "wszystkie dzienne skrzynki (Plebsowa i kastracka)"
+	boxLabel := "wszystkie dzienne skrzynki (Plebsowa i Arystokracka)"
 	switch strings.ToLower(boxType) {
 	case "plebs", "plebsowa":
 		boxLabel = "skrzynka Plebsowa"
-	case "arystokracja", "kastracka":
-		boxLabel = "skrzynka kastracka"
+	case "arystokracja", "arystokracka":
+		boxLabel = "skrzynka Arystokracka"
 	}
 
 	targetLabel := fmt.Sprintf("dla gracza `%s`", identifier)

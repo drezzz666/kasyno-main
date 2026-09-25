@@ -91,9 +91,9 @@ var slashCommands = []*discordgo.ApplicationCommand{
 				Description: "Typ skrzynki do zresetowania limitu",
 				Required:    false,
 				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "Wszystkie dzienne (Plebsowa + kastracka)", Value: "all"},
+					{Name: "Wszystkie dzienne (Plebsowa + Arystokracka)", Value: "all"},
 					{Name: "Plebsowa (Darmowa)", Value: "plebs"},
-					{Name: "kastracka (Płatna 500 ₽)", Value: "arystokracja"},
+					{Name: "Arystokracka (Płatna 500 ₽)", Value: "arystokracja"},
 				},
 			},
 		},
