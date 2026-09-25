@@ -695,14 +695,14 @@ export function GameTableDialog({
             </div>
 
             {/* Docked Bottom Control Bar */}
-            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-3 sm:px-6 py-2.5 sm:py-3.5 z-20 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4 shadow-2xl flex-shrink-0">
+            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-4 sm:px-8 py-3.5 sm:py-4.5 z-20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-5 shadow-2xl flex-shrink-0">
               {/* Bet controls */}
-              <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-3 max-w-2xl">
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">Stawka</span>
+              <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-4 max-w-2xl">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
                 </div>
 
-                <div className="relative flex-1 flex items-center min-w-[100px] max-w-[180px]">
+                <div className="relative flex-1 flex items-center min-w-[120px] max-w-[200px]">
                   <input
                     type="number"
                     min="1"
@@ -710,26 +710,26 @@ export function GameTableDialog({
                     value={bet}
                     disabled={loading || isBusy}
                     onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm focus:outline-none focus:border-amber-500 shadow-inner"
+                    className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
                   />
-                  <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">$FGT</span>
+                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-2 py-1.5 rounded-lg bg-[#172336] hover:bg-slate-700 text-xs font-black text-slate-300 cursor-pointer active:scale-95">Max</button>
+                <div className="flex items-center gap-1.5">
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
                 </div>
 
-                <div className="hidden md:flex items-center gap-1">
+                <div className="hidden md:flex items-center gap-1.5">
                   {[10, 50, 100, 500].map((inc) => (
                     <button
                       key={inc}
                       type="button"
                       disabled={loading || isBusy}
                       onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1 px-1.5 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
+                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
                     >
                       +{inc}
                     </button>
@@ -738,7 +738,7 @@ export function GameTableDialog({
               </div>
 
               {/* Main Action Button */}
-              <div className="w-full sm:w-auto sm:min-w-[260px]">
+              <div className="w-full sm:w-auto sm:min-w-[300px]">
                 {round ? (
                   (() => {
                     const currentLane = round.payload?.currentLane || 0;
@@ -751,13 +751,13 @@ export function GameTableDialog({
                         type="button"
                         disabled={isCashoutDisabled}
                         onClick={handleChickenCashout}
-                        className={`w-full py-2.5 px-5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-2xl transition-all ${
+                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
                           !isCashoutDisabled
                             ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
                             : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                         }`}
                       >
-                        <CheckCircle2 size={18} />
+                        <CheckCircle2 size={22} />
                         <span>
                           {currentLane === 0
                             ? "Kliknij na drogę, aby skoczyć"
@@ -771,7 +771,7 @@ export function GameTableDialog({
                     type="button"
                     disabled={!tosAccepted || loading || isBusy}
                     onClick={start}
-                    className={`w-full py-2.5 px-5 rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
+                    className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
                       !tosAccepted || loading || isBusy
                         ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                         : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
@@ -779,12 +779,12 @@ export function GameTableDialog({
                   >
                     {isBusy || loading ? (
                       <>
-                        <RotateCw size={18} className="animate-spin" />
+                        <RotateCw size={22} className="animate-spin" />
                         <span>{getPlayButtonText()}</span>
                       </>
                     ) : (
                       <>
-                        <Zap size={18} className="fill-slate-950" />
+                        <Zap size={22} className="fill-slate-950" />
                         <span>{getPlayButtonText()}</span>
                       </>
                     )}
