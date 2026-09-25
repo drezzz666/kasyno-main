@@ -185,8 +185,14 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       }
     }
 
-    // Render single initial frame on main canvas
-    drawFrame(performance.now());
+    // Render single initial frame directly on main canvas
+    const mainCanvas = canvasRef.current;
+    if (mainCanvas) {
+      const mainCtx = mainCanvas.getContext("2d");
+      if (mainCtx) {
+        mainCtx.drawImage(offscreen, 0, 0);
+      }
+    }
   }, [rows]);
 
   // Main high-speed rendering function

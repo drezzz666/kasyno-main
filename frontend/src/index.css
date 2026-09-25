@@ -4020,15 +4020,13 @@ body {
    ========================================================================== */
 .plinko-stake-wrapper {
   width: 100%;
-  max-width: 380px;
-  height: 100%;
-  max-height: 100%;
+  max-width: 580px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .plinko-recent-history {
@@ -4078,6 +4076,7 @@ body {
 
 .plinko-viewport {
   width: 100%;
+  aspect-ratio: 760 / 570;
   background: radial-gradient(circle at 50% 20%, #131926, #07090e);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
@@ -4086,14 +4085,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-height: clamp(220px, 45vh, 420px);
 }
 
 .plinko-matter-canvas {
   width: 100%;
-  height: auto;
+  height: 100%;
   max-width: 100%;
   aspect-ratio: 760 / 570;
+  object-fit: contain;
   display: block;
 }
 
@@ -5225,30 +5224,38 @@ body {
 
   /* --- Plinko Desktop --- */
   .plinko-stake-wrapper {
-    max-width: 100%;
+    max-width: 680px;
     width: 100%;
     height: 100%;
-    min-height: 0;
     gap: 0.75rem;
-    justify-content: flex-start;
-    align-items: stretch;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
   }
 
   .plinko-viewport {
-    max-height: none;
-    flex: 1 1 0%;
-    min-height: 0;
-    height: 100%;
+    width: 100%;
+    max-width: 650px;
+    aspect-ratio: 760 / 570;
+    height: auto;
+    max-height: 480px;
     padding: 0;
     border-radius: 16px;
+    position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .plinko-matter-canvas {
-    max-height: 100%;
     width: 100%;
     height: 100%;
+    max-width: 100%;
+    aspect-ratio: 760 / 570;
     object-fit: contain;
+    display: block;
   }
 
   .plinko-bins-container {
