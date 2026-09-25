@@ -1977,10 +1977,10 @@ body {
 
 .game-table-dialog,
 .game-dialog-box {
-  max-width: 1060px !important;
-  width: 96vw;
-  max-height: calc(100dvh - 24px) !important;
-  height: calc(100dvh - 24px) !important;
+  max-width: 1440px !important;
+  width: 98vw !important;
+  max-height: calc(100dvh - 20px) !important;
+  height: calc(100dvh - 20px) !important;
   background: #0c0f16 !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex !important;
@@ -4056,13 +4056,17 @@ body {
    ========================================================================== */
 .plinko-stake-wrapper {
   width: 100%;
-  max-width: 580px;
+  max-width: 960px;
+  height: 100%;
+  max-height: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  flex: 1;
+  min-height: 0;
 }
 
 .plinko-recent-history {
@@ -4071,7 +4075,9 @@ body {
   justify-content: flex-end;
   gap: 0.25rem;
   min-height: 18px;
+  max-height: 22px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .plinko-history-badge {
@@ -4111,7 +4117,10 @@ body {
 }
 
 .plinko-viewport {
-  width: 100%;
+  width: auto;
+  height: 100%;
+  max-height: calc(100% - 24px);
+  max-width: 100%;
   aspect-ratio: 760 / 570;
   background: radial-gradient(circle at 50% 20%, #131926, #07090e);
   border: 1px solid var(--border-subtle);
@@ -4121,12 +4130,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-height: 0;
 }
 
 .plinko-matter-canvas {
   width: 100%;
   height: 100%;
   max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 760 / 570;
   object-fit: contain;
   display: block;
@@ -4830,7 +4842,8 @@ body {
   }
 
   .table-visual.plinko {
-    align-items: stretch;
+    align-items: center;
+    justify-content: center;
   }
 
   .game-controls-column {
@@ -5252,22 +5265,25 @@ body {
 
   /* --- Plinko Desktop --- */
   .plinko-stake-wrapper {
-    max-width: 680px;
+    max-width: 960px;
     width: 100%;
     height: 100%;
-    gap: 0.75rem;
+    max-height: 100%;
+    gap: 0.35rem;
     justify-content: center;
     align-items: center;
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
   .plinko-viewport {
-    width: 100%;
-    max-width: 650px;
+    width: auto;
+    max-width: 100%;
     aspect-ratio: 760 / 570;
-    height: auto;
-    max-height: 480px;
+    height: 100%;
+    max-height: calc(100% - 24px);
     padding: 0;
     border-radius: 16px;
     position: relative;
@@ -5275,6 +5291,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex: 1;
+    min-height: 0;
   }
 
   .plinko-matter-canvas {

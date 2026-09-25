@@ -559,7 +559,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
 
       const focusLane = (isLoss && hazardLane > 0)
         ? hazardLane
-        : (activeRound ? activeChickenLane : 0);
+        : (currentLane > 0 ? activeChickenLane : 0);
 
       if (focusLane === 0) {
         setCameraOffset(0);
@@ -723,7 +723,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
             const isChickenPastThisLane = activeChickenLane > laneNum;
             const isCompletedPastThisLane = currentLane > laneNum;
             const isSafelyClearedBeforeCrash = isLoss && hazardLane > 0 && laneNum < hazardLane;
-            const isSettledWin = isSettled && !isLoss && currentLane >= laneNum;
+            const isSettledWin = isSettled && !isLoss && currentLane > laneNum;
 
             const shouldShowCoin = !isCrashedLane && (
               isSafelyClearedBeforeCrash ||
