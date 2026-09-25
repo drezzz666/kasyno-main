@@ -225,19 +225,6 @@ export function UpgraderTable({
     <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">
       {/* TOP: Game Wheel Arena (Full Width, Big & Expansive) */}
       <div className="w-full flex flex-col items-center justify-between p-3 sm:p-6 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[340px] sm:min-h-[420px] md:min-h-[480px] gap-2">
-        {/* Ambient Glow */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
-            spinning
-              ? "bg-amber-500/15 animate-pulse"
-              : lastOutcome?.won
-              ? "bg-emerald-500/25"
-              : lastOutcome
-              ? "bg-rose-500/20"
-              : "bg-transparent"
-          }`}
-        />
-
         {/* Compact Roll Mode Selector at top of the wheel */}
         <div className="z-20 flex items-center bg-[#131d2e] p-0.5 sm:p-1 rounded-xl border border-slate-700/80 shadow-md">
           <button

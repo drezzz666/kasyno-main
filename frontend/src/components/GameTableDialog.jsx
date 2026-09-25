@@ -654,12 +654,6 @@ export function GameTableDialog({
         <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
           {/* Full-size Game Arena taking all available space */}
           <div className={`flex-1 w-full min-h-0 relative flex ${game === "chicken" ? "items-stretch overflow-hidden" : "items-center justify-center overflow-y-auto overflow-x-hidden"} bg-[#0c131e] p-2 sm:p-4`}>
-            <div
-              className={`absolute inset-0 transition-opacity duration-700 pointer-events-none z-10 ${
-                isBusy ? "bg-amber-500/10 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/15" : last ? "bg-rose-500/15" : "bg-transparent"
-              }`}
-            />
-
             <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full h-full flex items-center justify-center relative z-10`}>
               {game === "roulette" && (
                 <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
@@ -903,14 +897,15 @@ export function GameTableDialog({
 
               {game === "plinko" && (
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <div className="flex items-center gap-1">
-                    {[8, 10, 12, 14, 16].map((r) => (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Rzędy:</span>
+                    {[14, 16].map((r) => (
                       <button
                         key={r}
                         type="button"
                         disabled={loading}
                         onClick={() => setPlinkoRows(r)}
-                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer ${
+                        className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-mono font-black transition-all cursor-pointer ${
                           plinkoRows === r
                             ? "bg-amber-500 text-slate-950 border-2 border-amber-300 shadow-md"
                             : "bg-[#172336] text-slate-300 hover:bg-slate-700 border border-slate-700/60"
