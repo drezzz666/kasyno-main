@@ -8,7 +8,7 @@ export function FgtChip({ small = false, className = "" }) {
       } bg-amber-500/15 text-amber-400 border border-amber-400/30 ${className}`}
       aria-hidden="true"
     >
-      $
+      ₽
     </span>
   );
 }

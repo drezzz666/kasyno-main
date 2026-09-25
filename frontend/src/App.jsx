@@ -571,7 +571,7 @@ export default function App() {
 
           <div className="balance-chip" title="Stan Twojego portfela">
             <span className="balance-val">{data ? format(data.player.balance) : "—"}</span>
-            <span className="balance-unit">$FGT</span>
+            <span className="balance-unit">₽</span>
           </div>
 
           <button
@@ -754,7 +754,7 @@ export default function App() {
                       <h2 className="missions-hub-title">Misje Kasyna (Co 6h)</h2>
                     </div>
                     <p className="missions-hub-subtitle">
-                      Wykonuj zadania w grach (min. stawka 50 $FGT), zdobywaj żetony $FGT i punkty XP. Pula 4 misji odnawia się automatycznie co 6 godzin.
+                      Wykonuj zadania w grach (min. stawka 50 ₽), zdobywaj ruble i punkty XP. Pula 4 misji odnawia się automatycznie co 6 godzin.
                     </p>
                   </div>
                   <div className="missions-hub-stats">
@@ -790,7 +790,7 @@ export default function App() {
                           <div className="mission-card-main-info">
                             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                               <span className="mission-category-pill">{m.category}</span>
-                              <span className="mission-reward-pill">+{format(m.reward)} $FGT</span>
+                              <span className="mission-reward-pill">+{format(m.reward)} ₽</span>
                               <span className="mission-xp-pill">+{m.xp_reward} XP</span>
                             </div>
                             <h3 className="mission-title">{m.title}</h3>
@@ -810,7 +810,7 @@ export default function App() {
                           <div className="mission-progress-text-row">
                             <span className="mission-progress-count">
                               {m.id === "daily_wager_1000"
-                                ? `${format(m.current)} / ${format(m.target)} $FGT`
+                                ? `${format(m.current)} / ${format(m.target)} ₽`
                                 : `${m.current} / ${m.target}`}
                             </span>
                             <span className="mission-progress-percent">{progressPercent}%</span>
@@ -837,7 +837,7 @@ export default function App() {
                               }}
                             >
                               <Sparkles size={14} />
-                              <span>Odbierz +{format(m.reward)} $FGT</span>
+                              <span>Odbierz +{format(m.reward)} ₽</span>
                             </button>
                           ) : (
                             <div className="mission-in-progress-row">
@@ -887,7 +887,7 @@ export default function App() {
                       onClick={() => setRankingType("balance")}
                     >
                       <Coins size={14} />
-                      <span>Bogactwo ($FGT)</span>
+                      <span>Bogactwo (₽)</span>
                     </button>
                     <button
                       className={`ranking-subtab-btn ${rankingType === "level" ? "active" : ""}`}
@@ -953,7 +953,7 @@ export default function App() {
                   <div className="ranking-divider">
                     <span className="ranking-divider-line" />
                     <span className="ranking-divider-text">
-                      {rankingType === "level" ? "NAJWYŻSZE POZIOMY (XP)" : "TOPKA KASYNA ($FGT)"}
+                      {rankingType === "level" ? "NAJWYŻSZE POZIOMY (XP)" : "TOPKA KASYNA (₽)"}
                     </span>
                     <span className="ranking-divider-line" />
                   </div>

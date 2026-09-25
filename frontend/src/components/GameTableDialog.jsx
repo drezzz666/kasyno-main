@@ -608,7 +608,7 @@ export function GameTableDialog({
     if (loading) return "Rozliczanie…";
     if (game === "coinflip") return choice ? `Rzuć monetą (${choice === "heads" ? "Orzeł 🦅" : "Reszka 👑"})` : "Wybierz Orła lub Reszkę";
     if (game === "rps") return choice ? `Zagraj (${{ rock: "Kamień ✊", paper: "Papier ✋", scissors: "Nożyce ✌️" }[choice] || choice})` : "Wybierz swój gest";
-    if (game === "roulette") return rouletteTotalBet > 0 ? `Zakręć kołem (${rouletteTotalBet} $FGT)` : "Wybierz pole lub kolor";
+    if (game === "roulette") return rouletteTotalBet > 0 ? `Zakręć kołem (${rouletteTotalBet} ₽)` : "Wybierz pole lub kolor";
     if (game === "upgrader") return upgraderBusy ? "Ulepszanie…" : `UPGRADE (×${(Number(upgraderTarget) || 2.0).toFixed(2)})`;
     if (game === "limbo") return `ZAGRAJ (×${(Number(limboTarget) || 2.0).toFixed(2)})`;
     if (game === "slots") return "ZAKRĘĆ BĘBNAMI";
@@ -629,7 +629,7 @@ export function GameTableDialog({
         <div className="modal-header">
           <div>
             <h3 id="game-dialog-title">{gameNames[game] || "Gra"}</h3>
-            <p>Stolik klubowy $FGT</p>
+            <p>Stolik do gry</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="balance-chip" title="Stan Twojego portfela">
@@ -686,7 +686,7 @@ export function GameTableDialog({
                     onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
                   />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">₽</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -892,7 +892,7 @@ export function GameTableDialog({
                     onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
                     className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
                   />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">₽</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -1189,7 +1189,7 @@ export function GameTableDialog({
                 {game === "roulette" && (
                   <div className="flex items-center gap-3">
                     <div className="text-xs sm:text-sm font-black text-slate-300">
-                      Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong>
+                      Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} ₽</strong>
                     </div>
                     {rouletteSelected.size > 0 && (
                       <button

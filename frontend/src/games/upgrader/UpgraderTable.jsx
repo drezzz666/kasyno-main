@@ -377,7 +377,7 @@ export function UpgraderTable({
               className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
             />
             <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
-              $FGT
+              ₽
             </span>
           </div>
 

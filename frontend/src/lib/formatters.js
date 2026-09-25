@@ -1,6 +1,6 @@
 export const format = (n) => new Intl.NumberFormat("pl-PL").format(n || 0);
 
-export const money = (n) => `${format(n)} $FGT`;
+export const money = (n) => `${format(n)} ₽`;
 
 export const dailyBonus = (streak) => Math.min(200 + (streak || 0) * 100, 2000);
 
@@ -42,7 +42,7 @@ export function getHistoryDetails(item) {
   if (item.type === "scheduled_grant" || item.type === "scheduled" || item.type === "grant_scheduled") {
     return {
       title: "Automatyczny zrzut",
-      subtitle: item.result || item.description || "Zaplanowany zrzut $FGT",
+      subtitle: item.result || item.description || "Zaplanowany zrzut rubli",
     };
   }
   if (item.type === "grant" || item.type === "grant_all" || item.type === "admin_grant" || item.type === "admin_create") {
@@ -60,7 +60,7 @@ export function getHistoryDetails(item) {
   if (item.type === "captcha_reward") {
     return {
       title: "Mini-gra Captcha",
-      subtitle: item.amount ? `Nagroda za rozwiązanie (+${item.amount} $FGT)` : "Nagroda za rozwiązanie (+80 $FGT)",
+      subtitle: item.amount ? `Nagroda za rozwiązanie (+${item.amount} ₽)` : "Nagroda za rozwiązanie (+80 ₽)",
     };
   }
   const gName = (item.game && gameNames[item.game]) || (item.game ? item.game.toUpperCase() : "Gra");

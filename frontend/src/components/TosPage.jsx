@@ -47,7 +47,7 @@ export function TosPage({ onBack, onAccept, accepted }) {
         <h1 className="tos-hero-title">Regulamin Kasyna Klubowego 2FGT</h1>
         <p className="tos-hero-desc">
           Zasady korzystania z platformy rozrywkowej, mechanizmy Provably Fair, polityka antybotowa
-          oraz warunki posługiwania się wirtualnymi żetonami $FGT.
+          oraz warunki posługiwania się wirtualnymi rublami (₽).
         </p>
       </header>
 
@@ -77,7 +77,7 @@ export function TosPage({ onBack, onAccept, accepted }) {
                 className={`tos-toc-link ${activeSection === "currency" ? "active" : ""}`}
                 onClick={() => scrollTo("currency")}
               >
-                3. Wirtualna Waluta $FGT
+                3. Wirtualne Ruble (₽)
               </button>
               <button
                 type="button"
@@ -178,13 +178,13 @@ export function TosPage({ onBack, onAccept, accepted }) {
             <div className="tos-section-header">
               <div className="tos-section-num">03</div>
               <div>
-                <h2>Status Wirtualnej Waluty $FGT</h2>
+                <h2>Status Wirtualnych Rubli (₽)</h2>
                 <p className="tos-section-lead">Brak wartości materialnej i reguły dystrybucji</p>
               </div>
             </div>
             <div className="tos-section-text">
               <p>
-                Waluta <strong>$FGT (Fidget Tokens)</strong> jest wewnętrznym punktem symulacyjnym, generowanym
+                Wirtualne <strong>ruble (₽)</strong> są wewnętrznym punktem symulacyjnym, generowanym
                 automatycznie przez serwer.
               </p>
               <div className="tos-key-facts-grid">
@@ -327,12 +327,12 @@ export function TosPage({ onBack, onAccept, accepted }) {
                   zadań na każde okno czasowe (00:00, 06:00, 12:00, 18:00 UTC).
                 </li>
                 <li>
-                  <strong>Nagrody za misje:</strong> Ukończenie zadania zasila konto żetonami $FGT oraz punktami
+                  <strong>Nagrody za misje:</strong> Ukończenie zadania zasila konto wirtualnymi rublami (₽) oraz punktami
                   doświadczenia XP.
                 </li>
                 <li>
                   <strong>Bonus dzienny (Streak):</strong> Logowanie dzień po dniu zwiększa mnożnik bonusu
-                  dziennego aż do 1,000 $FGT.
+                  dziennego aż do 1,000 ₽.
                 </li>
               </ul>
             </div>
