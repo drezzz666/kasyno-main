@@ -18,7 +18,7 @@ export function ChickenSprite({ isJumping = false }) {
     >
       <svg
         viewBox="0 0 60 52"
-        className="w-12 h-11 sm:w-14 sm:h-12 md:w-16 md:h-14 drop-shadow-xl"
+        className="w-14 h-13 sm:w-16 sm:h-15 md:w-18 md:h-16 drop-shadow-xl"
         fill="none"
       >
         {/* Soft Drop Shadow under body */}
@@ -657,10 +657,10 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
   }, [activeRound, jumping, crashAnim, loading, currentLane]);
 
   return (
-    <div className="chicken-game-canvas flex flex-col w-full select-none">
+    <div className="chicken-game-canvas flex flex-col w-full h-full flex-1 min-h-0 select-none">
       <div
         ref={viewportRef}
-        className="chicken-street-surface relative w-full h-[370px] sm:h-[410px] rounded-xl bg-[#0c131e] border border-slate-800/90 overflow-hidden shadow-2xl select-none"
+        className="chicken-street-surface relative w-full h-full min-h-0 bg-[#0c131e] overflow-hidden select-none flex-1"
       >
       {/* Smooth Moving Camera Track */}
       <div
@@ -679,7 +679,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
               handleStep();
             }
           }}
-          className={`chicken-left-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg ${
+          className={`chicken-left-sidewalk relative w-36 sm:w-44 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3.5 z-10 shadow-lg ${
             activeRound && currentLane === 0 ? "cursor-pointer hover:bg-[#1c293a]" : ""
           }`}
         >
@@ -690,9 +690,9 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
           </div>
 
           {/* Zebra Crossing Lines with beveled road curb markings */}
-          <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-85">
+          <div className="w-full flex flex-col gap-3 px-1 my-auto opacity-85">
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="w-full h-3.5 bg-slate-300/40 rounded-sm shadow-inner" />
+              <div key={i} className="w-full h-4 bg-slate-300/40 rounded-sm shadow-inner" />
             ))}
           </div>
 
@@ -747,7 +747,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                     }
                   }
                 }}
-                className={`chicken-road-lane relative w-36 sm:w-40 md:w-44 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
+                className={`chicken-road-lane relative w-48 sm:w-56 md:w-64 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
                   isNext ? "cursor-pointer hover:bg-slate-800/60 bg-amber-500/[0.04]" : isCurrent && activeRound ? "cursor-pointer" : ""
                 }`}
               >
@@ -837,15 +837,15 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
         </div>
 
         {/* Right Finish Sidewalk / Goal Meta */}
-        <div className="chicken-right-sidewalk relative w-28 sm:w-34 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-3 z-10 shadow-lg">
+        <div className="chicken-right-sidewalk relative w-36 sm:w-44 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-3.5 z-10 shadow-lg">
           <div className="text-xs font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-3 py-1 rounded border border-emerald-500/50 shadow-sm mt-1">
             META
           </div>
 
           {/* Checkered / Finish Zebra Lines */}
-          <div className="w-full flex flex-col gap-2.5 px-1 my-auto opacity-90">
+          <div className="w-full flex flex-col gap-3 px-1 my-auto opacity-90">
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="w-full h-3.5 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
+              <div key={i} className="w-full h-4 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
             ))}
           </div>
 

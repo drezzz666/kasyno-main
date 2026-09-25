@@ -96,15 +96,15 @@ func TestGameRoulette_InteractiveSimulation(t *testing.T) {
 	}
 }
 
-// 4. GAME: SLOTS (MIDNIGHT SLOTS 5 REELS)
+// 4. GAME: SLOTS (CLASSIC 3 REELS)
 func TestGameSlots_InteractiveSimulation(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		res, err := slots.PlaySlots(50)
 		if err != nil {
 			t.Fatalf("slots: unexpected error: %v", err)
 		}
-		if len(res.Payload.Reels) != 5 {
-			t.Fatalf("slots: expected 5 reels, got %d", len(res.Payload.Reels))
+		if len(res.Payload.Reels) != 3 {
+			t.Fatalf("slots: expected 3 reels, got %d", len(res.Payload.Reels))
 		}
 		if res.Payload.Multiplier > 0 && res.Payout != int64(math.Floor(50.0*res.Payload.Multiplier)) {
 			t.Fatalf("slots: payout math mismatch, mult=%f payout=%d", res.Payload.Multiplier, res.Payout)
