@@ -62,6 +62,7 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
     lepszaBoxes: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
   const [activeSpinnerBox, setActiveSpinnerBox] = useState(null);
   const [activeSpinnerOutcome, setActiveSpinnerOutcome] = useState(null);
 
@@ -81,8 +82,14 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
     };
   }, [setModalLocked]);
 
+  useEffect(() => {
+    if (setModalLocked) {
+      setModalLocked(isSpinning || loading);
+    }
+  }, [isSpinning, loading, setModalLocked]);
+
   const handleOpen = async (boxId) => {
-    if (loading) return;
+    if (loading || isSpinning) return;
 
     const cfg = BOXES_CONFIG.find((b) => b.id === boxId);
     if (!cfg) return;
@@ -107,7 +114,7 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
     }
 
     setLoading(true);
-    if (setModalLocked) setModalLocked(true);
+    setIsSpinning(true);
 
     try {
       const res = await postCasinoAction(
@@ -123,11 +130,11 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
         setActiveSpinnerBox(cfg);
         setActiveSpinnerOutcome(out);
       } else {
-        if (setModalLocked) setModalLocked(false);
+        setIsSpinning(false);
       }
     } catch (err) {
       toast.error(err.message || "Błąd otwierania skrzynki");
-      if (setModalLocked) setModalLocked(false);
+      setIsSpinning(false);
       refreshStatus();
     } finally {
       setLoading(false);
@@ -135,13 +142,13 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
   };
 
   const handleSpinnerComplete = (out) => {
+    setIsSpinning(false);
     if (out && out.state) {
       setState(out.state);
     }
     if (out && typeof out.balance === "number" && syncBalance) {
       syncBalance(out.balance);
     }
-    if (setModalLocked) setModalLocked(false);
   };
 
   // Check if currently active box in spinner can be reopened
@@ -169,11 +176,8 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
           boxConfig={activeSpinnerBox}
           outcome={activeSpinnerOutcome}
           onComplete={handleSpinnerComplete}
-          onSpinStateChange={(spinning) => {
-            if (setModalLocked) setModalLocked(spinning);
-          }}
           onBack={() => {
-            if (setModalLocked) setModalLocked(false);
+            setIsSpinning(false);
             setActiveSpinnerBox(null);
             setActiveSpinnerOutcome(null);
             refreshStatus();
