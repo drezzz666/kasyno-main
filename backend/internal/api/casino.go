@@ -216,6 +216,8 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"recentWins":       recentWins,
 		"musorDrop":        musorDropState,
 		"challenge":        anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		"autoMuted":        IsMutedSubnet(GetClientIP(r)),
+		"autoMutedReason":  "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
 	}
 
 	JSON(w, http.StatusOK, resp)

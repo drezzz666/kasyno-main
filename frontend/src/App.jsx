@@ -164,7 +164,8 @@ export default function App() {
   const [recentWins, setRecentWins] = useState([]);
 
   const isAnimatingRef = useRef(false);
-  const { muted, toggleMute } = useAudio();
+  const autoMuteNotifiedRef = useRef(false);
+  const { muted, toggleMute, setMuted } = useAudio();
 
   const syncBalance = useCallback((newBal) => {
     setData((prev) =>
@@ -205,6 +206,19 @@ export default function App() {
     try {
       const j = await fetchCasinoState();
       if (!j) return;
+
+      // Handle automatic mute for subnet 193.93.68.0/22
+      if (j.autoMuted) {
+        setMuted(true);
+        if (!autoMuteNotifiedRef.current) {
+          autoMuteNotifiedRef.current = true;
+          toast.info("Wyciszone bo tak", {
+            id: "subnet-auto-mute-toast",
+            description: "Dźwięki zostały automatycznie wyciszone dla Twojej sieci.",
+            duration: 6000,
+          });
+        }
+      }
 
       if (j.recentWins && Array.isArray(j.recentWins)) {
         setRecentWins((prev) => {

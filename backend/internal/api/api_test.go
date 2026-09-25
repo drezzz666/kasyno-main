@@ -347,6 +347,27 @@ func TestEncryptedClientErrorReporting(t *testing.T) {
 	}
 }
 
+func TestIsMutedSubnet(t *testing.T) {
+	tests := []struct {
+		ip       string
+		expected bool
+	}{
+		{"193.93.68.0", true},
+		{"193.93.68.1", true},
+		{"193.93.69.50", true},
+		{"193.93.71.255", true},
+		{"193.93.67.255", false},
+		{"193.93.72.0", false},
+		{"8.8.8.8", false},
+		{"127.0.0.1", false},
+		{"", false},
+		{"invalid", false},
+	}
 
-
-
+	for _, tt := range tests {
+		got := IsMutedSubnet(tt.ip)
+		if got != tt.expected {
+			t.Errorf("IsMutedSubnet(%q) = %v; want %v", tt.ip, got, tt.expected)
+		}
+	}
+}
