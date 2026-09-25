@@ -145,7 +145,7 @@ export function RoundOutcomeModal({
         <div className="win-multiplier-pill">
           <span>
             {isWin
-              ? `MNOŻNIK ×${multiplier.toFixed(2)}`
+              ? `MNOŻNIK ×${(Number(multiplier) || 1.0).toFixed(2)}`
               : isPush
                 ? "ZWROT STAWKI ×1.00"
                 : "STRATA STAWKI"}

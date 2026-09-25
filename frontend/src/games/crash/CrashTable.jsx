@@ -139,12 +139,12 @@ export function CrashTable({
             }`}
           >
             {isPlaying
-              ? `${currentMult.toFixed(2)}x`
+              ? `${(Number(currentMult) || 1.0).toFixed(2)}x`
               : isCrashed
-                ? `ROZBITO @ ${(last?.payload?.crash_point || currentMult).toFixed(2)}x`
+                ? `ROZBITO @ ${(Number(last?.payload?.crash_point) || Number(currentMult) || 1.0).toFixed(2)}x`
                 : isCashedOut
-                  ? `WYPŁACONO @ ${(last?.payload?.cashed_at || currentMult).toFixed(2)}x`
-                  : `${(last?.payload?.crash_point || 0.8).toFixed(2)}x`}
+                  ? `WYPŁACONO @ ${(Number(last?.payload?.cashed_at) || Number(currentMult) || 1.0).toFixed(2)}x`
+                  : `${(Number(last?.payload?.crash_point) || 0.8).toFixed(2)}x`}
           </div>
         </div>
       </div>

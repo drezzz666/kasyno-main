@@ -228,14 +228,14 @@ export function MinesTable({
             <div className="hud-metric highlight">
               <span className="hud-metric-label">Mnożnik</span>
               <span className="hud-metric-value text-amber-400 font-mono font-bold">
-                ×{currentMultiplier.toFixed(2)}
+                ×{(Number(currentMultiplier) || 1.0).toFixed(2)}
               </span>
             </div>
 
             <div className="hud-metric">
               <span className="hud-metric-label">Następny</span>
               <span className="hud-metric-value text-slate-300 font-mono">
-                ×{nextMultiplier.toFixed(2)}
+                ×{(Number(nextMultiplier) || 1.0).toFixed(2)}
               </span>
             </div>
           </>

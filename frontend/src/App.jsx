@@ -697,7 +697,6 @@ export default function App() {
                       <div className="game-card-media">
                         <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
                         <div className="game-card-gradient" />
-                        <span className="tag-badge">{g.badge}</span>
                       </div>
                       <div className="game-card-info">
                         <div className="game-card-title-row">
@@ -744,7 +743,6 @@ export default function App() {
                       <div className="game-card-media">
                         <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
                         <div className="game-card-gradient" />
-                        <span className="tag-badge gold">{g.badge}</span>
                       </div>
                       <div className="game-card-info">
                         <div className="game-card-title-row">
