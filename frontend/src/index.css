@@ -3069,39 +3069,165 @@ body {
   animation: chickenJumpArc 0.38s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
-@keyframes carDriveDown {
+@keyframes carDriveAndRunOver {
   0% {
-    transform: translateY(-240px) scale(0.85);
-    opacity: 0;
-  }
-  20% {
+    transform: translateY(-280px);
     opacity: 1;
   }
-  75% {
-    transform: translateY(12px) scale(1.05);
+  35% {
+    transform: translateY(-20px);
+  }
+  55% {
+    transform: translateY(60px);
   }
   100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(540px);
+    opacity: 1;
   }
 }
 
-.animate-car-crash {
-  animation: carDriveDown 0.55s cubic-bezier(0.12, 0.8, 0.32, 1) forwards;
+.animate-car-drive-over {
+  animation: carDriveAndRunOver 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes chickenSquishPancake {
+  0% {
+    transform: scale(1) translateY(0);
+  }
+  30% {
+    transform: scale(1.25, 0.75) translateY(-16px) rotate(-10deg);
+  }
+  48% {
+    transform: scale(1.5, 0.2) translateY(8px);
+    filter: brightness(1.5);
+  }
+  70% {
+    transform: scale(1.35, 0.45) translateY(4px);
+    filter: brightness(1);
+  }
+  100% {
+    transform: scale(1.2, 0.75) translateY(0);
+  }
+}
+
+.animate-chicken-squish {
+  animation: chickenSquishPancake 0.75s cubic-bezier(0.2, 0.85, 0.35, 1.2) forwards;
+}
+
+@keyframes featherFlyLeft {
+  0% {
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-38px, -42px) scale(1.1) rotate(-85deg);
+    opacity: 0;
+  }
+}
+
+@keyframes featherFlyRight {
+  0% {
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(36px, -36px) scale(1) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+@keyframes featherFlyUp {
+  0% {
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(10px, -52px) scale(0.9) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+.animate-feather-left {
+  animation: featherFlyLeft 0.75s ease-out forwards;
+}
+
+.animate-feather-right {
+  animation: featherFlyRight 0.8s ease-out forwards;
+}
+
+.animate-feather-up {
+  animation: featherFlyUp 0.85s ease-out forwards;
 }
 
 @keyframes impactShockwave {
   0% {
-    transform: scale(0.3);
+    transform: scale(0.2);
     opacity: 1;
   }
+  60% {
+    transform: scale(1.8);
+    opacity: 0.6;
+  }
   100% {
-    transform: scale(2.2);
+    transform: scale(2.6);
     opacity: 0;
   }
 }
 
 .animate-impact-shockwave {
-  animation: impactShockwave 0.6s ease-out forwards;
+  animation: impactShockwave 0.65s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+}
+
+@keyframes trafficDriveDownSlow {
+  0% {
+    transform: translateY(-180px);
+  }
+  100% {
+    transform: translateY(480px);
+  }
+}
+
+@keyframes trafficDriveDownFast {
+  0% {
+    transform: translateY(-180px);
+  }
+  100% {
+    transform: translateY(480px);
+  }
+}
+
+@keyframes blockadeDrop {
+  0% {
+    transform: translateY(-20px) scale(0.7);
+    opacity: 0;
+  }
+  65% {
+    transform: translateY(2px) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-blockade-drop {
+  animation: blockadeDrop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes coinPulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.5));
+  }
+  50% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.85));
+  }
+}
+
+.animate-coin-glow {
+  animation: coinPulseGlow 2.2s ease-in-out infinite;
 }
 
 /* --- 4. SLOTS TABLE --- */
@@ -3242,6 +3368,68 @@ body {
   overflow: hidden;
 }
 
+/* --- UPGRADER FULL-WIDTH EXPANSIVE LAYOUT (Desktop) --- */
+.game-dialog-box.is-upgrader-dialog {
+  max-width: 1200px !important;
+  width: 98vw !important;
+  max-height: 96vh !important;
+  overflow-y: auto !important;
+}
+
+/* On mobile: upgrader takes full screen like every other game */
+@media (max-width: 859px) {
+  .game-dialog-box.is-upgrader-dialog {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+.game-table-body.horizontal-layout.is-upgrader-layout {
+  display: flex !important;
+  flex-direction: column !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0.5rem !important;
+  overflow-y: auto !important;
+}
+
+/* On mobile: upgrader scrolls within remaining height after header */
+@media (max-width: 859px) {
+  .game-table-body.horizontal-layout.is-upgrader-layout {
+    height: calc(100dvh - 46px) !important;
+    max-height: calc(100dvh - 46px) !important;
+    overflow-y: auto !important;
+    padding: 0.35rem !important;
+  }
+}
+
+.is-upgrader-layout .game-visual-column {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.is-upgrader-layout .table-visual,
+.is-upgrader-layout .table-visual.upgrader {
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+}
+
 .game-visual-column {
   min-width: 0;
   width: 100%;
@@ -3360,74 +3548,6 @@ body {
   color: #34d399;
 }
 
-/* ==========================================================================
-   CASINO BET CONTROLLER (LUXURY TERMINAL)
-   ========================================================================== */
-.casino-bet-controller {
-  background: radial-gradient(circle at 50% 0%, #171b26, #0e1118 80%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 0.45rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.casino-bet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.casino-bet-title {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-display);
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #94a3b8;
-}
-
-.casino-bet-balance-hint {
-  font-size: 0.65rem;
-  font-family: var(--font-mono);
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.turbo-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  font-size: 0.625rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  margin-right: 0.2rem;
-}
-
-.turbo-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f1f5f9;
-}
-
-.turbo-toggle-btn.active {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(245, 158, 11, 0.5);
-  color: #fbbf24;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
-}
-
 .table-visual.turbo .playing-card {
   animation-duration: 0.1s !important;
   transition-duration: 0.1s !important;
@@ -3449,173 +3569,6 @@ body {
   animation-duration: 0.25s !important;
 }
 
-
-.casino-bet-controller {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  background: rgba(11, 14, 21, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 0.75rem 0.85rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-}
-
-.casino-bet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.casino-bet-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 800;
-  color: #e2e8f0;
-  letter-spacing: 0.05em;
-}
-
-.casino-bet-balance-hint {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
-}
-
-.casino-bet-input-wrap {
-  display: flex;
-  align-items: center;
-  background: #080a0f;
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 4px 8px;
-  gap: 0.5rem;
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  width: 100%;
-}
-
-.casino-bet-input-wrap:focus-within {
-  border-color: #f59e0b;
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.3), inset 0 2px 6px rgba(0, 0, 0, 0.7);
-}
-
-.casino-bet-prefix {
-  display: flex;
-  align-items: center;
-  padding-left: 0.25rem;
-}
-
-.casino-bet-prefix-symbol {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 900;
-  color: #f59e0b;
-  letter-spacing: 0.04em;
-}
-
-.casino-bet-input {
-  flex: 1 1 0%;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-family: var(--font-mono);
-  font-size: 1.15rem;
-  font-weight: 900;
-  padding: 0.35rem 0.25rem;
-  outline: none;
-  width: 100%;
-}
-
-.casino-bet-quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.casino-bet-quick-btn {
-  background: #171d2b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 800;
-  padding: 0.35rem 0.55rem;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-  user-select: none;
-}
-
-.casino-bet-quick-btn:hover {
-  background: #242c3e;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.25);
-}
-
-.casino-bet-quick-btn:active {
-  transform: scale(0.95);
-}
-
-.casino-bet-quick-btn.max-btn {
-  color: #fbbf24;
-  font-weight: 900;
-}
-
-.casino-chips-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 0.35rem;
-  width: 100%;
-}
-
-.casino-chip-item {
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 2px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  transition: transform 0.12s ease, filter 0.12s ease;
-  user-select: none;
-}
-
-.casino-chip-item.min-chip {
-  background: linear-gradient(180deg, #1e293b, #0f172a);
-  border-color: rgba(56, 189, 248, 0.35);
-  color: #38bdf8;
-}
-
-.casino-chip-item:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.2);
-}
-
-.casino-chip-item:active {
-  transform: translateY(1px);
-}
-
-.casino-chip-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.35rem 0.2rem;
-  border-radius: 6px;
-}
-
-.casino-chip-label {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 900;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
 /* ==========================================================================
    COIN FLIP 3D
    ========================================================================== */
@@ -3632,42 +3585,181 @@ body {
 }
 
 .coin-arena {
-  perspective: 1000px;
-  width: clamp(130px, 22vh, 180px);
-  height: clamp(130px, 22vh, 180px);
+  perspective: 1400px;
+  width: 100%;
+  max-width: 320px;
+  height: clamp(190px, 28vh, 250px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  margin: 0 auto 0.25rem;
+  padding-bottom: 20px;
+  overflow: visible;
+}
+
+.coin-stage-perspective {
+  perspective: 1400px;
+  transform-style: preserve-3d;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0.25rem 0;
+  position: relative;
 }
 
-.coin-3d {
-  width: clamp(115px, 19vh, 160px);
-  height: clamp(115px, 19vh, 160px);
+.coin-floor-shadow {
+  position: absolute;
+  bottom: -10px;
+  width: 140px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.3) 50%, transparent 75%);
+  filter: blur(4px);
+  transition: all 0.25s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.coin-floor-shadow.flipping {
+  animation: coinShadowToss 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.coin-floor-shadow.landed {
+  transform: scale(1);
+  opacity: 0.75;
+  filter: blur(4px);
+}
+
+@keyframes coinShadowToss {
+  0% {
+    transform: scale(1);
+    opacity: 0.75;
+    filter: blur(4px);
+  }
+  30% {
+    transform: scale(0.45);
+    opacity: 0.25;
+    filter: blur(10px);
+  }
+  50% {
+    transform: scale(0.28);
+    opacity: 0.1;
+    filter: blur(14px);
+  }
+  75% {
+    transform: scale(0.5);
+    opacity: 0.35;
+    filter: blur(9px);
+  }
+  90% {
+    transform: scale(1.15);
+    opacity: 0.9;
+    filter: blur(2.5px);
+  }
+  96% {
+    transform: scale(0.92);
+    opacity: 0.65;
+    filter: blur(5px);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.75;
+    filter: blur(4px);
+  }
+}
+
+.coin-3d-polish {
+  width: clamp(120px, 18vh, 165px);
+  height: clamp(120px, 18vh, 165px);
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 2;
+  cursor: pointer;
+  will-change: transform;
 }
 
-.coin-3d.flipping {
-  animation: coinFlip3D 1.1s cubic-bezier(0.15, 0.85, 0.35, 1) infinite;
+.coin-3d-polish.idle-heads {
+  transform: translateY(0) rotateY(0deg) rotateX(0deg);
 }
 
-.coin-3d.show-heads {
-  transform: rotateY(0deg);
+.coin-3d-polish.idle-tails {
+  transform: translateY(0) rotateY(180deg) rotateX(0deg);
 }
 
-.coin-3d.show-tails {
-  transform: rotateY(180deg);
+.coin-3d-polish.toss-heads-from-heads {
+  animation: tossHeadsFromHeads 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-@keyframes coinFlip3D {
-  0% { transform: translateY(0) rotateY(0deg) scale(1); }
-  50% { transform: translateY(-30px) rotateY(900deg) scale(1.12); }
-  100% { transform: translateY(0) rotateY(1800deg) scale(1); }
+.coin-3d-polish.toss-heads-from-tails {
+  animation: tossHeadsFromTails 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.coin-face {
+.coin-3d-polish.toss-tails-from-heads {
+  animation: tossTailsFromHeads 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.coin-3d-polish.toss-tails-from-tails {
+  animation: tossTailsFromTails 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes tossHeadsFromHeads {
+  0% { transform: translateY(0px) rotateY(0deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(540deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1080deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1620deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2000deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2140deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2160deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossHeadsFromTails {
+  0% { transform: translateY(0px) rotateY(180deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(720deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1260deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1800deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2180deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2150deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2160deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossTailsFromHeads {
+  0% { transform: translateY(0px) rotateY(0deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(540deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1080deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1620deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(1960deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(1990deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(1980deg) rotateX(0deg) scale(1); }
+}
+
+@keyframes tossTailsFromTails {
+  0% { transform: translateY(0px) rotateY(180deg) rotateX(0deg) scale(1); }
+  25% { transform: translateY(-90px) rotateY(720deg) rotateX(-12deg) scale(1.15); }
+  50% { transform: translateY(-140px) rotateY(1260deg) rotateX(10deg) scale(1.22); }
+  75% { transform: translateY(-80px) rotateY(1800deg) rotateX(-8deg) scale(1.1); }
+  90% { transform: translateY(2px) rotateY(2320deg) rotateX(4deg) scale(0.98); }
+  96% { transform: translateY(-8px) rotateY(2350deg) rotateX(-2deg) scale(1.02); }
+  100% { transform: translateY(0px) rotateY(2340deg) rotateX(0deg) scale(1); }
+}
+
+/* 3D Rim Layers */
+.coin-edge-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, #cbd5e1 40%, #64748b 80%, #334155 100%);
+  border: 1px solid #94a3b8;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+.coin-edge-1 { transform: translateZ(-2px); }
+.coin-edge-2 { transform: translateZ(-1px); }
+.coin-edge-3 { transform: translateZ(1px); }
+.coin-edge-4 { transform: translateZ(2px); }
+
+.coin-face-polish {
   position: absolute;
   inset: 0;
   border-radius: 50%;
@@ -3675,42 +3767,71 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 35% 35%, #fbbf24, #d97706, #78350f);
-  border: 4px solid #fef08a;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 2px 6px rgba(255, 255, 255, 0.6);
+  overflow: hidden;
+  box-shadow: 
+    0 12px 28px rgba(0, 0, 0, 0.65),
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.7),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5);
 }
 
-.coin-face.coin-back {
-  transform: rotateY(180deg);
-  background: radial-gradient(circle at 35% 35%, #f59e0b, #b45309, #451a03);
+.coin-face-polish.coin-front {
+  transform: rotateY(0deg) translateZ(3px);
 }
 
-.coin-ring {
-  width: 82%;
-  height: 82%;
-  border-radius: 50%;
-  border: 2px dashed rgba(255, 255, 255, 0.4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+.coin-face-polish.coin-back {
+  transform: rotateY(180deg) translateZ(3px);
 }
 
-.coin-symbol {
-  font-size: clamp(2.2rem, 5vh, 3.2rem);
-  line-height: 1;
+.coin-metallic-sheen {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.35) 45%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0.35) 55%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  animation: sheenSlide 3s ease-in-out infinite;
 }
 
-.coin-text {
-  font-family: var(--font-display);
-  font-size: clamp(0.68rem, 1.4vh, 0.82rem);
-  font-weight: 900;
+@keyframes sheenSlide {
+  0%, 100% {
+    transform: translateX(-60%) rotate(25deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateX(60%) rotate(25deg);
+    opacity: 0.85;
+  }
+}
+
+.coin-result-badge {
+  position: absolute;
+  top: -8px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
   letter-spacing: 0.08em;
-  color: #000;
-  background: #fde68a;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  text-transform: uppercase;
+  z-index: 10;
+}
+
+.coin-choice-polish-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
 }
 
 .coinflip-controls {

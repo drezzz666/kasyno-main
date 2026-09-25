@@ -237,7 +237,8 @@ func (rl *RateLimiter) AllowGameAction(userID, action string, game ...string) bo
 		actLower == "mines" || (gLower == "mines" && actLower != "start_mines") ||
 		actLower == "chicken" || (gLower == "chicken" && actLower != "start_chicken") ||
 		actLower == "slots" || gLower == "slots" ||
-		actLower == "limbo" || gLower == "limbo"
+		actLower == "limbo" || gLower == "limbo" ||
+		actLower == "upgrader" || gLower == "upgrader"
 
 	if isRapid {
 		e.rapidActions = pruneOlderThan(e.rapidActions, now, time.Minute)
@@ -522,6 +523,13 @@ func ValidateLimboTarget(target float64) error {
 	return nil
 }
 
+func ValidateUpgraderTarget(target float64) error {
+	if target < 1.05 || target > 10000.0 {
+		return fmt.Errorf("%w: cel w Upgrader musi wynosić od 1.05x do 10,000x", ErrInvalidGameParam)
+	}
+	return nil
+}
+
 func ValidateCrashTarget(target float64) error {
 	if target < 0.80 || target > 1000.0 {
 		return fmt.Errorf("%w: cel w Crash musi wynosić od 0.80x do 1,000x", ErrInvalidGameParam)
@@ -567,10 +575,6 @@ func ValidateBlackjackMove(move string, cardsLen int) error {
 }
 
 func ValidateChickenStart(difficulty string) error {
-	diff := strings.ToLower(strings.TrimSpace(difficulty))
-	if diff != "easy" && diff != "medium" && diff != "hard" && diff != "expert" {
-		return fmt.Errorf("%w: poziom trudności w Chicken musi być easy/medium/hard/expert", ErrInvalidGameParam)
-	}
 	return nil
 }
 
@@ -578,8 +582,8 @@ func ValidateChickenStep(targetLane int, currentLane int) error {
 	if targetLane != currentLane+1 {
 		return fmt.Errorf("%w: można przejść tylko na kolejny pas (%d -> %d)", ErrInvalidMove, currentLane, currentLane+1)
 	}
-	if targetLane < 1 || targetLane > 10 {
-		return fmt.Errorf("%w: pas poza zakresem (1-10): %d", ErrInvalidMove, targetLane)
+	if targetLane < 1 || targetLane > 17 {
+		return fmt.Errorf("%w: pas poza zakresem (1-17): %d", ErrInvalidMove, targetLane)
 	}
 	return nil
 }

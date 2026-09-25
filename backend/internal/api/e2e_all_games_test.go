@@ -17,6 +17,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/roulette"
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
 	"github.com/drezzz666/kasyno/backend/internal/games/slots"
+	"github.com/drezzz666/kasyno/backend/internal/games/upgrader"
 )
 
 // 1. GAME: COINFLIP (HEADS / TAILS)
@@ -248,58 +249,43 @@ func TestGameMines_InteractiveSimulation(t *testing.T) {
 
 // 8. GAME: CHICKEN CROSS
 func TestGameChicken_InteractiveSimulation(t *testing.T) {
-	difficulties := []string{"easy", "medium", "hard", "expert"}
+	initP := chicken.InitialStart("classic")
+	if initP.CurrentLane != 0 {
+		t.Fatalf("chicken: start lane should be 0")
+	}
+	if initP.TotalLanes != 17 {
+		t.Fatalf("chicken: total lanes should be 17")
+	}
+	if len(initP.Multipliers) != 17 {
+		t.Fatalf("chicken: multipliers count should be 17")
+	}
 
-	for _, diff := range difficulties {
-		initP := chicken.InitialStart(diff)
-		if initP.CurrentLane != 0 {
-			t.Fatalf("chicken: start lane should be 0")
-		}
-		if initP.TotalLanes != 10 {
-			t.Fatalf("chicken: total lanes should be 10")
-		}
-		if len(initP.Multipliers) != 10 {
-			t.Fatalf("chicken: multipliers count should be 10")
-		}
+	// Zero-Knowledge mask test: active payload MUST NOT leak hazardLane / hazardType
+	masked := chicken.MaskChicken(initP)
+	if masked.HazardLane != 0 || masked.HazardType != "" {
+		t.Fatalf("SECURITY LEAK: active chicken payload leaked hazard info")
+	}
 
-		// Verify Warmup Multipliers on Medium/Hard/Expert
-		if diff == "medium" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: medium lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
+	// Test Step simulation
+	settled, stepSettle, err := chicken.Step(100, &initP)
+	if err != nil {
+		t.Fatalf("chicken: step error: %v", err)
+	}
+	if !settled {
+		if initP.CurrentLane != 1 {
+			t.Fatalf("chicken: step 1 currentLane should be 1, got %d", initP.CurrentLane)
 		}
-		if diff == "hard" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: hard lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
-		}
-		if diff == "expert" && initP.Multipliers[0] >= 1.0 {
-			t.Fatalf("chicken: expert lane 0 multiplier %f should be < 1.0", initP.Multipliers[0])
-		}
-
-		// Zero-Knowledge mask test: active payload MUST NOT leak hazardLane / hazardType
-		masked := chicken.MaskChicken(initP)
-		if masked.HazardLane != 0 || masked.HazardType != "" {
-			t.Fatalf("SECURITY LEAK: active chicken payload leaked hazard info")
-		}
-
-		// Test Step simulation
-		settled, stepSettle, err := chicken.Step(100, &initP)
+		// Test Cashout
+		cashRes, err := chicken.Cashout(100, initP)
 		if err != nil {
-			t.Fatalf("chicken: step error: %v", err)
+			t.Fatalf("chicken: cashout error: %v", err)
 		}
-		if !settled {
-			if initP.CurrentLane != 1 {
-				t.Fatalf("chicken: step 1 currentLane should be 1, got %d", initP.CurrentLane)
-			}
-			// Test Cashout
-			cashRes, err := chicken.Cashout(100, initP)
-			if err != nil {
-				t.Fatalf("chicken: cashout error: %v", err)
-			}
-			if cashRes.State != "settled" {
-				t.Fatalf("chicken: cashout state should be settled")
-			}
-		} else { // Hit vehicle on lane 1
-			if stepSettle.Payout != 0 {
-				t.Fatalf("chicken: collision payout should be 0, got %d", stepSettle.Payout)
-			}
+		if cashRes.State != "settled" {
+			t.Fatalf("chicken: cashout state should be settled")
+		}
+	} else { // Hit vehicle on lane 1
+		if stepSettle.Payout != 0 {
+			t.Fatalf("chicken: collision payout should be 0, got %d", stepSettle.Payout)
 		}
 	}
 }
@@ -411,5 +397,85 @@ func TestProvablyFair_DeterminismAcrossRuns(t *testing.T) {
 	int2 := provablyfair.GenerateInt(serverSeed, clientSeed, nonce, 37)
 	if int1 != int2 || int1 < 0 || int1 >= 37 {
 		t.Fatalf("provably fair int non-deterministic or out of range [0, 37): %d", int1)
+	}
+}
+
+// 12. GAME: UPGRADER (FULL SECURITY & SERVER-SIDED VALIDATION)
+func TestUpgrader_SecurityAndServerSided(t *testing.T) {
+	// A. Valid multiplier ranges
+	resUnder, err := upgrader.PlayUpgrader(100, 2.00, "under")
+	if err != nil {
+		t.Fatalf("upgrader under: %v", err)
+	}
+	if resUnder.Payload.WinChance != 48.00 {
+		t.Fatalf("upgrader: expected 48.00 win chance, got %f", resUnder.Payload.WinChance)
+	}
+	if resUnder.Won {
+		if resUnder.Payout != 200 {
+			t.Fatalf("upgrader: win payout expected 200, got %d", resUnder.Payout)
+		}
+	} else {
+		if resUnder.Payout != 0 {
+			t.Fatalf("upgrader: loss payout expected 0, got %d", resUnder.Payout)
+		}
+	}
+
+	resOver, err := upgrader.PlayUpgrader(100, 5.00, "over")
+	if err != nil {
+		t.Fatalf("upgrader over: %v", err)
+	}
+	if resOver.Payload.WinChance != 19.20 {
+		t.Fatalf("upgrader: expected 19.20 win chance, got %f", resOver.Payload.WinChance)
+	}
+
+	// B. Invalid multiplier bounds must be rejected
+	if _, err := upgrader.PlayUpgrader(100, 1.01, "under"); err == nil {
+		t.Fatalf("upgrader: expected error on target multiplier < 1.05x")
+	}
+	if _, err := upgrader.PlayUpgrader(100, 20000.0, "under"); err == nil {
+		t.Fatalf("upgrader: expected error on target multiplier > 10000x")
+	}
+
+	// C. Provably Fair Determinism
+	pfRes1, err := upgrader.PlayUpgraderProvablyFair(100, 2.50, "under", "server_seed_abc", "client_seed_xyz", 1)
+	if err != nil {
+		t.Fatalf("upgrader PF: %v", err)
+	}
+	pfRes2, err := upgrader.PlayUpgraderProvablyFair(100, 2.50, "under", "server_seed_abc", "client_seed_xyz", 1)
+	if err != nil {
+		t.Fatalf("upgrader PF: %v", err)
+	}
+	if pfRes1.Payload.RolledNumber != pfRes2.Payload.RolledNumber || pfRes1.Won != pfRes2.Won {
+		t.Fatalf("upgrader PF: non-deterministic output for identical seeds and nonce!")
+	}
+}
+
+// 13. SECURITY VERIFICATION: ACTIVE MINES & CHICKEN STATE LEAK AUDIT
+func TestMinesAndChicken_NoDataLeakage(t *testing.T) {
+	// A. Mines: Active state must never reveal unhit mine positions
+	activeMines := mines.InitialStart(5)
+	if len(activeMines.Mines) != 5 {
+		t.Fatalf("mines initial start: expected 5 mines in internal state, got %d", len(activeMines.Mines))
+	}
+	maskedMines := mines.MaskMines(activeMines)
+	maskedJSON, _ := json.Marshal(maskedMines)
+	var parsedMines map[string]interface{}
+	_ = json.Unmarshal(maskedJSON, &parsedMines)
+
+	if minesList, found := parsedMines["mines"]; found {
+		if list, ok := minesList.([]interface{}); ok && len(list) > 0 {
+			t.Fatalf("CRITICAL SECURITY LEAK: active mines payload exposes mine positions to client: %v", list)
+		}
+	}
+
+	// B. Chicken: Active state must not expose future hazards
+	activeChicken := chicken.InitialStart("classic")
+	maskedChicken := chicken.MaskChicken(activeChicken)
+	maskedChickenJSON, _ := json.Marshal(maskedChicken)
+	var parsedChicken map[string]interface{}
+	_ = json.Unmarshal(maskedChickenJSON, &parsedChicken)
+
+	if hazardLane, found := parsedChicken["hazardLane"]; found && hazardLane != float64(0) {
+		t.Fatalf("CRITICAL SECURITY LEAK: active chicken payload exposes future hazard positions: %v", hazardLane)
 	}
 }

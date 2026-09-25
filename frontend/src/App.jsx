@@ -9,15 +9,12 @@ import {
   Target,
   History,
   User,
-  Info,
   ChevronRight,
   Sparkles,
   Zap,
   Dices,
   CheckCircle2,
   Clock,
-  Gift,
-  ArrowRight,
   Coins,
   Scissors,
   CircleDot,
@@ -25,7 +22,6 @@ import {
   Rocket,
   TrendingUp,
   Scale,
-  FileText,
   Award,
   Star,
   Gamepad2,
@@ -40,7 +36,6 @@ import { ProfileModal } from "./components/ProfileModal";
 import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
-import { WinCelebrationModal } from "./components/WinCelebrationModal";
 import { MinigamesModal, MINIGAMES } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -261,6 +256,40 @@ export default function App() {
     return () => clearInterval(interval);
   }, [load]);
 
+  const prevConnectedRef = useRef(connected);
+  useEffect(() => {
+    if (!prevConnectedRef.current && connected) {
+      void load();
+    }
+    prevConnectedRef.current = connected;
+  }, [connected, load]);
+
+  useEffect(() => {
+    const handleSettled = (e) => {
+      const detail = e.detail;
+      if (detail) {
+        if (typeof detail.balance === "number") {
+          syncBalance(detail.balance);
+        }
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                active: null,
+                player: {
+                  ...prev.player,
+                  balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+                },
+              }
+            : prev
+        );
+        void load();
+      }
+    };
+    window.addEventListener("casino:round_settled", handleSettled);
+    return () => window.removeEventListener("casino:round_settled", handleSettled);
+  }, [syncBalance, load]);
+
   const loadMoreHistory = async () => {
     if (loadingMoreHistory || !data?.history?.length) return;
     setLoadingMoreHistory(true);
@@ -444,6 +473,7 @@ export default function App() {
     if (m.id.includes("slots")) return "slots";
     if (m.id.includes("coinflip")) return "coinflip";
     if (m.id.includes("rps")) return "rps";
+    if (m.id.includes("upgrader")) return "upgrader";
     return null;
   };
 
@@ -527,6 +557,14 @@ export default function App() {
       mult: "Do ×12",
       desc: "Klasyczny automat. Trafiaj linie 3, 4 lub 5 symboli.",
       img: "/slot-hero.webp",
+    },
+    {
+      id: "upgrader",
+      name: "Upgrader",
+      badge: "RTP 96%",
+      mult: "Do ×10000",
+      desc: "Wpisz kwotę, wybierz mnożnik i zakręć kołem szansy na Upgrade!",
+      img: "/limbo-hero.webp",
     },
   ];
 

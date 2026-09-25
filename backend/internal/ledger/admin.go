@@ -553,3 +553,98 @@ func (s *Service) AdminGetGlobalCasinoStats(ctx context.Context) (*GlobalCasinoS
 	return stats, nil
 }
 
+// RevertResult contains statistics about the reverted transactions
+type RevertResult struct {
+	UserID        string `json:"user_id"`
+	Nick          string `json:"nick"`
+	PreviousBal   int64  `json:"previous_bal"`
+	NewBal        int64  `json:"new_bal"`
+	DeletedLedger int64  `json:"deleted_ledger"`
+	DeletedRounds int64  `json:"deleted_rounds"`
+	NetDiff       int64  `json:"net_diff"`
+}
+
+// AdminRevertBalanceUser removes all ledger entries and rounds created after untilMillis for a player.
+func (s *Service) AdminRevertBalanceUser(ctx context.Context, identifier string, untilMillis int64) (*RevertResult, error) {
+	var p Player
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT user_id, nick
+		FROM players
+		WHERE user_id = $1 OR nick = $1 OR email = $1
+	`, identifier).Scan(&p.UserID, &p.Nick)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("błąd rozpoczęcia transakcji: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var prevBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, p.UserID).Scan(&prevBal)
+
+	var countLedger int64
+	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM ledger_entries WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis).Scan(&countLedger)
+
+	_, err = tx.Exec(ctx, `DELETE FROM ledger_entries WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis)
+	if err != nil {
+		return nil, fmt.Errorf("błąd usuwania wpisów ledger: %w", err)
+	}
+
+	var countRounds int64
+	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM game_rounds WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis).Scan(&countRounds)
+	_, _ = tx.Exec(ctx, `DELETE FROM game_rounds WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis)
+	_, _ = tx.Exec(ctx, `DELETE FROM daily_claims WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis)
+	_, _ = tx.Exec(ctx, `DELETE FROM daily_mission_claims WHERE user_id = $1 AND created_at > $2`, p.UserID, untilMillis)
+
+	var newBal int64
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, p.UserID).Scan(&newBal)
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("błąd zatwierdzania transakcji revert: %w", err)
+	}
+
+	return &RevertResult{
+		UserID:        p.UserID,
+		Nick:          p.Nick,
+		PreviousBal:   prevBal,
+		NewBal:        newBal,
+		DeletedLedger: countLedger,
+		DeletedRounds: countRounds,
+		NetDiff:       newBal - prevBal,
+	}, nil
+}
+
+// AdminRevertBalanceAll removes all ledger entries and rounds created after untilMillis across all players.
+func (s *Service) AdminRevertBalanceAll(ctx context.Context, untilMillis int64) (affectedUsers int64, deletedEntries int64, deletedRounds int64, err error) {
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("błąd rozpoczęcia transakcji: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_ = tx.QueryRow(ctx, `SELECT COUNT(DISTINCT user_id), COUNT(*) FROM ledger_entries WHERE created_at > $1`, untilMillis).Scan(&affectedUsers, &deletedEntries)
+	_ = tx.QueryRow(ctx, `SELECT COUNT(*) FROM game_rounds WHERE created_at > $1`, untilMillis).Scan(&deletedRounds)
+
+	_, err = tx.Exec(ctx, `DELETE FROM ledger_entries WHERE created_at > $1`, untilMillis)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("błąd masowego usuwania wpisów ledger: %w", err)
+	}
+
+	_, _ = tx.Exec(ctx, `DELETE FROM game_rounds WHERE created_at > $1`, untilMillis)
+	_, _ = tx.Exec(ctx, `DELETE FROM daily_claims WHERE created_at > $1`, untilMillis)
+	_, _ = tx.Exec(ctx, `DELETE FROM daily_mission_claims WHERE created_at > $1`, untilMillis)
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, 0, 0, fmt.Errorf("błąd zatwierdzania masowego revert: %w", err)
+	}
+
+	return affectedUsers, deletedEntries, deletedRounds, nil
+}
+
+

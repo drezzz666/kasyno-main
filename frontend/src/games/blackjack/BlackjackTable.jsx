@@ -1,12 +1,10 @@
 import React, { useEffect, useRef } from "react";
-import { money } from "../lib/formatters";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 export function BlackjackTable({ round, last, revealDealer = false }) {
   const r = round || last;
   const p = r?.payload;
   const prevCardCount = useRef(0);
-  const prevDealerCount = useRef(0);
   const prevSettled = useRef(false);
 
   const val = (cards = []) => {

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef, useCallback } from "react";
 import confetti from "canvas-confetti";
-import { sounds } from "../lib/sounds";
+import { sounds } from "../../lib/sounds";
 
 export const PLINKO_MULTIPLIERS = {
   low: {

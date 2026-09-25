@@ -63,3 +63,18 @@ func TestSettlePush(t *testing.T) {
 		t.Errorf("expected push payout 100, got %d", res.Payout)
 	}
 }
+
+func TestSettleDealerNaturalVsPlayerMultiCard21(t *testing.T) {
+	// Dealer has natural blackjack (A + K = 21 in 2 cards)
+	// Player has 21 with 3 cards (7 + 7 + 7 = 21)
+	// Under standard casino rules, Dealer Natural Blackjack beats a 3-card 21 (Player loses)
+	p := Payload{
+		Cards:  []Card{{Rank: "7", Suit: "♠"}, {Rank: "7", Suit: "♥"}, {Rank: "7", Suit: "♦"}},
+		Dealer: []Card{{Rank: "A", Suit: "♣"}, {Rank: "K", Suit: "♦"}},
+	}
+	res := SettleBlackjack(100, p)
+	if res.Payout != 0 {
+		t.Errorf("expected 0 payout (dealer natural beats 3-card 21), got %d (result: %s)", res.Payout, res.ResultText)
+	}
+}
+

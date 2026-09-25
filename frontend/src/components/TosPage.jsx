@@ -7,12 +7,8 @@ import {
   AlertTriangle,
   Flame,
   Bot,
-  Terminal,
   Lock,
-  FileText,
-  Clock,
   CheckCircle2,
-  HelpCircle,
 } from "lucide-react";
 
 export function TosPage({ onBack, onAccept, accepted }) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Trash2, Flame } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 export const wheelOrder = [
   0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24,
@@ -52,13 +52,20 @@ export function RouletteWheelVisual({
     runningRef.current = true;
     const targetRotation =
       ((-(prizeNumber * rouletteSectorAngle) % 360) + 360) % 360;
+
+    if (turbo) {
+      setRotation(targetRotation);
+      timerRef.current = window.setTimeout(() => finishRef.current(), 50);
+      return;
+    }
+
     setRotation((previous) => {
       const current = ((previous % 360) + 360) % 360;
-      const spins = turbo ? 2 : 4;
+      const spins = 4;
       const delta = spins * 360 + ((targetRotation - current + 360) % 360);
       return previous + delta;
     });
-    timerRef.current = window.setTimeout(() => finishRef.current(), turbo ? 850 : 6420);
+    timerRef.current = window.setTimeout(() => finishRef.current(), 6420);
   }, [mustStartSpinning, prizeNumber, turbo]);
 
   return (
@@ -68,7 +75,7 @@ export function RouletteWheelVisual({
         className="roulette-dial"
         style={{
           transform: `rotate(${rotation}deg)`,
-          transition: `transform ${turbo ? "0.75s" : "6s"} cubic-bezier(0.12, 0.8, 0.32, 1)`,
+          transition: turbo ? "none" : `transform 6s cubic-bezier(0.12, 0.8, 0.32, 1)`,
           background: `conic-gradient(from ${-rouletteSectorAngle / 2}deg,${rouletteStops})`,
         }}
         onTransitionEnd={(e) => {
@@ -99,11 +106,6 @@ export function RouletteWheelVisual({
     </div>
   );
 }
-
-// 3 rows of European roulette numbers
-const ROW_3 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36];
-const ROW_2 = [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35];
-const ROW_1 = [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34];
 
 export function RouletteBets({
   selectedBets = new Set(),

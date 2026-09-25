@@ -15,6 +15,7 @@ export const gameNames = {
   limbo: "Limbo",
   crash: "Crash",
   chicken: "Chicken Cross",
+  upgrader: "Upgrader",
 };
 
 export const gameName = (g) => gameNames[g] || (g ? g.toUpperCase() : "Gra");

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ShieldAlert, CheckCircle2, ChevronRight, Scale, AlertTriangle, Coins } from "lucide-react";
+import { CheckCircle2, ChevronRight, Scale, Coins } from "lucide-react";
 
 export function TosAcceptModal({ open, onAccept, onReadMore }) {
   const [agreedVirtual, setAgreedVirtual] = useState(false);

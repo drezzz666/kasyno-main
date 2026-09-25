@@ -6,56 +6,44 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strings"
 )
 
-const TotalLanes = 10
+const TotalLanes = 17
 
 type DifficultyConfig struct {
 	Multipliers   []float64 `json:"multipliers"`
 	SurvivalProbs []float64 `json:"survivalProbs"`
 }
 
-// Multiplier tables with sub-1.0x warmup lanes (negative net gain on early cashout) and 95% overall RTP
+// 17-lane Chicken Road configuration with exact Stake multipliers and provably fair cumulative win probabilities
+var StandardConfig = DifficultyConfig{
+	Multipliers: []float64{
+		1.15, 1.37, 1.64, 2.00, 2.46, 3.07, 3.91, 5.08, 6.77,
+		9.31, 13.30, 19.95, 31.92, 55.86, 111.72, 279.30, 1117.20,
+	},
+	SurvivalProbs: []float64{
+		0.850000, 0.839412, 0.835339, 0.820134, 0.813011, 0.801208, 0.785176,
+		0.769600, 0.750520, 0.727147, 0.700000, 0.666667, 0.625000, 0.571429,
+		0.500000, 0.400000, 0.250000,
+	},
+}
+
 var DifficultyConfigs = map[string]DifficultyConfig{
-	"easy": {
-		Multipliers: []float64{0.90, 1.10, 1.25, 1.45, 1.75, 2.15, 2.70, 3.50, 4.60, 6.20},
-		SurvivalProbs: []float64{
-			0.980000, 0.881267, 0.880000, 0.862069, 0.828571,
-			0.813953, 0.796296, 0.771429, 0.760870, 0.741935,
-		},
-	},
-	"medium": {
-		Multipliers: []float64{0.75, 1.15, 1.50, 2.00, 2.65, 3.60, 5.00, 7.00, 10.00, 15.00},
-		SurvivalProbs: []float64{
-			0.980000, 0.842940, 0.766667, 0.750000, 0.754717,
-			0.736111, 0.720000, 0.714286, 0.700000, 0.666667,
-		},
-	},
-	"hard": {
-		Multipliers: []float64{0.60, 1.10, 1.85, 3.10, 5.40, 9.80, 18.50, 36.00, 75.00, 160.00},
-		SurvivalProbs: []float64{
-			0.980000, 0.881267, 0.594595, 0.596774, 0.574074,
-			0.551020, 0.529730, 0.513889, 0.480000, 0.468750,
-		},
-	},
-	"expert": {
-		Multipliers: []float64{0.50, 0.90, 1.80, 4.50, 12.00, 35.00, 110.00, 380.00, 1200.00, 4000.00},
-		SurvivalProbs: []float64{
-			0.980000, 0.999999, 0.538520, 0.400000, 0.375000,
-			0.342857, 0.318182, 0.289474, 0.316667, 0.300000,
-		},
-	},
+	"classic": StandardConfig,
+	"easy":    StandardConfig,
+	"medium":  StandardConfig,
+	"hard":    StandardConfig,
+	"expert":  StandardConfig,
 }
 
 var Hazards = []string{"police_car", "car", "truck", "fire"}
 
 type Payload struct {
-	Difficulty  string    `json:"difficulty"`
-	CurrentLane int       `json:"currentLane"` // 0 before first step, 1..10 after steps
+	Difficulty  string    `json:"difficulty,omitempty"`
+	CurrentLane int       `json:"currentLane"` // 0 before first step, 1..17 after steps
 	Multiplier  float64   `json:"multiplier"`  // current multiplier (1.00 at start)
-	Multipliers []float64 `json:"multipliers"` // 10 multiplier values
-	TotalLanes  int       `json:"totalLanes"`  // 10
+	Multipliers []float64 `json:"multipliers"` // 17 multiplier values
+	TotalLanes  int       `json:"totalLanes"`  // 17
 	HazardLane  int       `json:"hazardLane,omitempty"`
 	HazardType  string    `json:"hazardType,omitempty"`
 }
@@ -70,19 +58,13 @@ type SettleResult struct {
 
 // NormalizeDifficulty ensures valid difficulty level
 func NormalizeDifficulty(diff string) string {
-	diff = strings.ToLower(strings.TrimSpace(diff))
-	if _, ok := DifficultyConfigs[diff]; ok {
-		return diff
-	}
-	return "medium"
+	return "classic"
 }
 
-// GetMultipliers returns the multiplier list for a given difficulty
+// GetMultipliers returns the multiplier list for the 17-lane road
 func GetMultipliers(diff string) []float64 {
-	diff = NormalizeDifficulty(diff)
-	cfg := DifficultyConfigs[diff]
-	res := make([]float64, len(cfg.Multipliers))
-	copy(res, cfg.Multipliers)
+	res := make([]float64, len(StandardConfig.Multipliers))
+	copy(res, StandardConfig.Multipliers)
 	return res
 }
 

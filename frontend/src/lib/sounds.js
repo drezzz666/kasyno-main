@@ -244,6 +244,64 @@ class CasinoSoundEngine {
     } catch (e) {}
   }
 
+  playCoinToss() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // High resonance ring
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(2400, now);
+      osc1.frequency.exponentialRampToValueAtTime(3200, now + 0.4);
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.7);
+
+      // Whirring spin harmonic
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = "triangle";
+      osc2.frequency.setValueAtTime(1200, now);
+      osc2.frequency.exponentialRampToValueAtTime(1800, now + 0.3);
+      gain2.gain.setValueAtTime(0.08, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now);
+      osc2.stop(now + 0.4);
+    } catch (e) {}
+  }
+
+  playCoinLand() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Crisp impact clink
+      [3100, 2600, 1950].forEach((freq, i) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + i * 0.02);
+        gain.gain.setValueAtTime(0.2 - i * 0.04, now + i * 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.02 + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + i * 0.02);
+        osc.stop(now + i * 0.02 + 0.28);
+      });
+    } catch (e) {}
+  }
+
   playPegTick() {
     if (this.muted) return;
     try {

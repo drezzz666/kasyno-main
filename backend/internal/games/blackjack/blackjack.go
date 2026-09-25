@@ -169,6 +169,10 @@ func SettleBlackjack(bet int64, payload Payload) *SettleResult {
 		// Natural Blackjack pays 3:2 (2.5x total returned)
 		payout = int64(float64(bet) * 2.5)
 		resultText = "Blackjack 3:2!"
+	} else if dealerNatural {
+		// Dealer natural beats non-natural player 21 or any lower score
+		payout = 0
+		resultText = "Przegrana (Blackjack u krupiera)"
 	} else if dealerBust {
 		payout = bet * 2
 		resultText = "Wygrana (krupier fura)"

@@ -3,68 +3,14 @@ package discordbot
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
-
-func (b *Bot) buildBalanceEmbed(ctx context.Context, target string) *discordgo.MessageEmbed {
-	player, stats, _, err := b.ledger.AdminGetUser(ctx, target)
-	if err != nil {
-		return &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Nie znaleziono gracza",
-			Description: fmt.Sprintf("Nie znaleziono gracza o identyfikatorze/nicku **%s**.", target),
-		}
-	}
-
-	avatarURL := b.getValidAvatarURL(player.Avatar)
-
-	fields := []*discordgo.MessageEmbedField{
-		{
-			Name:   "💰 Saldo konta",
-			Value:  fmt.Sprintf("**%s**", formatFGT(player.Balance)),
-			Inline: true,
-		},
-		{
-			Name:   "⭐ Poziom & XP",
-			Value:  fmt.Sprintf("Poziom **%d** (%d XP)", player.Level, player.XP),
-			Inline: true,
-		},
-		{
-			Name:   "🔥 Streak logowań",
-			Value:  fmt.Sprintf("**%d** dni", player.Streak),
-			Inline: true,
-		},
-	}
-
-	if stats != nil && stats.TotalRounds > 0 {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "📊 Aktywność",
-			Value:  fmt.Sprintf("Rozegrane gry: **%d** | Obstawiono: **%s**", stats.TotalRounds, formatFGT(stats.TotalWagered)),
-			Inline: false,
-		})
-	}
-
-	embed := &discordgo.MessageEmbed{
-		Color:       ColorGold,
-		Title:       fmt.Sprintf("👤 Stan konta: %s", player.Nick),
-		Description: fmt.Sprintf("Zaloguj się i zagraj na [**%s**](%s)", b.appURL, b.appURL),
-		Fields:      fields,
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "2FGT Kasyno Klubowe • Tokeny $FGT mają charakter wyłącznie rozrywkowy",
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	if avatarURL != "" {
-		embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: avatarURL}
-	}
-
-	return embed
-}
 
 func (b *Bot) buildLeaderboardEmbed(ctx context.Context, category string) *discordgo.MessageEmbed {
 	if category == "level" {
@@ -220,92 +166,6 @@ func (b *Bot) buildPlayerProfileEmbed(ctx context.Context, identifier string) *d
 	return embed
 }
 
-func (b *Bot) buildMissionsEmbed(ctx context.Context) *discordgo.MessageEmbed {
-	missions, nextReset, err := b.ledger.GetDailyMissions(ctx, "global_preview")
-	if err != nil || len(missions) == 0 {
-		return &discordgo.MessageEmbed{
-			Color:       ColorGold,
-			Title:       "🎯 Misje Rotacyjne Kasyna",
-			Description: "Brak dostępnych misji w tym cyklu rotacji.",
-		}
-	}
-
-	var sb strings.Builder
-	sb.WriteString("Misje odnawiają się automatycznie **co 6 godzin** (00:00, 06:00, 12:00, 18:00 UTC).\n\n")
-
-	for idx, m := range missions {
-		sb.WriteString(fmt.Sprintf("**%d. %s**\n", idx+1, m.Title))
-		sb.WriteString(fmt.Sprintf("└ *%s*\n", m.Description))
-		sb.WriteString(fmt.Sprintf("└ 🎁 Nagroda: **+%s** & **+%d XP**\n\n", formatFGT(m.Reward), m.XPReward))
-	}
-
-	resetTime := time.UnixMilli(nextReset).UTC().Format("15:04:05 UTC")
-
-	return &discordgo.MessageEmbed{
-		Color:       ColorEmerald,
-		Title:       "🎯 Aktywne Misje Rotacyjne (Cykl 6H)",
-		Description: sb.String(),
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Następna zmiana misji o: %s • Graj na %s", resetTime, b.appURL),
-		},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
-
-func (b *Bot) buildDailyEmbed(ctx context.Context, callerNick string) *discordgo.MessageEmbed {
-	player, _, _, err := b.ledger.AdminGetUser(ctx, callerNick)
-
-	streak := 0
-	if err == nil && player != nil {
-		streak = player.Streak
-	}
-
-	nextBonus := int64(100 + streak*50)
-	if nextBonus > 1000 {
-		nextBonus = 1000
-	}
-
-	return &discordgo.MessageEmbed{
-		Color: ColorGold,
-		Title: "🎁 Bonus Dzienny & Streak Logowań",
-		Description: fmt.Sprintf(
-			"Loguj się codziennie na stronie [**%s**](%s), aby odbierać coraz wyższe nagrody dzienne!\n\n"+
-				"🔥 **Twój obecny streak:** `%d dni`\n"+
-				"💎 **Kolejna nagroda codzienna:** `+%s`\n"+
-				"🏆 **Maksymalny bonus:** `1,000 $FGT` (przy 18+ dniach streaku)\n\n"+
-				"Odbierz bonus klikając przycisk w prawym górnym rogu na stronie kasyna!",
-			b.appURL, b.appURL, streak, formatFGT(nextBonus),
-		),
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Kasyno 2FGT • Bonus resetuje się o północy UTC",
-		},
-	}
-}
-
-func (b *Bot) buildGamesEmbed() *discordgo.MessageEmbed {
-	return &discordgo.MessageEmbed{
-		Color: ColorSky,
-		Title: "🎰 Dostępne Gry w Kasynie 2FGT",
-		Description: fmt.Sprintf(
-			"Wszystkie gry rozliczane są po stronie serwera z certyfikatem **Provably Fair** (HMAC-SHA256):\n\n"+
-				"1. **🎡 Ruletka (Roulette)** — Koło europejskie 0-36, zakłady na kolory, tuziny, numery (do ×36, RTP 97.3%%)\n"+
-				"2. **🃏 Blackjack** — Klasyczny stolik, krupier dobiera do 17, wypłata 3:2, podwajanie i pas\n"+
-				"3. **💣 Mines** — Siatka 5×5, od 2 do 24 min, cash-out w dowolnym momencie (RTP 97.0%%)\n"+
-				"4. **🎰 Slots (Automaty)** — 5 obracających się bębnów, kombinacje (Pary, Trójki, Full, Korony do ×150, RTP 97.4%%)\n"+
-				"5. **🪙 Coinflip** — Rzut monetą (Orzeł/Reszka), natychmiastowe rozliczenie (×1.98, RTP 99.0%%)\n"+
-				"6. **✂️ KPN (Kamień, Papier, Nożyce)** — Pojedynek PvE z serwerem (×1.98)\n"+
-				"7. **⚪ Plinko** — Fizyka kołków, 14 lub 16 rzędów, poziomy ryzyka Low/Med/High (mnożnik do ×1000)\n"+
-				"8. **🚀 Crash** — Startuje od 1.00x, rosnąca rakieta z manualnym lub automatycznym cashoutem (RTP 99.0%%)\n"+
-				"9. **📈 Limbo** — Ustaw mnożnik docelowy od 1.50x do 10000x i sprawdź swoje szczęście (RTP 96.0%%)\n\n"+
-				"👉 **Zagraj teraz:** [**%s**](%s)",
-			b.appURL, b.appURL,
-		),
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: "Kasyno Klubowe 2FGT • Obsługuje Tryb Turbo ⚡",
-		},
-	}
-}
-
 func (b *Bot) buildGlobalStatsEmbed(ctx context.Context) *discordgo.MessageEmbed {
 	stats, err := b.ledger.AdminGetGlobalCasinoStats(ctx)
 	if err != nil {
@@ -345,46 +205,47 @@ func (b *Bot) buildGlobalStatsEmbed(ctx context.Context) *discordgo.MessageEmbed
 func (b *Bot) buildHelpEmbed(isAdmin bool) *discordgo.MessageEmbed {
 	fields := []*discordgo.MessageEmbedField{
 		{
-			Name: "💰 Zarządzanie Finansami Graczy",
-			Value: "`/casino-money-add <gracz> <kwota> [powód]` lub `!user money <gracz> add <kwota>`\n" +
-				"`/casino-money-remove <gracz> <kwota> [powód]` lub `!user money <gracz> remove <kwota>`\n" +
-				"`/casino-money-set <gracz> <kwota> [powód]` lub `!user money <gracz> set <kwota>`",
+			Name: "💰 Player Funds Management (/money)",
+			Value: "`/money add <player> <amount> [reason]` — Add $FGT tokens to player(s) or all (`*`)\n" +
+				"`/money remove <player> <amount> [reason]` — Remove $FGT tokens from player(s)\n" +
+				"`/money set <player> <amount> [reason]` — Set exact $FGT token balance\n" +
+				"`/money revert <player> <until> [reason]` — Rollback balances & delete records back to date/time",
 			Inline: false,
 		},
 		{
-			Name: "👥 Zarządzanie Kontami Graczy",
-			Value: "`/casino-user-create <nick> [id] [email] [saldo]` lub `!user create <nick>`\n" +
-				"`/casino-user-setnick <stary_nick> <nowy_nick>` lub `!user setnick <stary> <nowy>`\n" +
-				"`/casino-user-delete <gracz>` lub `!user delete <gracz>`\n" +
-				"`/casino-users [szukaj]` lub `!users [szukaj]`",
+			Name: "👥 Player Account Management (/user)",
+			Value: "`/user create <nickname> [id] [email] [balance]` — Create a new account\n" +
+				"`/user setnick <player> <new_nickname>` — Change player nickname\n" +
+				"`/user delete <player>` — Delete player account\n" +
+				"`/user list [search]` — List registered players with interactive menu",
 			Inline: false,
 		},
 		{
-			Name: "📊 Podgląd & Statystyki",
-			Value: "`/gracz <identyfikator>` lub `!gracz <identyfikator>` — Pełny profil gracza, saldo i XP\n" +
-				"`/top [kategoria]` lub `!top [lvl]` — Ranking majątku lub poziomów\n" +
-				"`/statystyki` lub `!stats` — Statystyki platformy kasyna w czasie rzeczywistym\n" +
-				"`/pomoc` lub `!pomoc` — Wyświetla ten panel pomocy",
+			Name: "⏰ Automated Drops (/schedule)",
+			Value: "`/schedule add <name> <amount> <players> [day] [time] [cron] [reason]` — Plan recurring drops\n" +
+				"`/schedule list [filter]` — List scheduled recurring drops\n" +
+				"`/schedule remove <identifier>` — Delete a scheduled drop\n" +
+				"`/schedule toggle <identifier> <active>` — Enable or disable a drop\n" +
+				"`/schedule run <identifier>` — Test run a drop immediately",
 			Inline: false,
 		},
 		{
-			Name: "⏰ Automatyczne Zrzuty ($FGT Drops Harmonogram)",
-			Value: "`/casino-schedule-add <nazwa> <kwota> <gracze> [dzien_tygodnia] [godzina] [cron] [powod]` — Dodaj auto-drop\n" +
-				"`/casino-schedule-list [filtr]` — Lista wszystkich zaplanowanych zrzutów\n" +
-				"`/casino-schedule-toggle <id> <aktywny>` — Włącz/wyłącz harmonogram\n" +
-				"`/casino-schedule-remove <id>` — Usuń harmonogram\n" +
-				"`/casino-schedule-run <id>` — Wykonaj zrzut natychmiastowo w celach testowych",
+			Name: "📊 Overview & Leaderboards",
+			Value: "`/player <identifier>` — Full player profile, balance & XP\n" +
+				"`/leaderboard [category]` — Wealth or level rankings\n" +
+				"`/stats` — Real-time casino platform statistics\n" +
+				"`/help` — Show this command guide",
 			Inline: false,
 		},
 	}
 
 	return &discordgo.MessageEmbed{
 		Color:       ColorGold,
-		Title:       "👑 2FGT Kasyno — Konsola Administratora",
-		Description: fmt.Sprintf("Wszystkie komendy są zastrzeżone **wyłącznie dla Administratorów Kasyna**.\nStrona kasyna: [**%s**](%s)", b.appURL, b.appURL),
+		Title:       "2FGT Casino — Command Console",
+		Description: fmt.Sprintf("Casino web platform: [**%s**](%s)", b.appURL, b.appURL),
 		Fields:      fields,
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: "2FGT Casino Core • System Zarządzania",
+			Text: "2FGT Casino Core • Management Console",
 		},
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
@@ -414,10 +275,12 @@ func (b *Bot) executeGrantMoney(ctx context.Context, identifier string, amount i
 			}
 		}
 
-		actionTitle := "👑 [GLOBAL] Doładowano środki dla WSZYSTKICH graczy (*)"
+		b.invalidatePlayerCache()
+
+		actionTitle := "[GLOBAL] Doładowano środki dla WSZYSTKICH graczy (*)"
 		actionColor := ColorEmerald
 		if amount < 0 {
-			actionTitle = "👑 [GLOBAL] Odjęto środki od WSZYSTKICH graczy (*)"
+			actionTitle = "[GLOBAL] Odjęto środki od WSZYSTKICH graczy (*)"
 			actionColor = ColorGold
 		}
 
@@ -435,6 +298,82 @@ func (b *Bot) executeGrantMoney(ctx context.Context, identifier string, amount i
 		}
 	}
 
+	if strings.Contains(identifier, ",") {
+		rawParts := strings.Split(identifier, ",")
+		var players []string
+		seen := make(map[string]bool)
+		for _, p := range rawParts {
+			clean := strings.TrimSpace(p)
+			if clean != "" && !seen[strings.ToLower(clean)] {
+				seen[strings.ToLower(clean)] = true
+				players = append(players, clean)
+			}
+		}
+
+		if len(players) > 1 {
+			type grantRes struct {
+				nick    string
+				prevBal int64
+				newBal  int64
+				err     error
+			}
+			var results []grantRes
+			var successCount int
+			var totalTransferred int64
+
+			for _, p := range players {
+				nick, prevBal, newBal, err := b.ledger.GrantBalance(ctx, p, amount, reason)
+				if err != nil {
+					results = append(results, grantRes{nick: p, err: err})
+				} else {
+					successCount++
+					totalTransferred += amount
+					results = append(results, grantRes{nick: nick, prevBal: prevBal, newBal: newBal})
+				}
+			}
+
+			b.invalidatePlayerCache()
+
+			actionTitle := fmt.Sprintf("✅ Zaktualizowano środki dla %d graczy", successCount)
+			actionColor := ColorEmerald
+			if amount < 0 {
+				actionColor = ColorGold
+			}
+			if successCount == 0 {
+				actionColor = ColorRose
+				actionTitle = "❌ Błąd: Nie znaleziono podanych graczy"
+			}
+
+			var details []string
+			for _, r := range results {
+				if r.err != nil {
+					details = append(details, fmt.Sprintf("❌ **%s**: %v", r.nick, r.err))
+				} else {
+					details = append(details, fmt.Sprintf("👤 **%s**: %s ➔ **%s** (%+d $FGT)", r.nick, formatFGT(r.prevBal), formatFGT(r.newBal), amount))
+				}
+			}
+
+			desc := strings.Join(details, "\n")
+			if len(desc) > 2000 {
+				desc = desc[:1990] + "..."
+			}
+
+			return &discordgo.MessageEmbed{
+				Color:       actionColor,
+				Title:       actionTitle,
+				Description: desc,
+				Fields: []*discordgo.MessageEmbedField{
+					{Name: "👥 Pomyślnie zaktualizowano", Value: fmt.Sprintf("**%d / %d graczy**", successCount, len(players)), Inline: true},
+					{Name: "💎 Zmiana na konto", Value: fmt.Sprintf("**%+d $FGT**", amount), Inline: true},
+					{Name: "💰 Łączny transfer", Value: fmt.Sprintf("**%+d $FGT**", totalTransferred), Inline: true},
+					{Name: "📝 Powód", Value: reason, Inline: false},
+				},
+				Footer:    &discordgo.MessageEmbedFooter{Text: "Operacja grupowa została pomyślnie wykonana"},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+		}
+	}
+
 	nick, prevBal, newBal, err := b.ledger.GrantBalance(ctx, identifier, amount, reason)
 	if err != nil {
 		return &discordgo.MessageEmbed{
@@ -443,6 +382,8 @@ func (b *Bot) executeGrantMoney(ctx context.Context, identifier string, amount i
 			Description: fmt.Sprintf("Nie udało się zaktualizować salda: **%v**", err),
 		}
 	}
+
+	b.invalidatePlayerCache()
 
 	actionTitle := "✅ Doładowano środki $FGT"
 	actionColor := ColorEmerald
@@ -476,9 +417,11 @@ func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance
 			}
 		}
 
+		b.invalidatePlayerCache()
+
 		return &discordgo.MessageEmbed{
 			Color: ColorEmerald,
-			Title: "👑 [GLOBAL] Ustawiono jednakowe saldo dla WSZYSTKICH graczy (*)",
+			Title: "[GLOBAL] Ustawiono jednakowe saldo dla WSZYSTKICH graczy (*)",
 			Fields: []*discordgo.MessageEmbedField{
 				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
 				{Name: "💰 Nowe saldo na konto", Value: fmt.Sprintf("**%s**", formatFGT(newBalance)), Inline: true},
@@ -486,6 +429,76 @@ func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance
 			},
 			Footer:    &discordgo.MessageEmbedFooter{Text: "Masowa modyfikacja kont (*) została pomyślnie zapisana"},
 			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
+	if strings.Contains(identifier, ",") {
+		rawParts := strings.Split(identifier, ",")
+		var players []string
+		seen := make(map[string]bool)
+		for _, p := range rawParts {
+			clean := strings.TrimSpace(p)
+			if clean != "" && !seen[strings.ToLower(clean)] {
+				seen[strings.ToLower(clean)] = true
+				players = append(players, clean)
+			}
+		}
+
+		if len(players) > 1 {
+			type setRes struct {
+				nick    string
+				prevBal int64
+				newBal  int64
+				err     error
+			}
+			var results []setRes
+			var successCount int
+
+			for _, p := range players {
+				nick, prevBal, newBal, err := b.ledger.AdminSetBalance(ctx, p, newBalance, reason)
+				if err != nil {
+					results = append(results, setRes{nick: p, err: err})
+				} else {
+					successCount++
+					results = append(results, setRes{nick: nick, prevBal: prevBal, newBal: newBal})
+				}
+			}
+
+			b.invalidatePlayerCache()
+
+			actionTitle := fmt.Sprintf("✅ Ustawiono saldo dla %d graczy", successCount)
+			actionColor := ColorEmerald
+			if successCount == 0 {
+				actionColor = ColorRose
+				actionTitle = "❌ Błąd: Nie znaleziono podanych graczy"
+			}
+
+			var details []string
+			for _, r := range results {
+				if r.err != nil {
+					details = append(details, fmt.Sprintf("❌ **%s**: %v", r.nick, r.err))
+				} else {
+					details = append(details, fmt.Sprintf("👤 **%s**: %s ➔ **%s**", r.nick, formatFGT(r.prevBal), formatFGT(r.newBal)))
+				}
+			}
+
+			desc := strings.Join(details, "\n")
+			if len(desc) > 2000 {
+				desc = desc[:1990] + "..."
+			}
+
+			return &discordgo.MessageEmbed{
+				Color:       actionColor,
+				Title:       actionTitle,
+				Description: desc,
+				Fields: []*discordgo.MessageEmbedField{
+					{Name: "👥 Pomyślnie zaktualizowano", Value: fmt.Sprintf("**%d / %d graczy**", successCount, len(players)), Inline: true},
+					{Name: "💰 Nowe saldo", Value: fmt.Sprintf("**%s**", formatFGT(newBalance)), Inline: true},
+					{Name: "📝 Powód", Value: reason, Inline: false},
+				},
+				Footer:    &discordgo.MessageEmbedFooter{Text: "Operacja grupowa została pomyślnie wykonana"},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
 		}
 	}
 
@@ -497,6 +510,8 @@ func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance
 			Description: fmt.Sprintf("Nie udało się ustawić salda: **%v**", err),
 		}
 	}
+
+	b.invalidatePlayerCache()
 
 	return &discordgo.MessageEmbed{
 		Color: ColorEmerald,
@@ -511,6 +526,243 @@ func (b *Bot) executeSetMoney(ctx context.Context, identifier string, newBalance
 	}
 }
 
+func parseRevertTimestamp(input string) (time.Time, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return time.Time{}, fmt.Errorf("pusta data/godzina")
+	}
+
+	now := time.Now()
+	inputLower := strings.ToLower(input)
+
+	// Handle keywords with time, e.g. "today 15:30:00", "dzisiaj 14:00:00", "yesterday 20:00:00", "wczoraj 18:30:00"
+	for _, prefix := range []string{"today ", "dzisiaj ", "now "} {
+		if strings.HasPrefix(inputLower, prefix) {
+			timePart := strings.TrimSpace(input[len(prefix):])
+			t, err := parseTimeOnly(timePart, now)
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
+	for _, prefix := range []string{"yesterday ", "wczoraj "} {
+		if strings.HasPrefix(inputLower, prefix) {
+			timePart := strings.TrimSpace(input[len(prefix):])
+			t, err := parseTimeOnly(timePart, now.AddDate(0, 0, -1))
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
+
+	// Relative formats: 10m, 1h, 24h, 2d, 30s, 1d
+	if d, err := time.ParseDuration(input); err == nil {
+		return now.Add(-d), nil
+	}
+	if strings.HasSuffix(inputLower, "d") {
+		daysStr := strings.TrimSuffix(inputLower, "d")
+		if days, err := strconv.Atoi(daysStr); err == nil && days > 0 {
+			return now.AddDate(0, 0, -days), nil
+		}
+	}
+
+	// Format: HH:MM or HH:MM:SS (Today)
+	if (len(input) == 5 || len(input) == 8) && strings.Contains(input, ":") && !strings.Contains(input, "-") && !strings.Contains(input, ".") && !strings.Contains(input, "/") {
+		layout := "15:04"
+		if len(input) == 8 {
+			layout = "15:04:05"
+		}
+		t, err := time.ParseInLocation(layout, input, time.Local)
+		if err == nil {
+			target := time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local)
+			if target.After(now) {
+				target = target.AddDate(0, 0, -1)
+			}
+			return target, nil
+		}
+	}
+
+	// Supported explicit formats
+	formats := []string{
+		"02-01-2006 15:04:05",
+		"02-01-2006 15:04",
+		"02-01-2006T15:04:05",
+		"02-01-2006T15:04",
+		"02-01-2006",
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"02.01.2006 15:04:05",
+		"02.01.2006 15:04",
+		"02/01/2006 15:04:05",
+		"02/01/2006 15:04",
+		"2006/01/02 15:04:05",
+		"2006/01/02 15:04",
+		"2006-01-02",
+		"02.01.2006",
+		"02/01/2006",
+	}
+
+	for _, layout := range formats {
+		if t, err := time.ParseInLocation(layout, input, time.Local); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("nieobsługiwany format daty. Przykłady: '24-09-2026 15:30:00', '2026-09-24 15:30:00', '24-09-2026'")
+}
+
+func parseTimeOnly(input string, baseDate time.Time) (time.Time, error) {
+	input = strings.TrimSpace(input)
+	layout := "15:04"
+	if strings.Count(input, ":") >= 2 {
+		layout = "15:04:05"
+	}
+	t, err := time.ParseInLocation(layout, input, time.Local)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local), nil
+}
+
+func (b *Bot) executeRevertMoney(ctx context.Context, identifier string, untilStr string, reason string) *discordgo.MessageEmbed {
+	targetTime, err := parseRevertTimestamp(untilStr)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Nieprawidłowy format daty/godziny",
+			Description: fmt.Sprintf("Nie udało się sparsować daty `%s`:\n**%v**", untilStr, err),
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:  "💡 Obsługiwane formaty",
+					Value: "`15:30` (godzina dzisiaj)\n`2026-09-24 14:00` (data i godzina)\n`24.09.2026 14:00`\n`1h` / `30m` / `1d` (wstecz)",
+				},
+			},
+		}
+	}
+
+	untilMillis := targetTime.UnixMilli()
+	formattedTargetTime := targetTime.Format("2006-01-02 15:04:05")
+
+	if reason == "" {
+		reason = "Transaction Revert (Discord)"
+	}
+
+	if isAllUsersIdentifier(identifier) {
+		affectedUsers, deletedEntries, deletedRounds, err := b.ledger.AdminRevertBalanceAll(ctx, untilMillis)
+		if err != nil {
+			return &discordgo.MessageEmbed{
+				Color:       ColorRose,
+				Title:       "❌ Błąd masowego cofania transakcji (*)",
+				Description: fmt.Sprintf("Nie udało się cofnąć transakcji: **%v**", err),
+			}
+		}
+
+		b.invalidatePlayerCache()
+
+		return &discordgo.MessageEmbed{
+			Color:       ColorGold,
+			Title:       "⏪ [GLOBAL] Cofnięto transakcje dla WSZYSTKICH graczy (*)",
+			Description: fmt.Sprintf("Usunięto wszystkie wpisy w rejestrze i gry utworzone po **%s**.", formattedTargetTime),
+			Fields: []*discordgo.MessageEmbedField{
+				{Name: "📅 Punkt przywrócenia", Value: fmt.Sprintf("`%s`", formattedTargetTime), Inline: true},
+				{Name: "👥 Zmodyfikowanych graczy", Value: fmt.Sprintf("**%d kont**", affectedUsers), Inline: true},
+				{Name: "🗑️ Usuniętych wpisów ledger", Value: fmt.Sprintf("**%d**", deletedEntries), Inline: true},
+				{Name: "🎮 Usuniętych gier", Value: fmt.Sprintf("**%d**", deletedRounds), Inline: true},
+				{Name: "📝 Powód", Value: reason, Inline: false},
+			},
+			Footer:    &discordgo.MessageEmbedFooter{Text: "Cofanie transakcji zostało zakończone sukcesem"},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+	}
+
+	if strings.Contains(identifier, ",") {
+		rawParts := strings.Split(identifier, ",")
+		var players []string
+		seen := make(map[string]bool)
+		for _, p := range rawParts {
+			clean := strings.TrimSpace(p)
+			if clean != "" && !seen[strings.ToLower(clean)] {
+				seen[strings.ToLower(clean)] = true
+				players = append(players, clean)
+			}
+		}
+
+		if len(players) > 1 {
+			var results []*ledger.RevertResult
+			var errs []string
+			var totalDeletedLedger, totalDeletedRounds int64
+
+			for _, p := range players {
+				res, err := b.ledger.AdminRevertBalanceUser(ctx, p, untilMillis)
+				if err != nil {
+					errs = append(errs, fmt.Sprintf("❌ **%s**: %v", p, err))
+				} else {
+					results = append(results, res)
+					totalDeletedLedger += res.DeletedLedger
+					totalDeletedRounds += res.DeletedRounds
+				}
+			}
+
+			b.invalidatePlayerCache()
+
+			var details []string
+			for _, r := range results {
+				details = append(details, fmt.Sprintf("👤 **%s**: %s ➔ **%s** (usunięto: %d wpisów, %d gier)",
+					r.Nick, formatFGT(r.PreviousBal), formatFGT(r.NewBal), r.DeletedLedger, r.DeletedRounds))
+			}
+			details = append(details, errs...)
+
+			desc := strings.Join(details, "\n")
+			if len(desc) > 2000 {
+				desc = desc[:1990] + "..."
+			}
+
+			return &discordgo.MessageEmbed{
+				Color:       ColorGold,
+				Title:       fmt.Sprintf("⏪ Cofnięto transakcje dla %d graczy", len(results)),
+				Description: desc,
+				Fields: []*discordgo.MessageEmbedField{
+					{Name: "📅 Punkt przywrócenia", Value: fmt.Sprintf("`%s`", formattedTargetTime), Inline: true},
+					{Name: "🗑️ Usunięte transakcje", Value: fmt.Sprintf("**%d wpisów**", totalDeletedLedger), Inline: true},
+					{Name: "🎮 Usunięte gry", Value: fmt.Sprintf("**%d gier**", totalDeletedRounds), Inline: true},
+					{Name: "📝 Powód", Value: reason, Inline: false},
+				},
+				Footer:    &discordgo.MessageEmbedFooter{Text: "Cofanie grupowe transakcji zostało zakończone"},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+		}
+	}
+
+	res, err := b.ledger.AdminRevertBalanceUser(ctx, identifier, untilMillis)
+	if err != nil {
+		return &discordgo.MessageEmbed{
+			Color:       ColorRose,
+			Title:       "❌ Błąd cofania transakcji",
+			Description: fmt.Sprintf("Nie udało się cofnąć transakcji dla `%s`: **%v**", identifier, err),
+		}
+	}
+
+	b.invalidatePlayerCache()
+
+	return &discordgo.MessageEmbed{
+		Color: ColorGold,
+		Title: "⏪ Cofnięto transakcje i saldo gracza",
+		Fields: []*discordgo.MessageEmbedField{
+			{Name: "Gracz", Value: fmt.Sprintf("**%s**", res.Nick), Inline: true},
+			{Name: "📅 Punkt przywrócenia", Value: fmt.Sprintf("`%s`", formattedTargetTime), Inline: true},
+			{Name: "📝 Powód", Value: reason, Inline: true},
+			{Name: "Poprzednie saldo", Value: formatFGT(res.PreviousBal), Inline: true},
+			{Name: "Nowe saldo", Value: fmt.Sprintf("**%s**", formatFGT(res.NewBal)), Inline: true},
+			{Name: "🗑️ Usunięte wpisy ledger", Value: fmt.Sprintf("**%d wpisów**", res.DeletedLedger), Inline: true},
+			{Name: "🎮 Usunięte gry", Value: fmt.Sprintf("**%d gier**", res.DeletedRounds), Inline: true},
+		},
+		Footer:    &discordgo.MessageEmbedFooter{Text: "Usunięto wszystkie rekordy utworzone po wskazanym czasie"},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+}
+
 func (b *Bot) executeCreateUser(ctx context.Context, nick, userID, email string, initialBal int64) *discordgo.MessageEmbed {
 	player, err := b.ledger.AdminCreateUser(ctx, userID, nick, email, initialBal)
 	if err != nil {
@@ -520,6 +772,8 @@ func (b *Bot) executeCreateUser(ctx context.Context, nick, userID, email string,
 			Description: fmt.Sprintf("Nie udało się utworzyć gracza: **%v**", err),
 		}
 	}
+
+	b.invalidatePlayerCache()
 
 	return &discordgo.MessageEmbed{
 		Color: ColorEmerald,
@@ -545,6 +799,8 @@ func (b *Bot) executeSetNick(ctx context.Context, identifier, newNick string) *d
 		}
 	}
 
+	b.invalidatePlayerCache()
+
 	return &discordgo.MessageEmbed{
 		Color:       ColorEmerald,
 		Title:       "✅ Zmieniono nick gracza",
@@ -561,6 +817,8 @@ func (b *Bot) executeDeleteUser(ctx context.Context, identifier string) *discord
 			Description: fmt.Sprintf("Nie udało się usunąć gracza: **%v**", err),
 		}
 	}
+
+	b.invalidatePlayerCache()
 
 	return &discordgo.MessageEmbed{
 		Color:       ColorGold,
@@ -658,7 +916,7 @@ func (b *Bot) buildScheduledGrantsListEmbed(ctx context.Context, filter string) 
 		return &discordgo.MessageEmbed{
 			Color:       ColorGold,
 			Title:       "⏰ Harmonogram Automatycznych Zrzutów ($FGT)",
-			Description: "Brak zaplanowanych zrzutów. Użyj `/casino-schedule-add`, aby dodać nowy harmonogram.",
+			Description: "Brak zaplanowanych zrzutów. Użyj `/dodaj-zrzut`, aby dodać nowy harmonogram.",
 		}
 	}
 
@@ -724,7 +982,7 @@ func (b *Bot) buildScheduledGrantsListEmbed(ctx context.Context, filter string) 
 		Title:       fmt.Sprintf("⏰ Harmonogram Automatycznych Zrzutów ($FGT) [%d]", matchedCount),
 		Description: sb.String(),
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Strefa czasowa: %s • Zarządzaj: /casino-schedule-add / -remove / -toggle", b.cfg.Timezone),
+			Text: fmt.Sprintf("Strefa czasowa: %s • Zarządzaj: /dodaj-zrzut /usun-zrzut /przelacz-zrzut", b.cfg.Timezone),
 		},
 		Timestamp: time.Now().Format(time.RFC3339),
 	}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Gamepad2, X, ChevronRight, Sparkles } from "lucide-react";
-import { MINIGAMES, getMinigameById } from "./registry";
+import { Gamepad2, X } from "lucide-react";
+import { getMinigameById } from "./registry";
 
 export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "captcha" }) {
   const [selectedGameId, setSelectedGameId] = useState(initialGame);
