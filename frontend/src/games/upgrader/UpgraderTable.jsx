@@ -15,6 +15,7 @@ const MULTIPLIER_PRESETS = [
 ];
 
 export function UpgraderTable({
+  arenaOnly = false,
   bet,
   setBet,
   maxBalance = 0,
@@ -116,6 +117,109 @@ export function UpgraderTable({
   // Exact boundary cut-off angle in degrees
   const boundaryAngle =
     rollType === "under" ? (winChance / 100) * 360 : ((100 - winChance) / 100) * 360;
+
+  const renderWheel = () => (
+    <div className="relative w-[min(65vw,280px)] h-[min(65vw,280px)] xs:w-[min(70vw,310px)] xs:h-[min(70vw,310px)] sm:w-84 sm:h-84 md:w-96 md:h-96 lg:w-[420px] lg:h-[420px] flex items-center justify-center my-auto">
+      <svg
+        viewBox="0 0 320 320"
+        className="w-full h-full transform -rotate-90 pointer-events-none drop-shadow-2xl"
+      >
+        {/* Outer Dark Track */}
+        <circle
+          cx="160"
+          cy="160"
+          r={radius}
+          fill="none"
+          stroke="#151e2d"
+          strokeWidth="18"
+        />
+
+        {/* Decorative Inner Dotted Ring */}
+        <circle
+          cx="160"
+          cy="160"
+          r={radius - 24}
+          fill="none"
+          stroke="#1f2d42"
+          strokeWidth="2.5"
+          strokeDasharray="6 6"
+        />
+
+        {/* Mathematically Exact Winning Sector Arc */}
+        <circle
+          cx="160"
+          cy="160"
+          r={radius}
+          fill="none"
+          stroke="url(#upgraderGoldSuperGradient)"
+          strokeWidth="18"
+          strokeDasharray={`${winStrokeLength} ${circumference}`}
+          strokeDashoffset={-strokeDashoffset}
+          strokeLinecap="butt"
+          className="transition-all duration-300"
+        />
+
+        <defs>
+          <linearGradient
+            id="upgraderGoldSuperGradient"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="100%"
+          >
+            <stop offset="0%" stopColor="#fef08a" />
+            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#b45309" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      {/* Rotating Pointer Needle */}
+      <div
+        ref={pointerRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{ transform: "rotate(0deg)" }}
+      >
+        <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
+          <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
+        </div>
+      </div>
+
+      {/* Center Info Display */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 sm:p-4 z-10 pointer-events-none">
+        <span className="text-3xl xs:text-4xl sm:text-6xl md:text-7xl font-black font-mono tracking-tight text-white drop-shadow-2xl">
+          {winChance.toFixed(2)}%
+        </span>
+        <span className="text-[10px] sm:text-sm md:text-base font-black text-slate-300 uppercase tracking-widest mt-0.5 sm:mt-1">
+          Szansa na Upgrade
+        </span>
+      </div>
+    </div>
+  );
+
+  if (arenaOnly) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center relative select-none p-2 sm:p-4">
+        {renderWheel()}
+        {lastOutcome && !spinning && (
+          <div
+            className={`z-20 px-3 sm:px-5 py-1 sm:py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl mt-3 ${
+              lastOutcome.won
+                ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
+                : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
+            }`}
+          >
+            {lastOutcome.won
+              ? `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • WYGRANA ${money(
+                  lastOutcome.payout
+                )}!`
+              : `Wylosowano ${lastOutcome.rolled.toFixed(2)}% • Przegrana`}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">

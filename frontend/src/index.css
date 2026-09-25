@@ -1977,10 +1977,10 @@ body {
 
 .game-table-dialog,
 .game-dialog-box {
-  max-width: 1060px !important;
-  width: 96vw;
-  max-height: calc(100dvh - 24px) !important;
-  height: calc(100dvh - 24px) !important;
+  max-width: 1440px !important;
+  width: 98vw !important;
+  max-height: calc(100dvh - 20px) !important;
+  height: calc(100dvh - 20px) !important;
   background: #0c0f16 !important;
   border: 1px solid rgba(255, 255, 255, 0.12);
   display: flex !important;

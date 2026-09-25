@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { X, Target, Zap, RotateCw, Trash2, CheckCircle2 } from "lucide-react";
+import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } from "lucide-react";
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
@@ -620,7 +620,7 @@ export function GameTableDialog({
     <div className="modal-backdrop game-modal-backdrop" role="presentation">
       <div
         ref={dialogRef}
-        className={`modal-dialog game-dialog-box is-upgrader-dialog ${game === "chicken" ? "is-chicken-dialog" : ""}`}
+        className="modal-dialog game-dialog-box"
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-dialog-title"
@@ -651,128 +651,583 @@ export function GameTableDialog({
           </div>
         </div>
 
-        {game === "upgrader" ? (
-          <UpgraderTable
-            bet={bet}
-            setBet={setBet}
-            maxBalance={data?.player?.balance ?? 0}
-            target={upgraderTarget}
-            setTarget={setUpgraderTarget}
-            rollType={upgraderRollType}
-            setRollType={setUpgraderRollType}
-            last={last}
-            loading={loading}
-            onPlay={(opts) => {
-              if (opts?.target_multiplier) setUpgraderTarget(opts.target_multiplier);
-              if (opts?.roll_type) setUpgraderRollType(opts.roll_type);
-              start();
-            }}
-            animatingRef={animatingRef}
-            onBusyChange={setUpgraderBusy}
-            triggerOutcome={triggerOutcome}
-            turbo={turbo}
-          />
-        ) : game === "chicken" ? (
-          <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
-            {/* Full-size Game Arena taking all available space */}
-            <div className="flex-1 w-full min-h-0 relative flex items-stretch overflow-hidden bg-[#0c131e]">
-              <div
-                className={`absolute inset-0 transition-opacity duration-700 pointer-events-none z-10 ${
-                  isBusy ? "bg-amber-500/10 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/15" : last ? "bg-rose-500/15" : "bg-transparent"
-                }`}
-              />
-              <ChickenTable
-                ref={chickenRef}
-                round={round}
-                last={last}
-                post={post}
-                loading={loading}
-                turbo={turbo}
-                triggerOutcome={triggerOutcome}
-                animatingRef={animatingRef}
-                onBusyChange={setChickenBusy}
-              />
+        <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
+          {/* Full-size Game Arena taking all available space */}
+          <div className={`flex-1 w-full min-h-0 relative flex ${game === "chicken" ? "items-stretch overflow-hidden" : "items-center justify-center overflow-y-auto overflow-x-hidden"} bg-[#0c131e] p-2 sm:p-4`}>
+            <div
+              className={`absolute inset-0 transition-opacity duration-700 pointer-events-none z-10 ${
+                isBusy ? "bg-amber-500/10 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/15" : last ? "bg-rose-500/15" : "bg-transparent"
+              }`}
+            />
+
+            <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full h-full flex items-center justify-center relative z-10`}>
+              {game === "roulette" && (
+                <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
+                  <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
+                    <RouletteWheelVisual
+                      mustStartSpinning={spinning}
+                      prizeNumber={prize}
+                      turbo={turbo}
+                      onStopSpinning={() => {
+                        setSpinning(false);
+                        if (pendingSpin) {
+                          setLast(pendingSpin.round);
+                          if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                          triggerOutcome(pendingSpin.round);
+                          setPendingSpin(null);
+                          void load();
+                        }
+                        if (animatingRef) animatingRef.current = false;
+                      }}
+                    />
+                    {hasSettledSpin && (
+                      <div className="roulette-result" aria-live="polite">
+                        <strong>{rawWinningNumber}</strong>
+                      </div>
+                    )}
+                  </div>
+                  <RouletteBets
+                    selectedBets={rouletteSelected}
+                    onToggleBet={handleRouletteToggle}
+                    onClearBets={handleRouletteClear}
+                    winningNumber={hasSettledSpin ? rawWinningNumber : null}
+                    disabled={spinning || rouletteWaiting}
+                  />
+                </div>
+              )}
+
+              {game === "slots" && (
+                <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />
+              )}
+
+              {game === "blackjack" && (
+                <BlackjackTable round={blackjackPreview || round} last={last} />
+              )}
+
+              {game === "mines" && (
+                <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />
+              )}
+
+              {game === "chicken" && (
+                <ChickenTable
+                  ref={chickenRef}
+                  round={round}
+                  last={last}
+                  post={post}
+                  loading={loading}
+                  turbo={turbo}
+                  triggerOutcome={triggerOutcome}
+                  animatingRef={animatingRef}
+                  onBusyChange={setChickenBusy}
+                />
+              )}
+
+              {game === "coinflip" && (
+                <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />
+              )}
+
+              {game === "rps" && (
+                <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />
+              )}
+
+              {game === "plinko" && (
+                <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />
+              )}
+
+              {game === "limbo" && (
+                <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
+              )}
+
+              {game === "crash" && (
+                <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
+              )}
+
+              {game === "upgrader" && (
+                <UpgraderTable
+                  arenaOnly
+                  bet={bet}
+                  setBet={setBet}
+                  maxBalance={data?.player?.balance ?? 0}
+                  target={upgraderTarget}
+                  setTarget={setUpgraderTarget}
+                  rollType={upgraderRollType}
+                  setRollType={setUpgraderRollType}
+                  last={last}
+                  loading={loading}
+                  animatingRef={animatingRef}
+                  onBusyChange={setUpgraderBusy}
+                  triggerOutcome={triggerOutcome}
+                  turbo={turbo}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Docked Bottom Control Bar */}
+          <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-3 sm:px-6 md:px-8 py-3 sm:py-4 z-20 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 shadow-2xl flex-shrink-0">
+            {/* Left: Stawka & Quick Bets */}
+            <div className="w-full md:w-auto flex-1 flex flex-wrap items-center gap-2 sm:gap-3 max-w-2xl">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
+                {game !== "chicken" && typeof turbo === "boolean" && (
+                  <button
+                    type="button"
+                    onClick={() => setTurbo(!turbo)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                      turbo
+                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                        : "bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-slate-700/40"
+                    }`}
+                  >
+                    <Zap size={12} className={turbo ? "fill-amber-400" : ""} />
+                    <span>Turbo</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="relative flex-1 flex items-center min-w-[120px] max-w-[180px]">
+                <input
+                  type="number"
+                  min="1"
+                  max={data?.player?.balance || 1000000}
+                  value={bet}
+                  disabled={loading || isBusy}
+                  onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
+                />
+                <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
+                <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
+                <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
+                <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
+              </div>
+
+              <div className="hidden lg:flex items-center gap-1.5">
+                {[10, 50, 100, 500].map((inc) => (
+                  <button
+                    key={inc}
+                    type="button"
+                    disabled={loading || isBusy}
+                    onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
+                    className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    +{inc}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Docked Bottom Control Bar */}
-            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-4 sm:px-8 py-3.5 sm:py-4.5 z-20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-5 shadow-2xl flex-shrink-0">
-              {/* Bet controls */}
-              <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-4 max-w-2xl">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
+            {/* Middle: Game-Specific Selectors */}
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {game === "mines" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
+                  <div className="flex items-center gap-1.5">
+                    {[2, 3, 5, 10, 15, 20].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        disabled={loading || round?.game === "mines"}
+                        onClick={() => setMineCount(c)}
+                        className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                          mineCount === c
+                            ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
+                            : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                <div className="relative flex-1 flex items-center min-w-[120px] max-w-[200px]">
-                  <input
-                    type="number"
-                    min="1"
-                    max={data?.player?.balance || 1000000}
-                    value={bet}
-                    disabled={loading || isBusy}
-                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
-                  />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+              {game === "coinflip" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={loading || isFlipping}
+                    onClick={() => setChoice("heads")}
+                    className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                      choice === "heads"
+                        ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
+                        : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                    }`}
+                  >
+                    <span className="text-base sm:text-lg">🦅</span>
+                    <span className="text-xs sm:text-sm font-bold">Orzeł</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading || isFlipping}
+                    onClick={() => setChoice("tails")}
+                    className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                      choice === "tails"
+                        ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
+                        : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                    }`}
+                  >
+                    <span className="text-base sm:text-lg">👑</span>
+                    <span className="text-xs sm:text-sm font-bold">Reszka</span>
+                  </button>
                 </div>
+              )}
 
-                <div className="flex items-center gap-1.5">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
-                </div>
-
-                <div className="hidden md:flex items-center gap-1.5">
-                  {[10, 50, 100, 500].map((inc) => (
+              {game === "rps" && (
+                <div className="flex items-center gap-2">
+                  {[
+                    { id: "rock", icon: "✊", name: "Kamień" },
+                    { id: "paper", icon: "✋", name: "Papier" },
+                    { id: "scissors", icon: "✌️", name: "Nożyce" },
+                  ].map((item) => (
                     <button
-                      key={inc}
+                      key={item.id}
                       type="button"
-                      disabled={loading || isBusy}
-                      onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
+                      disabled={loading || isShootingRPS}
+                      onClick={() => setChoice(item.id)}
+                      className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                        choice === item.id
+                          ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
+                          : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                      }`}
                     >
-                      +{inc}
+                      <span className="text-base sm:text-lg">{item.icon}</span>
+                      <span className="text-xs sm:text-sm font-bold">{item.name}</span>
                     </button>
                   ))}
                 </div>
-              </div>
+              )}
 
-              {/* Main Action Button */}
-              <div className="w-full sm:w-auto sm:min-w-[300px]">
-                {round ? (
-                  (() => {
-                    const currentLane = round.payload?.currentLane || 0;
-                    const currentMult = round.payload?.multiplier ?? 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
-                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
-
-                    return (
+              {game === "plinko" && (
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="flex items-center gap-1">
+                    {[8, 10, 12, 14, 16].map((r) => (
                       <button
+                        key={r}
                         type="button"
-                        disabled={isCashoutDisabled}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
-                          !isCashoutDisabled
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                        disabled={loading}
+                        onClick={() => setPlinkoRows(r)}
+                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer ${
+                          plinkoRows === r
+                            ? "bg-amber-500 text-slate-950 border-2 border-amber-300 shadow-md"
+                            : "bg-[#172336] text-slate-300 hover:bg-slate-700 border border-slate-700/60"
                         }`}
                       >
-                        <CheckCircle2 size={22} />
-                        <span>
-                          {currentLane === 0
-                            ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
-                        </span>
+                        {r}
                       </button>
-                    );
-                  })()
-                ) : (
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[
+                      { id: "low", label: "Niskie" },
+                      { id: "medium", label: "Średnie" },
+                      { id: "high", label: "Wysokie" },
+                    ].map((rk) => (
+                      <button
+                        key={rk.id}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setPlinkoRisk(rk.id)}
+                        className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                          plinkoRisk === rk.id
+                            ? "bg-amber-500 text-slate-950 border-2 border-amber-300 shadow-md"
+                            : "bg-[#172336] text-slate-300 hover:bg-slate-700 border border-slate-700/60"
+                        }`}
+                      >
+                        {rk.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {game === "limbo" && (
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1">
+                    {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        disabled={loading || limboAnimating}
+                        onClick={() => setLimboTarget(val)}
+                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                          Math.abs(limboTarget - val) < 0.01
+                            ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
+                            : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {val}×
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative flex items-center w-28 sm:w-32">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="1.5"
+                      max="10000"
+                      value={limboTarget}
+                      disabled={loading || limboAnimating}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
+                      }}
+                      className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                      placeholder="Mnożnik"
+                    />
+                    <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">×</span>
+                  </div>
+                </div>
+              )}
+
+              {game === "crash" && (
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1">
+                    {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        disabled={crashPlaying || loading}
+                        onClick={() => setCrashAutoCashout(val)}
+                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                          Math.abs(crashAutoCashout - val) < 0.01
+                            ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
+                            : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {val}×
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative flex items-center w-28 sm:w-32">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0.8"
+                      max="1000"
+                      disabled={crashPlaying || loading}
+                      value={crashAutoCashout}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
+                      }}
+                      className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
+                  </div>
+                </div>
+              )}
+
+              {game === "upgrader" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center bg-[#131d2e] p-1 rounded-xl border border-slate-700/80">
+                    <button
+                      type="button"
+                      disabled={loading || upgraderBusy}
+                      onClick={() => setUpgraderRollType("under")}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        upgraderRollType === "under" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <ArrowDown size={14} />
+                      <span>Under</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading || upgraderBusy}
+                      onClick={() => setUpgraderRollType("over")}
+                      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                        upgraderRollType === "over" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <ArrowUp size={14} />
+                      <span>Over</span>
+                    </button>
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-1">
+                    {[1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        disabled={loading || upgraderBusy}
+                        onClick={() => setUpgraderTarget(val)}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${
+                          Math.abs(upgraderTarget - val) < 0.01
+                            ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300"
+                            : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                        }`}
+                      >
+                        {val}×
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative flex items-center w-24 sm:w-28">
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="1.5"
+                      max="10000"
+                      value={upgraderTarget}
+                      disabled={loading || upgraderBusy}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        setUpgraderTarget(isNaN(v) ? "" : v);
+                      }}
+                      onBlur={() => {
+                        setUpgraderTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                      placeholder="Mnożnik"
+                    />
+                    <span className="absolute right-2 text-xs font-black text-slate-400 pointer-events-none">×</span>
+                  </div>
+                </div>
+              )}
+
+              {game === "roulette" && (
+                <div className="flex items-center gap-3">
+                  <div className="text-xs sm:text-sm font-black text-slate-300">
+                    Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong>
+                  </div>
+                  {rouletteSelected.size > 0 && (
+                    <button
+                      type="button"
+                      disabled={spinning || rouletteWaiting}
+                      onClick={handleRouletteClear}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-rose-500/30"
+                    >
+                      <Trash2 size={13} />
+                      <span>Wyczyść</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Main Action Buttons */}
+            <div className="w-full md:w-auto md:min-w-[280px] lg:min-w-[320px]">
+              {(() => {
+                if (round?.game === "blackjack" && !blackjackPreview) {
+                  return (
+                    <div className="grid grid-cols-3 gap-2 w-full">
+                      <button
+                        type="button"
+                        className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                        disabled={loading}
+                        onClick={() => showSettledBlackjack("stand")}
+                      >
+                        Pas
+                      </button>
+                      <button
+                        type="button"
+                        className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                        disabled={loading || round.payload?.cards?.length !== 2}
+                        onClick={() => showSettledBlackjack("double")}
+                      >
+                        Podwój
+                      </button>
+                      <button
+                        type="button"
+                        className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30"
+                        disabled={loading}
+                        onClick={() => showSettledBlackjack("hit")}
+                      >
+                        Dobierz
+                      </button>
+                    </div>
+                  );
+                }
+
+                if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
+                  return (
+                    <button
+                      type="button"
+                      className="w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40"
+                      onClick={handleManualCrashCashout}
+                    >
+                      <CheckCircle2 size={22} />
+                      <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
+                    </button>
+                  );
+                }
+
+                if (round?.game === "mines") {
+                  const p = round.payload || {};
+                  const revealed = p.revealed || [];
+                  const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
+                  const currentProfit = Math.floor(bet * currentMult);
+                  const canCashout = revealed.length > 0 && !loading;
+
+                  return (
+                    <button
+                      type="button"
+                      disabled={!canCashout}
+                      onClick={handleMinesCashout}
+                      className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                        canCashout
+                          ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40 cursor-pointer active:scale-98"
+                          : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                      }`}
+                    >
+                      <CheckCircle2 size={22} />
+                      <span>
+                        {revealed.length === 0
+                          ? "Wybierz pole na planszy"
+                          : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                      </span>
+                    </button>
+                  );
+                }
+
+                if (game === "chicken" && round) {
+                  const currentLane = round.payload?.currentLane || 0;
+                  const currentMult = round.payload?.multiplier ?? 1.00;
+                  const currentProfit = Math.floor(bet * currentMult);
+                  const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+
+                  return (
+                    <button
+                      type="button"
+                      disabled={isCashoutDisabled}
+                      onClick={handleChickenCashout}
+                      className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                        !isCashoutDisabled
+                          ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
+                          : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                      }`}
+                    >
+                      <CheckCircle2 size={22} />
+                      <span>
+                        {currentLane === 0
+                          ? "Kliknij na drogę, aby skoczyć"
+                          : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
+                      </span>
+                    </button>
+                  );
+                }
+
+                const isChoiceMissing =
+                  (game === "coinflip" && !choice) ||
+                  (game === "rps" && !choice) ||
+                  (game === "roulette" && rouletteTotalBet <= 0);
+
+                const isButtonDisabled =
+                  !tosAccepted ||
+                  isChoiceMissing ||
+                  (game !== "plinko" && (loading || isBusy));
+
+                return (
                   <button
                     type="button"
-                    disabled={!tosAccepted || loading || isBusy}
+                    disabled={isButtonDisabled}
                     onClick={start}
                     className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
-                      !tosAccepted || loading || isBusy
+                      isButtonDisabled
                         ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
                         : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
                     }`}
@@ -789,387 +1244,11 @@ export function GameTableDialog({
                       </>
                     )}
                   </button>
-                )}
-              </div>
+                );
+              })()}
             </div>
           </div>
-        ) : (
-          <div className="upgrader-container flex flex-col w-full max-w-6xl mx-auto select-none p-1.5 sm:p-4 md:p-6 pb-24 sm:pb-6 gap-3 sm:gap-5">
-            {/* TOP: Big Game Arena (Full Width & Spacious) */}
-            <div className="w-full flex flex-col items-center justify-between p-3 sm:p-6 rounded-2xl bg-[#080d16] border border-slate-800 shadow-2xl relative overflow-hidden min-h-[340px] sm:min-h-[440px] md:min-h-[500px] gap-2">
-              <div
-                className={`absolute inset-0 transition-opacity duration-700 pointer-events-none ${
-                  isBusy ? "bg-amber-500/15 animate-pulse" : last?.payout > 0 ? "bg-emerald-500/25" : last ? "bg-rose-500/20" : "bg-transparent"
-                }`}
-              />
-
-              <div className="w-full flex-1 flex items-center justify-center relative z-10 my-auto">
-                <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full flex items-center justify-center`}>
-                  {game === "roulette" && (
-                    <>
-                      <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
-                        <RouletteWheelVisual
-                          mustStartSpinning={spinning}
-                          prizeNumber={prize}
-                          turbo={turbo}
-                          onStopSpinning={() => {
-                            setSpinning(false);
-                            if (pendingSpin) {
-                              setLast(pendingSpin.round);
-                              if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
-                              triggerOutcome(pendingSpin.round);
-                              setPendingSpin(null);
-                              void load();
-                            }
-                            if (animatingRef) animatingRef.current = false;
-                          }}
-                        />
-                        {hasSettledSpin && (
-                          <div className="roulette-result" aria-live="polite">
-                            <strong>{rawWinningNumber}</strong>
-                          </div>
-                        )}
-                      </div>
-                      <RouletteBets
-                        selectedBets={rouletteSelected}
-                        onToggleBet={handleRouletteToggle}
-                        onClearBets={handleRouletteClear}
-                        winningNumber={hasSettledSpin ? rawWinningNumber : null}
-                        disabled={spinning || rouletteWaiting}
-                      />
-                    </>
-                  )}
-
-                  {game === "slots" && <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />}
-                  {game === "blackjack" && <BlackjackTable round={blackjackPreview || round} last={last} />}
-                  {game === "mines" && <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />}
-                  {game === "chicken" && <ChickenTable ref={chickenRef} round={round} last={last} post={post} loading={loading} turbo={turbo} triggerOutcome={triggerOutcome} animatingRef={animatingRef} onBusyChange={setChickenBusy} />}
-                  {game === "coinflip" && <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />}
-                  {game === "rps" && <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />}
-                  {game === "plinko" && <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />}
-                  {game === "limbo" && <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />}
-                  {game === "crash" && <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />}
-                </div>
-              </div>
-            </div>
-
-            {/* BOTTOM: Unified Control Card */}
-            <div className="flex flex-col p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-[#0c131f] border border-slate-800 shadow-xl gap-3 sm:gap-4">
-              {/* 1. Stawka & Quick Bets */}
-              <div>
-                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
-                  {typeof turbo === "boolean" && (
-                    <button
-                      type="button"
-                      onClick={() => setTurbo(!turbo)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
-                        turbo ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      <Zap size={10} className={turbo ? "fill-amber-400" : ""} />
-                      <span>Turbo</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="relative flex items-center mb-1.5 sm:mb-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max={data?.player?.balance || 1000000}
-                    value={bet}
-                    disabled={loading || isBusy}
-                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
-                  />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5 sm:mb-2">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 cursor-pointer active:scale-95 shadow-sm">Max</button>
-                </div>
-
-                <div className="grid grid-cols-6 gap-1">
-                  {[5, 10, 25, 50, 100, 500].map((inc) => (
-                    <button
-                      key={inc}
-                      type="button"
-                      disabled={loading || isBusy}
-                      onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1 rounded-md bg-[#172336]/80 hover:bg-slate-700 text-[10px] sm:text-[11px] font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95"
-                    >
-                      +{inc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. Interactive Game Options */}
-              {game === "mines" && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba min na planszy</span>
-                    <span className="text-[10px] text-amber-400 font-mono font-bold">{mineCount} / 24</span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1">
-                    {[2, 3, 5, 10, 15, 20].map((c) => (
-                      <button key={c} type="button" disabled={loading || round?.game === "mines"} onClick={() => setMineCount(c)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${mineCount === c ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{c}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {game === "coinflip" && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz stronę monety</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("heads")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "heads" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                      <span className="text-lg sm:text-xl">🦅</span>
-                      <span className="text-xs sm:text-sm font-bold">Orzeł</span>
-                    </button>
-                    <button type="button" disabled={loading || isFlipping} onClick={() => setChoice("tails")} className={`py-1.5 sm:py-2 rounded-xl flex items-center justify-center gap-2 font-black transition-all cursor-pointer ${choice === "tails" ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                      <span className="text-lg sm:text-xl">👑</span>
-                      <span className="text-xs sm:text-sm font-bold">Reszka</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {game === "rps" && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Wybierz swój gest</span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      { id: "rock", icon: "✊", name: "Kamień" },
-                      { id: "paper", icon: "✋", name: "Papier" },
-                      { id: "scissors", icon: "✌️", name: "Nożyce" },
-                    ].map((item) => (
-                      <button key={item.id} type="button" disabled={loading || isShootingRPS} onClick={() => setChoice(item.id)} className={`py-1.5 rounded-xl flex items-center justify-center gap-1.5 font-black transition-all cursor-pointer ${choice === item.id ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>
-                        <span className="text-base sm:text-lg">{item.icon}</span>
-                        <span className="text-xs font-bold">{item.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {game === "plinko" && (
-                <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Liczba rzędów</span>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold">{plinkoRows}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1">
-                      {[8, 10, 12, 14, 16].map((r) => (
-                        <button key={r} type="button" disabled={loading} onClick={() => setPlinkoRows(r)} className={`py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${plinkoRows === r ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{r}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-slate-300">Poziom Ryzyka</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                      {[
-                        { id: "low", label: "Niskie" },
-                        { id: "medium", label: "Średnie" },
-                        { id: "high", label: "Wysokie" },
-                      ].map((rk) => (
-                        <button key={rk.id} type="button" disabled={loading} onClick={() => setPlinkoRisk(rk.id)} className={`py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${plinkoRisk === rk.id ? "bg-amber-500 text-slate-950 border border-amber-300" : "bg-[#172336] text-slate-300 hover:bg-slate-700"}`}>{rk.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {game === "crash" && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Cashout</span>
-                    <span className="text-[10px] text-slate-400 font-mono">0.8× - 1000×</span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1 mb-1.5">
-                    {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
-                      <button key={val} type="button" disabled={crashPlaying || loading} onClick={() => setCrashAutoCashout(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${crashAutoCashout === val ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                    ))}
-                  </div>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="0.05"
-                      min="0.8"
-                      max="1000"
-                      disabled={crashPlaying || loading}
-                      value={crashAutoCashout}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
-                    />
-                    <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">×</span>
-                  </div>
-                </div>
-              )}
-
-              {game === "limbo" && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-300">Docelowy Mnożnik</span>
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">Szansa: {Math.min(64.0, 96.0 / Math.max(1.5, limboTarget)).toFixed(2)}%</span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1 mb-1.5">
-                    {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
-                      <button key={val} type="button" disabled={loading || limboAnimating} onClick={() => setLimboTarget(val)} className={`py-1 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${Math.abs(limboTarget - val) < 0.01 ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300" : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"}`}>{val}×</button>
-                    ))}
-                  </div>
-                  <div className="relative flex items-center">
-                    <input
-                      type="number"
-                      step="0.05"
-                      min="1.5"
-                      max="10000"
-                      value={limboTarget}
-                      disabled={loading || limboAnimating}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
-                      }}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
-                      placeholder="Własny mnożnik..."
-                    />
-                    <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
-                  </div>
-                </div>
-              )}
-
-              {game === "roulette" && rouletteSelected.size > 0 && (
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-300">Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong></span>
-                  <button type="button" disabled={spinning || rouletteWaiting} onClick={handleRouletteClear} className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 cursor-pointer">
-                    <Trash2 size={11} />
-                    <span>Wyczyść</span>
-                  </button>
-                </div>
-              )}
-
-              {/* 3. Action Buttons Row */}
-              <div className="pt-2 border-t border-slate-800/80">
-                {(() => {
-                  if (round?.game === "blackjack" && !blackjackPreview) {
-                    return (
-                      <div className="grid grid-cols-3 gap-2">
-                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading} onClick={() => showSettledBlackjack("stand")}>Pas</button>
-                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md" disabled={loading || round.payload.cards.length !== 2} onClick={() => showSettledBlackjack("double")}>Podwój</button>
-                        <button type="button" className="py-3 sm:py-4 rounded-xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30" disabled={loading} onClick={() => showSettledBlackjack("hit")}>Dobierz</button>
-                      </div>
-                    );
-                  }
-
-                  if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
-                    return (
-                      <button type="button" className="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-950 border-2 border-emerald-300" onClick={handleManualCrashCashout}>
-                        <span>WYPŁAĆ ({crashMult.toFixed(2)}×)</span>
-                      </button>
-                    );
-                  }
-
-                  if (round?.game === "mines") {
-                    const p = round.payload || {};
-                    const revealed = p.revealed || [];
-                    const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
-                    const canCashout = revealed.length > 0 && !loading;
-
-                    return (
-                      <button
-                        type="button"
-                        disabled={!canCashout}
-                        onClick={handleMinesCashout}
-                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 shadow-2xl cursor-pointer active:scale-98 ${
-                          canCashout
-                            ? "bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/30"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        }`}
-                      >
-                        <CheckCircle2 size={20} />
-                        <span>
-                          {revealed.length === 0
-                            ? "Wybierz pole na planszy"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
-                        </span>
-                      </button>
-                    );
-                  }
-
-                  if (game === "chicken" && round) {
-                    const currentLane = round.payload?.currentLane || 0;
-                    const currentMult = round.payload?.multiplier ?? 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
-                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
-
-                    return (
-                      <button
-                        type="button"
-                        disabled={isCashoutDisabled}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
-                          !isCashoutDisabled
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        }`}
-                      >
-                        <CheckCircle2 size={20} />
-                        <span>
-                          {currentLane === 0
-                            ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${currentMult.toFixed(2)})`}
-                        </span>
-                      </button>
-                    );
-                  }
-
-                  const isChoiceMissing = (game === "coinflip" && !choice) || (game === "rps" && !choice) || (game === "roulette" && rouletteTotalBet <= 0);
-                  const isButtonDisabled = !tosAccepted || isChoiceMissing || (game !== "plinko" && (loading || isBusy));
-
-                  return (
-                    <button
-                      type="button"
-                      disabled={isButtonDisabled}
-                      onClick={start}
-                      className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
-                        isButtonDisabled
-                          ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                          : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
-                      }`}
-                    >
-                      {isBusy || loading ? (
-                        <>
-                          <RotateCw size={20} className="animate-spin sm:w-6 sm:h-6" />
-                          <span>{getPlayButtonText()}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Zap size={20} className="fill-slate-950 sm:w-6 sm:h-6" />
-                          <span>{getPlayButtonText()}</span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {outcomeData && <RoundOutcomeModal outcomeData={outcomeData} onClose={() => setOutcomeData(null)} />}
