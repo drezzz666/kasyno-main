@@ -86,7 +86,7 @@ func GenerateCrashPoint() float64 {
 		u = 0.9999999999
 	}
 
-	raw := (0.80 * 0.99) / (1.0 - u)
+	raw := 0.99 / (1.0 - u)
 	mult := math.Floor(raw*100.0) / 100.0
 	if mult < 0.80 {
 		mult = 0.80
@@ -147,7 +147,7 @@ func GenerateCrashPointProvablyFair(serverSeed, clientSeed string, nonce int64) 
 		u = 0.9999999999
 	}
 
-	raw := (0.80 * 0.99) / (1.0 - u)
+	raw := 0.99 / (1.0 - u)
 	mult := math.Floor(raw*100.0) / 100.0
 	if mult < 0.80 {
 		mult = 0.80

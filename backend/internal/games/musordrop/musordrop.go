@@ -38,9 +38,9 @@ var PlebsPrizes = []PrizeTier{
 }
 
 var ArystokracjaPrizes = []PrizeTier{
-	{Amount: 0, WeightBps: 4000, Name: "Nic", IsJackpot: false},
+	{Amount: 0, WeightBps: 4300, Name: "Nic", IsJackpot: false},
 	{Amount: 250, WeightBps: 4400, Name: "250 ₽", IsJackpot: false},
-	{Amount: 1000, WeightBps: 1100, Name: "1 000 ₽", IsJackpot: false},
+	{Amount: 1000, WeightBps: 800, Name: "1 000 ₽", IsJackpot: false},
 	{Amount: 3000, WeightBps: 400, Name: "3 000 ₽", IsJackpot: false},
 	{Amount: 10000, WeightBps: 80, Name: "10 000 ₽", IsJackpot: false},
 	{Amount: 50000, WeightBps: 20, Name: "50 000 ₽ (Główny Jackpot)", IsJackpot: true},

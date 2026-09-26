@@ -43,3 +43,16 @@ func TestRollBoxInvalid(t *testing.T) {
 		t.Fatal("expected error for invalid box type, got nil")
 	}
 }
+
+func TestArystokracjaRTP(t *testing.T) {
+	var totalEV float64
+	for _, tier := range ArystokracjaPrizes {
+		prob := float64(tier.WeightBps) / 10000.0
+		totalEV += float64(tier.Amount) * prob
+	}
+	const cost = 500.0
+	rtp := totalEV / cost
+	if rtp != 0.98 {
+		t.Fatalf("expected Arystokracja RTP 0.98 (98%%), got %.4f (EV = %.2f)", rtp, totalEV)
+	}
+}

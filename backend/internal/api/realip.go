@@ -66,14 +66,10 @@ func GetClientIP(r *http.Request) string {
 }
 
 func cleanIP(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if host, _, err := net.SplitHostPort(raw); err == nil && host != "" {
+	if host, _, err := net.SplitHostPort(raw); err == nil {
 		return host
 	}
-	return raw
+	return strings.TrimSpace(raw)
 }
 
 // RealIPMiddleware overwrites r.RemoteAddr with the resolved client IP

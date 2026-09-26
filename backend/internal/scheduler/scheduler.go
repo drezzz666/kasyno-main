@@ -220,39 +220,62 @@ func BuildSchedule(dayOfWeek, timeOfDay, customCron, timezoneName string) (cronE
 		return customCron, humanSchedule, nil
 	}
 
-	// Parse day of week
 	dowNorm := strings.ToLower(strings.TrimSpace(dayOfWeek))
-	var dowToken string
-	var dowLabel string
-
-	switch dowNorm {
-	case "", "*", "all", "codziennie", "każdy dzień", "kazdy dzien", "everyday", "daily":
-		dowToken = "*"
-		dowLabel = "Codziennie"
-	case "poniedzialek", "poniedziałek", "pn", "mon", "monday", "1":
-		dowToken = "1"
-		dowLabel = "W każdy Poniedziałek"
-	case "wtorek", "wt", "tue", "tuesday", "2":
-		dowToken = "2"
-		dowLabel = "W każdy Wtorek"
-	case "sroda", "środa", "sr", "śr", "wed", "wednesday", "3":
-		dowToken = "3"
-		dowLabel = "W każdą Środę"
-	case "czwartek", "czw", "thu", "thursday", "4":
-		dowToken = "4"
-		dowLabel = "W każdy Czwartek"
-	case "piatek", "piątek", "pt", "fri", "friday", "5":
-		dowToken = "5"
-		dowLabel = "W każdy Piątek"
-	case "sobota", "sb", "sat", "saturday", "6":
-		dowToken = "6"
-		dowLabel = "W każdą Sobotę"
-	case "niedziela", "nd", "sun", "sunday", "0", "7":
-		dowToken = "0"
-		dowLabel = "W każdą Niedzielę"
-	default:
-		return "", "", fmt.Errorf("nieznany dzień tygodnia: '%s'. Wybierz np. Poniedziałek, Piątek, Codziennie lub użyj parametru cron", dayOfWeek)
+	dowMap := map[string]struct{ token, label string }{
+		"":             {"*", "Codziennie"},
+		"*":            {"*", "Codziennie"},
+		"all":          {"*", "Codziennie"},
+		"codziennie":   {"*", "Codziennie"},
+		"everyday":     {"*", "Codziennie"},
+		"daily":        {"*", "Codziennie"},
+		"poniedzialek": {"1", "W każdy Poniedziałek"},
+		"poniedziałek": {"1", "W każdy Poniedziałek"},
+		"pn":           {"1", "W każdy Poniedziałek"},
+		"mon":          {"1", "W każdy Poniedziałek"},
+		"monday":       {"1", "W każdy Poniedziałek"},
+		"1":            {"1", "W każdy Poniedziałek"},
+		"wtorek":       {"2", "W każdy Wtorek"},
+		"wt":           {"2", "W każdy Wtorek"},
+		"tue":          {"2", "W każdy Wtorek"},
+		"tuesday":      {"2", "W każdy Wtorek"},
+		"2":            {"2", "W każdy Wtorek"},
+		"sroda":        {"3", "W każdą Środę"},
+		"środa":        {"3", "W każdą Środę"},
+		"sr":           {"3", "W każdą Środę"},
+		"śr":           {"3", "W każdą Środę"},
+		"wed":          {"3", "W każdą Środę"},
+		"wednesday":    {"3", "W każdą Środę"},
+		"3":            {"3", "W każdą Środę"},
+		"czwartek":     {"4", "W każdy Czwartek"},
+		"czw":          {"4", "W każdy Czwartek"},
+		"thu":          {"4", "W każdy Czwartek"},
+		"thursday":     {"4", "W każdy Czwartek"},
+		"4":            {"4", "W każdy Czwartek"},
+		"piatek":       {"5", "W każdy Piątek"},
+		"piątek":       {"5", "W każdy Piątek"},
+		"pt":           {"5", "W każdy Piątek"},
+		"fri":          {"5", "W każdy Piątek"},
+		"friday":       {"5", "W każdy Piątek"},
+		"5":            {"5", "W każdy Piątek"},
+		"sobota":       {"6", "W każdą Sobotę"},
+		"sb":           {"6", "W każdą Sobotę"},
+		"sat":          {"6", "W każdą Sobotę"},
+		"saturday":     {"6", "W każdą Sobotę"},
+		"6":            {"6", "W każdą Sobotę"},
+		"niedziela":    {"0", "W każdą Niedzielę"},
+		"nd":           {"0", "W każdą Niedzielę"},
+		"sun":          {"0", "W każdą Niedzielę"},
+		"sunday":       {"0", "W każdą Niedzielę"},
+		"0":            {"0", "W każdą Niedzielę"},
+		"7":            {"0", "W każdą Niedzielę"},
 	}
+
+	dowInfo, ok := dowMap[dowNorm]
+	if !ok {
+		return "", "", fmt.Errorf("nieznany dzień tygodnia: '%s'", dayOfWeek)
+	}
+	dowToken := dowInfo.token
+	dowLabel := dowInfo.label
 
 	// Parse hour:minute
 	timeOfDay = strings.TrimSpace(timeOfDay)
