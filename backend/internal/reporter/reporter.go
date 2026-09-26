@@ -272,7 +272,7 @@ func (r *Reporter) ReportBackendError(category, message, stack string, details m
 }
 
 func (r *Reporter) ReportSecurityAlert(category, ip, userID, nick, action, details string) {
-	if r == nil || !r.HasSecurityWebhook() || r.shouldThrottle(hash(category+":"+userID+":"+action)) {
+	if r == nil || r.securityWebhookURL == "" || r.shouldThrottle(hash(category+":"+userID+":"+action)) {
 		return
 	}
 
