@@ -55,34 +55,12 @@ type DiscordWebhookPayload struct {
 	Embeds          []DiscordEmbed          `json:"embeds,omitempty"`
 }
 
-type Breadcrumb struct {
-	Timestamp string      `json:"timestamp"`
-	Category  string      `json:"category"`
-	Message   string      `json:"message"`
-	Data      interface{} `json:"data,omitempty"`
-}
-
 type FrontendErrorReport struct {
-	ErrorType          string        `json:"error_type"`
-	Message            string        `json:"message"`
-	Stack              string        `json:"stack"`
-	ComponentStack     string        `json:"component_stack"`
-	SourceFile         string        `json:"source_file"`
-	Context            string        `json:"context"`
-	Game               string        `json:"game"`
-	ActionPayload      interface{}   `json:"action_payload"`
-	Breadcrumbs        []Breadcrumb  `json:"breadcrumbs"`
-	NetworkInfo        string        `json:"network_info"`
-	MemoryMB           string        `json:"memory_mb"`
-	NavigationTiming   string        `json:"navigation_timing"`
-	LatencyMs          float64       `json:"latency_ms"`
-	PageVisibility     string        `json:"page_visibility,omitempty"`
-	Referrer           string        `json:"referrer,omitempty"`
-	SessionDurationSec int           `json:"session_duration_sec,omitempty"`
-	URL                string        `json:"url"`
-	UserAgent          string        `json:"user_agent"`
-	Screen             string        `json:"screen"`
-	Timestamp          string        `json:"timestamp"`
+	ErrorType  string `json:"error_type"`
+	Message    string `json:"message"`
+	Stack      string `json:"stack"`
+	SourceFile string `json:"source_file"`
+	Context    string `json:"context"`
 }
 
 type Reporter struct {
@@ -107,18 +85,6 @@ func NewReporter(errorWebhookURL, securityWebhookURL string) *Reporter {
 		},
 		dedupCache: make(map[string]time.Time),
 	}
-}
-
-func (r *Reporter) HasErrorWebhook() bool {
-	return r != nil && r.errorWebhookURL != ""
-}
-
-func (r *Reporter) HasSecurityWebhook() bool {
-	return r != nil && r.securityWebhookURL != ""
-}
-
-func (r *Reporter) HasWebhook() bool {
-	return r != nil && (r.errorWebhookURL != "" || r.securityWebhookURL != "")
 }
 
 func (r *Reporter) shouldThrottle(fingerprint string) bool {

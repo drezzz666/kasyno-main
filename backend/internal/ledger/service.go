@@ -61,6 +61,15 @@ func DailyBonusAmount(streak int) int64 {
 	return int64(bonus)
 }
 
+// CalculateXPGain computes the XP gained from a bet: 0 XP for micro-bets (< 10 $FGT),
+// and 1-15 XP for qualifying bets based on floor(sqrt(bet)/4).
+func CalculateXPGain(bet int64) int {
+	if bet < 10 {
+		return 0
+	}
+	return min(15, max(1, int(math.Sqrt(float64(bet))/4)))
+}
+
 func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferredNick, avatar string, defaultBalance int64) (*Player, error) {
 	pool := s.db.Pool
 
@@ -1388,8 +1397,8 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Scaled XP gain based on total bet size: 1-15 XP
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(totalBet))/4))))
+	// Scaled XP gain based on total bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(totalBet)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
@@ -1480,8 +1489,8 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 		return nil, err
 	}
 
-	// Scaled XP gain based on bet size: 1-15 XP (prevents micro-bet 1 $FGT XP farming)
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(betAmount))/4))))
+	// Scaled XP gain based on bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(betAmount)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
@@ -1583,8 +1592,8 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Scaled XP gain based on bet size: 1-15 XP (prevents micro-bet 1 $FGT XP farming)
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(bet))/4))))
+	// Scaled XP gain based on bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(bet)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `

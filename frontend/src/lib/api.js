@@ -70,9 +70,8 @@ export async function fetchCasinoState() {
   }
 }
 
-export async function postCasinoAction(body, optionsOrRetry = 0) {
-  const isOptionsObj = typeof optionsOrRetry === "object" && optionsOrRetry !== null;
-  const isSilent = isOptionsObj && optionsOrRetry.silent === true;
+export async function postCasinoAction(body, options = {}) {
+  const isSilent = options.silent === true;
 
   const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
   const actionLabel = `WS/POST [${body?.game || "action"}:${body?.action || "play"}]`;
