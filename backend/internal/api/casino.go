@@ -2077,8 +2077,6 @@ func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
 		}
 		h.PostAction(rec, httpReq)
 
-		return
-
 	default:
 		client.SendResponse(req.ID, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Nieznany typ akcji: %s", req.Type)})
 		return
