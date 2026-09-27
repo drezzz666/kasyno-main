@@ -4,7 +4,7 @@ import confetti from "canvas-confetti";
 import { sounds } from "../lib/sounds";
 import { money } from "../lib/formatters";
 
-const GoldIcon = ({ size = 28, className }) => (
+const GoldIcon = ({ size = 38, className }) => (
   <img src="/images/gold.png" alt="" width={size} height={size} className={className} />
 );
 
