@@ -54,7 +54,7 @@ const TIER_META = {
     glow: "rgba(245, 158, 11, 0.6)",
     textColor: "text-amber-300",
     badgeBg: "bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-md",
-    icon: Trophy,
+    icon: src("../../public/images/gold.png"),
   },
 };
 
