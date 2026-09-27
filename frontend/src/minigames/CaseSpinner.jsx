@@ -354,18 +354,12 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
                     )}
                   </div>
 
-                  {/* Icon Visual 
+                  {/* Icon Visual */}
                   <div className="my-auto flex flex-col items-center justify-center">
-                    <div
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${
-                        isWinnerLanded
-                          ? "bg-amber-400/20 border-amber-400/40 animate-pulse shadow-inner"
-                          : "bg-slate-800/60 border-slate-700/60"
-                      }`}
-                    >
+                    
                       <IconComp size={28} className={meta.textColor} />
-                    </div>
-                  </div>*/}
+                    
+                  </div>
 
                   {/* Card Bottom Prize Text */}
                   <div className="w-full text-center mt-1">
