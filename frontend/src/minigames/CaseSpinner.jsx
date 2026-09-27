@@ -356,9 +356,7 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
 
                   {/* Icon Visual */}
                   <div className="my-auto flex flex-col items-center justify-center">
-                    
-                      <IconComp size={28} className={meta.textColor} />
-                    
+                    <IconComp size={item.tier === "jackpot" ? 40 : 28} className={meta.textColor} />
                   </div>
 
                   {/* Card Bottom Prize Text */}
