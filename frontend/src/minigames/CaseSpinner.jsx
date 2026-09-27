@@ -342,17 +342,6 @@ export function CaseSpinner({ boxConfig, outcome, onComplete, onBack, onReopen, 
                     background: `linear-gradient(180deg, ${meta.barColor}15 0%, #090d16 100%)`,
                   }}
                 >
-                  {/* Top Badge */}
-                  <div className="w-full flex items-center justify-between">
-                    <span
-                      className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-wider uppercase ${meta.badgeBg}`}
-                    >
-                      {meta.label}
-                    </span>
-                    {item.tier === "jackpot" && (
-                      <Flame size={12} className="text-amber-400 animate-bounce" />
-                    )}
-                  </div>
 
                   {/* Icon Visual */}
                   <div className="my-auto flex flex-col items-center justify-center">
