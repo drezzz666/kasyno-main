@@ -2,13 +2,10 @@ import React from "react";
 
 export function FgtChip({ small = false, className = "" }) {
   return (
-    <span
-      className={`inline-flex items-center justify-center rounded-[5px] font-black font-mono tracking-tight select-none ${
-        small ? "w-4 h-4 text-[9px]" : "w-5 h-5 text-[11px]"
-      } bg-amber-500/15 text-amber-400 border border-amber-400/30 ${className}`}
-      aria-hidden="true"
+    <div
+      className={`flex items-center justify-center rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 text-white font-bold ${small ? "w-6 h-6 text-xs" : "w-8 h-8 text-sm"} ${className}`}
     >
-      ₽
-    </span>
+      <span className="text-shadow">F</span>
+    </div>
   );
 }
