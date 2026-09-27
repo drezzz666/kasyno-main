@@ -8,7 +8,6 @@ import {
   Trophy,
   Target,
   History,
-  User,
   ChevronRight,
   Sparkles,
   Zap,
@@ -29,7 +28,6 @@ import {
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format } from "./lib/formatters";
-import { FgtChip } from "./components/BetControls";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -315,13 +313,13 @@ export default function App() {
         setData((prev) =>
           prev
             ? {
-                ...prev,
-                active: null,
-                player: {
-                  ...prev.player,
-                  balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
-                },
-              }
+              ...prev,
+              active: null,
+              player: {
+                ...prev.player,
+                balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+              },
+            }
             : prev
         );
         void load();

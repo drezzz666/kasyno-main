@@ -7,7 +7,6 @@ export function LiveTicker({ wins = [] }) {
   return (
     <div className="live-ticker-wrap" role="region" aria-label="Ostatnie wygrane">
       <div className="live-ticker-label">
-        <span className="ticker-live-dot" />
         <span className="ticker-label-text">Ostatnie wygrane</span>
         <span className="ticker-label-text-mobile">Live</span>
       </div>
