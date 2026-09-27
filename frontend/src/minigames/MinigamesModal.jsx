@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Gamepad2, X } from "lucide-react";
 import { getMinigameById } from "./registry";
-import { FgtChip } from "../components/BetControls";
+import {  } from "../components/BetControls";
 import { money } from "../lib/formatters";
 
 export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "musordrop" }) {
@@ -71,7 +71,7 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
           <div className="flex items-center gap-2">
             {typeof currentBalance === "number" && (
               <div className="balance-chip" title="Stan Twojego portfela">
-                <FgtChip small />
+                < small />
                 <span className="balance-val">{money(currentBalance)}</span>
               </div>
             )}
