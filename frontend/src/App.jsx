@@ -35,6 +35,7 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { MinigamesModal, MINIGAMES } from "./minigames";
+import { MoneyRain } from "./events";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
@@ -1255,6 +1256,9 @@ export default function App() {
         syncBalance={syncBalance}
         currentBalance={data?.player?.balance}
       />
+
+      {/* Live Money Rain Event Overlay */}
+      <MoneyRain />
 
       {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (
