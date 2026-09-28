@@ -1912,6 +1912,13 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 					mult = mVal
 				}
 			}
+			if current := b.GetActiveEvent(); current != nil {
+				remaining := time.Until(current.EndsAt)
+				if remaining > 0 {
+					_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Wydarzenie **%s** jest już aktywne (pozostało ok. %d sek)! Może być aktywne tylko 1 wydarzenie na raz. Użyj `!event stop` aby je zakończyć.", current.Name, int(remaining.Seconds())))
+					return
+				}
+			}
 			now := time.Now()
 			endsAt := now.Add(dur)
 			b.SetActiveEvent(&ActiveEventInfo{
@@ -2059,6 +2066,14 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 			startedBy = i.Member.User.Username
 		} else if i.User != nil {
 			startedBy = i.User.Username
+		}
+
+		if current := b.GetActiveEvent(); current != nil {
+			remaining := time.Until(current.EndsAt)
+			if remaining > 0 {
+				b.respondInteractionError(s, i, fmt.Sprintf("⚠️ Wydarzenie **%s** jest już aktywne (pozostało ok. %d sek)! Może być aktywne tylko 1 wydarzenie na raz. Użyj `/event stop` przed uruchomieniem kolejnego.", current.Name, int(remaining.Seconds())))
+				return
+			}
 		}
 
 		now := time.Now()
@@ -2221,38 +2236,40 @@ func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int
 		})
 	}
 
-	// 2. HTTP POST to casino web server (essential when bot runs on a separate machine or container)
-	go func() {
-		appURL := strings.TrimRight(b.appURL, "/")
-		if appURL == "" && b.cfg != nil {
-			appURL = strings.TrimRight(b.cfg.AppURL, "/")
-		}
-		if appURL == "" || b.cfg == nil || b.cfg.SessionSecret == "" {
-			return
-		}
+	// 2. HTTP POST to casino web server (only needed when bot runs on a separate machine or container without direct wsHub)
+	if b.wsHub == nil {
+		go func() {
+			appURL := strings.TrimRight(b.appURL, "/")
+			if appURL == "" && b.cfg != nil {
+				appURL = strings.TrimRight(b.cfg.AppURL, "/")
+			}
+			if appURL == "" || b.cfg == nil || b.cfg.SessionSecret == "" {
+				return
+			}
 
-		targetURL := fmt.Sprintf("%s/api/internal/events", appURL)
-		payload, _ := json.Marshal(map[string]interface{}{
-			"event":      eventName,
-			"action":     action,
-			"duration":   durSeconds,
-			"multiplier": multiplier,
-			"started_by": startedBy,
-		})
+			targetURL := fmt.Sprintf("%s/api/internal/events", appURL)
+			payload, _ := json.Marshal(map[string]interface{}{
+				"event":      eventName,
+				"action":     action,
+				"duration":   durSeconds,
+				"multiplier": multiplier,
+				"started_by": startedBy,
+			})
 
-		req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(payload))
-		if err != nil {
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+b.cfg.SessionSecret)
+			req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(payload))
+			if err != nil {
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+b.cfg.SessionSecret)
 
-		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Do(req)
-		if err == nil && resp != nil {
-			_ = resp.Body.Close()
-		}
-	}()
+			client := &http.Client{Timeout: 5 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil && resp != nil {
+				_ = resp.Body.Close()
+			}
+		}()
+	}
 }
 
 

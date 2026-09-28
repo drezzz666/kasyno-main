@@ -8,6 +8,7 @@ const FALL_ANIMATIONS = ["flutterFallA", "flutterFallB", "flutterFallC"];
 const SWAY_ANIMATIONS = ["swayPhysicsA", "swayPhysicsB"];
 
 export function MoneyRain({
+  activeEvent,
   onClose,
 }) {
   const [running, setRunning] = useState(false);
@@ -18,6 +19,7 @@ export function MoneyRain({
   const spawnTimerRef = useRef(null);
   const sparkleTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
+  const hasAutoStartedRef = useRef(false);
 
   const stopRain = useCallback(() => {
     setRunning(false);
@@ -33,7 +35,7 @@ export function MoneyRain({
     setBanknotes([]);
     setSparkles([]);
 
-    // Start background music via sounds engine
+    // Start background music via sounds engine immediately
     sounds.playMoneyRainMusic();
 
     // Golden celebratory burst at event onset
@@ -57,7 +59,20 @@ export function MoneyRain({
     }, showerDuration * 1000);
   }, [stopRain]);
 
-  // Synchronize strictly with window events
+  // Auto-play music and rain immediately when activeEvent is present
+  useEffect(() => {
+    if (activeEvent && activeEvent.multiplier > 1.0) {
+      if (!hasAutoStartedRef.current) {
+        hasAutoStartedRef.current = true;
+        startRain(activeEvent.duration || 60);
+      }
+    } else {
+      hasAutoStartedRef.current = false;
+      stopRain();
+    }
+  }, [activeEvent, startRain, stopRain]);
+
+  // Synchronize with window events (e.g. when triggered from topbar or WebSocket)
   useEffect(() => {
     const handleStartEvent = (e) => {
       if (e.detail?.action === "stop") {

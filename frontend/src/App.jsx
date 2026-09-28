@@ -627,6 +627,17 @@ export default function App() {
 
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
+          {activeEvent && activeEvent.multiplier > 1.0 && (
+            <button
+              type="button"
+              className="event-pill"
+              onClick={() => window.dispatchEvent(new CustomEvent("casino:start_money_rain"))}
+              title={`Money Rain aktywny: ×${activeEvent.multiplier.toFixed(2)} (+${Math.round((activeEvent.multiplier - 1) * 100)}% do wygranych). Kliknij, aby włączyć efekty.`}
+            >
+              <span className="event-pill-icon">🌧️</span>
+              <span className="event-pill-text">×{activeEvent.multiplier.toFixed(2)}</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -670,36 +681,6 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* Live Money Rain Event Banner */}
-            {activeEvent && activeEvent.multiplier > 1.0 && (
-              <section className="money-rain-live-banner">
-                <div className="money-rain-live-info">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xl">🌧️</span>
-                    <span className="font-mono font-black text-amber-300 text-sm sm:text-base">
-                      WYDARZENIE NA ŻYWO: MONEY RAIN!
-                    </span>
-                    <span className="text-xs bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded font-mono shadow-[0_0_10px_rgba(251,191,36,0.5)]">
-                      ×{activeEvent.multiplier.toFixed(2)} (+{Math.round((activeEvent.multiplier - 1) * 100)}% DO KAŻDEJ WYGRANEJ)
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-200/80 font-mono mt-1">
-                    Wszystkie wygrane w kasynie są automatycznie zwiększane o <strong>+{Math.round((activeEvent.multiplier - 1) * 100)}%</strong>!
-                    {activeEvent.started_by ? ` (Uruchomił: ${activeEvent.started_by})` : ""}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="money-rain-replay-btn"
-                  onClick={() => window.dispatchEvent(new CustomEvent("casino:start_money_rain", { detail: { duration: 60 } }))}
-                  title="Włącz animację spadających banknotów i muzykę ABBA"
-                >
-                  <Sparkles size={14} className="text-slate-950" />
-                  <span>Deszcz Pieniędzy & Muzyka</span>
-                </button>
-              </section>
-            )}
-
             {/* Player Utility Strip */}
             <section className="player-summary-card">
               <div className="player-summary-left">
@@ -1318,7 +1299,7 @@ export default function App() {
       />
 
       {/* Live Money Rain Event Overlay */}
-      <MoneyRain />
+      <MoneyRain activeEvent={activeEvent} />
 
       {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (

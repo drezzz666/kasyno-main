@@ -54,38 +54,7 @@ export function GameTableDialog({
   const plinkoRef = useRef(null);
   const chickenRef = useRef(null);
 
-  const [currentEvent, setCurrentEvent] = useState(() => {
-    return propActiveEvent || data?.activeEvent || null;
-  });
-
-  useEffect(() => {
-    if (propActiveEvent) {
-      setCurrentEvent(propActiveEvent);
-    } else if (data?.activeEvent) {
-      setCurrentEvent(data.activeEvent);
-    }
-  }, [propActiveEvent, data?.activeEvent]);
-
-  useEffect(() => {
-    const handleStart = (e) => {
-      const p = e.detail || {};
-      setCurrentEvent({
-        name: p.event || "money-rain",
-        multiplier: p.multiplier || 1.25,
-        duration: p.duration || 60,
-      });
-    };
-    const handleStop = () => {
-      setCurrentEvent(null);
-    };
-
-    window.addEventListener("casino:start_money_rain", handleStart);
-    window.addEventListener("casino:stop_money_rain", handleStop);
-    return () => {
-      window.removeEventListener("casino:start_money_rain", handleStart);
-      window.removeEventListener("casino:stop_money_rain", handleStop);
-    };
-  }, []);
+  const currentEvent = propActiveEvent || data?.activeEvent || null;
 
   const round = data?.active?.game === game ? data.active : null;
 
