@@ -168,8 +168,8 @@ export function UpgraderTable({
             y2="100%"
           >
             <stop offset="0%" stopColor="#fef08a" />
-            <stop offset="50%" stopColor="#f59e0b" />
-            <stop offset="100%" stopColor="#b45309" />
+            <stop offset="50%" stopColor="#2563eb" />
+            <stop offset="100%" stopColor="#1e40af" />
           </linearGradient>
         </defs>
       </svg>
@@ -181,8 +181,8 @@ export function UpgraderTable({
         style={{ transform: "rotate(0deg)" }}
       >
         <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
-          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
-          <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-400 rotate-45 rounded-xs shadow-2xl shadow-blue-500 border-2 border-white" />
+          <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-blue-400 shadow-lg" />
         </div>
       </div>
 
@@ -233,7 +233,7 @@ export function UpgraderTable({
             onClick={() => setRollType("under")}
             className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
               rollType === "under"
-                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
+                ? "bg-blue-600 text-slate-950 shadow-md shadow-blue-500/30"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -246,7 +246,7 @@ export function UpgraderTable({
             onClick={() => setRollType("over")}
             className={`flex items-center gap-1 sm:gap-1.5 px-3 py-1 sm:py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
               rollType === "over"
-                ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
+                ? "bg-blue-600 text-slate-950 shadow-md shadow-blue-500/30"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -305,8 +305,8 @@ export function UpgraderTable({
                 y2="100%"
               >
                 <stop offset="0%" stopColor="#fef08a" />
-                <stop offset="50%" stopColor="#f59e0b" />
-                <stop offset="100%" stopColor="#b45309" />
+                <stop offset="50%" stopColor="#2563eb" />
+                <stop offset="100%" stopColor="#1e40af" />
               </linearGradient>
             </defs>
           </svg>
@@ -318,8 +318,8 @@ export function UpgraderTable({
             style={{ transform: "rotate(0deg)" }}
           >
             <div className="absolute top-0.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-amber-400 rotate-45 rounded-xs shadow-2xl shadow-amber-400 border-2 border-white" />
-              <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-amber-400 shadow-lg" />
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-400 rotate-45 rounded-xs shadow-2xl shadow-blue-500 border-2 border-white" />
+              <div className="w-1.5 sm:w-2 h-4 sm:h-5 bg-blue-400 shadow-lg" />
             </div>
           </div>
 
@@ -374,7 +374,7 @@ export function UpgraderTable({
                 const v = Math.max(1, parseInt(e.target.value) || 1);
                 setBet(v);
               }}
-              className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+              className="w-full px-3 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
             />
             <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">
               ₽
@@ -441,7 +441,7 @@ export function UpgraderTable({
                   onClick={() => setTarget(p.val)}
                   className={`py-1.5 rounded-lg text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-amber-500 text-slate-950 shadow-md scale-102 border-2 border-amber-300"
+                      ? "bg-blue-600 text-slate-950 shadow-md scale-102 border-2 border-blue-400"
                       : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
                   }`}
                 >
@@ -467,7 +467,7 @@ export function UpgraderTable({
               onBlur={() => {
                 setTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
               }}
-              className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+              className="w-full px-3 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500"
               placeholder="Własny mnożnik..."
             />
             <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">
@@ -492,7 +492,7 @@ export function UpgraderTable({
             className={`w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-base sm:text-xl flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-2xl cursor-pointer active:scale-98 ${
               loading || spinning || bet > maxBalance
                 ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 hover:to-amber-300 text-slate-950 shadow-amber-500/40 border-2 border-amber-300 hover:shadow-amber-500/60"
+                : "bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 hover:from-blue-500 hover:to-blue-400 text-slate-950 shadow-blue-500/40 border-2 border-blue-400 hover:shadow-amber-500/60"
             }`}
           >
             {spinning ? (

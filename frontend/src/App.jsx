@@ -720,9 +720,6 @@ export default function App() {
                           <h3 className="game-card-title">{g.name}</h3>
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
-                        <span className="btn-play-game" aria-hidden="true">
-                          Zagraj <ChevronRight size={13} />
-                        </span>
                       </div>
                     </button>
                   ))}
@@ -763,18 +760,9 @@ export default function App() {
                       <div className="game-card-info">
                         <div className="game-card-title-row">
                           <h3 className="game-card-title">{g.name}</h3>
-                        
+                          {!g.active && <span className="tag-badge text-xs">Wkrótce</span>}
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
-                        <span className="btn-play-game" aria-hidden="true">
-                          {g.active ? (
-                            <>
-                              Zagraj <ChevronRight size={13} />
-                            </>
-                          ) : (
-                            "Wkrótce"
-                          )}
-                        </span>
                       </div>
                     </button>
                   ))}

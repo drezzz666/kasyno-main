@@ -652,7 +652,7 @@ export function GameTableDialog({
 
         <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
           {/* Full-size Game Arena taking all available space */}
-          <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-[#0c131e]">
+          <div className={`flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden ${game === "chicken" ? "p-0" : "p-2 sm:p-4"} bg-[#0c131e]`}>
             {game === "chicken" && (
               <ChickenTable
                 ref={chickenRef}
@@ -768,11 +768,11 @@ export function GameTableDialog({
                         onClick={() => setTurbo(!turbo)}
                         className={`h-11 sm:h-10 flex items-center gap-1 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
                           turbo
-                            ? "bg-amber-500/20 text-amber-400 border-amber-500/50"
+                            ? "bg-blue-500/20 text-blue-400 border-blue-500/50"
                             : "bg-[#141b27] text-slate-400 hover:text-slate-200 border-slate-700/80 shadow-[0_2px_0_#090d15]"
                         }`}
                       >
-                        <Zap size={12} className={turbo ? "fill-amber-400" : ""} />
+                        <Zap size={12} className={turbo ? "fill-blue-400" : ""} />
                         <span>Turbo</span>
                       </button>
                     )}
@@ -786,7 +786,7 @@ export function GameTableDialog({
                       value={bet}
                       disabled={loading || isBusy}
                       onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full h-11 sm:h-10 px-3.5 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm focus:outline-none focus:border-amber-500 shadow-inner"
+                      className="w-full h-11 sm:h-10 px-3.5 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm focus:outline-none focus:border-blue-500 shadow-inner"
                     />
                     <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">₽</span>
                   </div>
@@ -829,7 +829,7 @@ export function GameTableDialog({
                           onClick={() => setMineCount(c)}
                           className={`h-11 sm:h-10 px-2 sm:px-3 rounded-lg text-xs font-black font-mono transition-all cursor-pointer flex items-center justify-center ${
                             mineCount === c
-                              ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                           }`}
                         >
@@ -848,7 +848,7 @@ export function GameTableDialog({
                       onClick={() => setChoice("heads")}
                       className={`h-11 sm:h-10 px-4 rounded-lg flex items-center justify-center gap-2 font-mono font-black text-xs sm:text-sm tracking-wider uppercase transition-all cursor-pointer ${
                         choice === "heads"
-                          ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                          ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                           : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                       }`}
                     >
@@ -861,7 +861,7 @@ export function GameTableDialog({
                       onClick={() => setChoice("tails")}
                       className={`h-11 sm:h-10 px-4 rounded-lg flex items-center justify-center gap-2 font-mono font-black text-xs sm:text-sm tracking-wider uppercase transition-all cursor-pointer ${
                         choice === "tails"
-                          ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                          ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                           : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                       }`}
                     >
@@ -885,7 +885,7 @@ export function GameTableDialog({
                         onClick={() => setChoice(item.id)}
                         className={`h-11 sm:h-10 px-2 rounded-lg flex items-center justify-center gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
                           choice === item.id
-                            ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                            ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                             : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                         }`}
                       >
@@ -907,7 +907,7 @@ export function GameTableDialog({
                           onClick={() => setPlinkoRows(r)}
                           className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-mono font-black transition-all cursor-pointer ${
                             plinkoRows === r
-                              ? "bg-amber-500 text-slate-950 shadow-md"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "text-slate-400 hover:text-white"
                           }`}
                         >
@@ -928,7 +928,7 @@ export function GameTableDialog({
                           onClick={() => setPlinkoRisk(rk.id)}
                           className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             plinkoRisk === rk.id
-                              ? "bg-amber-500 text-slate-950 shadow-md"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "text-slate-400 hover:text-white"
                           }`}
                         >
@@ -950,7 +950,7 @@ export function GameTableDialog({
                           onClick={() => setLimboTarget(val)}
                           className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                             Math.abs(limboTarget - val) < 0.01
-                              ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
                           }`}
                         >
@@ -970,7 +970,7 @@ export function GameTableDialog({
                           const v = parseFloat(e.target.value);
                           if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
                         }}
-                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500"
                         placeholder="Mnożnik"
                       />
                       <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">×</span>
@@ -989,7 +989,7 @@ export function GameTableDialog({
                           onClick={() => setCrashAutoCashout(val)}
                           className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                             Math.abs(crashAutoCashout - val) < 0.01
-                              ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
                           }`}
                         >
@@ -1009,7 +1009,7 @@ export function GameTableDialog({
                           const v = parseFloat(e.target.value);
                           if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
                         }}
-                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-amber-500"
+                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500"
                       />
                       <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
                     </div>
@@ -1024,7 +1024,7 @@ export function GameTableDialog({
                         disabled={loading || upgraderBusy}
                         onClick={() => setUpgraderRollType("under")}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                          upgraderRollType === "under" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"
+                          upgraderRollType === "under" ? "bg-[#2563eb] text-white shadow-md" : "text-slate-400 hover:text-white"
                         }`}
                       >
                         <ArrowDown size={14} />
@@ -1035,7 +1035,7 @@ export function GameTableDialog({
                         disabled={loading || upgraderBusy}
                         onClick={() => setUpgraderRollType("over")}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
-                          upgraderRollType === "over" ? "bg-amber-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-white"
+                          upgraderRollType === "over" ? "bg-[#2563eb] text-white shadow-md" : "text-slate-400 hover:text-white"
                         }`}
                       >
                         <ArrowUp size={14} />
@@ -1052,7 +1052,7 @@ export function GameTableDialog({
                           onClick={() => setUpgraderTarget(val)}
                           className={`px-2 py-1.5 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${
                             Math.abs(upgraderTarget - val) < 0.01
-                              ? "bg-amber-500 text-slate-950 shadow-md border border-amber-300"
+                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
                           }`}
                         >
@@ -1076,7 +1076,7 @@ export function GameTableDialog({
                         onBlur={() => {
                           setUpgraderTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
                         }}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-amber-500"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-blue-500"
                         placeholder="Mnożnik"
                       />
                       <span className="absolute right-2 text-xs font-black text-slate-400 pointer-events-none">×</span>
@@ -1087,7 +1087,7 @@ export function GameTableDialog({
                 {game === "roulette" && (
                   <div className="flex items-center gap-3">
                     <div className="text-xs sm:text-sm font-black text-slate-300">
-                      Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} ₽</strong>
+                      Zakłady ({rouletteSelected.size}): <strong className="text-blue-400 font-mono">{rouletteTotalBet} ₽</strong>
                     </div>
                     {rouletteSelected.size > 0 && (
                       <button
@@ -1120,7 +1120,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-amber-300 border border-amber-500/50 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-blue-300 border border-blue-500/50 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading || round.payload?.cards?.length !== 2}
                           onClick={() => showSettledBlackjack("double")}
                         >
@@ -1128,7 +1128,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_3px_0_#b45309] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_3px_0_#1e40af] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading}
                           onClick={() => showSettledBlackjack("hit")}
                         >
@@ -1184,25 +1184,54 @@ export function GameTableDialog({
                     const currentMult = round.payload?.multiplier ?? 1.00;
                     const currentProfit = Math.floor(bet * currentMult);
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+                    const isStepDisabled = loading || chickenBusy || currentLane >= 17;
+
+                    if (currentLane === 0) {
+                      return (
+                        <button
+                          type="button"
+                          disabled={isStepDisabled}
+                          onClick={handleChickenStep}
+                          className="w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_4px_0_#1e40af,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#1e40af] cursor-pointer transition-all"
+                        >
+                          <Zap size={18} className="fill-white text-white" />
+                          <span>SKOCZ NA DROGĘ (KROK 1)</span>
+                        </button>
+                      );
+                    }
 
                     return (
-                      <button
-                        type="button"
-                        disabled={isCashoutDisabled}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
-                          !isCashoutDisabled
-                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
-                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
-                        }`}
-                      >
-                        <CheckCircle2 size={18} />
-                        <span>
-                          {currentLane === 0
-                            ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
-                        </span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <button
+                          type="button"
+                          disabled={isStepDisabled}
+                          onClick={handleChickenStep}
+                          className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-mono font-black text-xs sm:text-sm md:text-base tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all ${
+                            !isStepDisabled
+                              ? "bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_4px_0_#1e40af,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#1e40af] cursor-pointer"
+                              : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          }`}
+                        >
+                          <Zap size={16} className="fill-white text-white" />
+                          <span>SKOCZ ({currentLane + 1}/17)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isCashoutDisabled}
+                          onClick={handleChickenCashout}
+                          className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-mono font-black text-xs sm:text-sm md:text-base tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all ${
+                            !isCashoutDisabled
+                              ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                              : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          }`}
+                        >
+                          <CheckCircle2 size={16} />
+                          <span className="truncate">
+                            WYPŁAĆ {money(currentProfit)}
+                          </span>
+                        </button>
+                      </div>
                     );
                   }
 
@@ -1224,17 +1253,17 @@ export function GameTableDialog({
                       className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                         isButtonDisabled
                           ? "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
-                          : "bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_4px_0_#b45309,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#b45309] cursor-pointer"
+                          : "bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_4px_0_#1e40af,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#1e40af] cursor-pointer"
                       }`}
                     >
                       {isBusy || loading ? (
                         <>
-                          <RotateCw size={18} className="animate-spin" />
+                          <RotateCw size={18} className="animate-spin text-white" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       ) : (
                         <>
-                          <Zap size={18} className="fill-slate-950" />
+                          <Zap size={18} className="fill-white text-white" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       )}

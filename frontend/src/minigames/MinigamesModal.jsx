@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Gamepad2, X } from "lucide-react";
 import { getMinigameById } from "./registry";
-import {  } from "../components/BetControls";
 import { money } from "../lib/formatters";
 
 export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, initialGame = "musordrop" }) {

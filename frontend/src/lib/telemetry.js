@@ -137,10 +137,3 @@ function sanitizeData(data) {
   }
 }
 
-/**
- * Client telemetry pings removed.
- */
-export async function sendClientTelemetry() {
-  // No-op
-}
-

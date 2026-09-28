@@ -551,34 +551,65 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
     return () => clearInterval(interval);
   }, [currentLane]);
 
-  // Camera tracking centered on chicken
+  // Camera tracking centered with forward progression so next field is always visible
   useEffect(() => {
     const updateCamera = () => {
       if (!viewportRef.current) return;
       const viewportWidth = viewportRef.current.clientWidth;
 
-      const focusLane = (isLoss && hazardLane > 0)
-        ? hazardLane
-        : (currentLane > 0 ? activeChickenLane : 0);
+      if (isLoss && hazardLane > 0) {
+        const crashEl = viewportRef.current.querySelector(`[data-lane="${hazardLane}"]`);
+        if (crashEl) {
+          const laneCenter = crashEl.offsetLeft + crashEl.offsetWidth / 2;
+          const desired = laneCenter - viewportWidth / 2;
+          const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
+          const totalWidth = trackEl ? trackEl.scrollWidth : 2800;
+          const maxOffset = Math.max(0, totalWidth - viewportWidth);
+          setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
+        }
+        return;
+      }
 
-      if (focusLane === 0) {
+      if (currentLane === 0 && !jumping) {
         setCameraOffset(0);
         return;
       }
 
-      const laneEl = viewportRef.current.querySelector(`[data-lane="${focusLane}"]`);
-      if (!laneEl) return;
+      const targetLane = Math.min(TOTAL_LANES, (jumping && jumpLane !== null ? jumpLane : currentLane) + 1);
+      const currentEl = currentLane > 0 ? viewportRef.current.querySelector(`[data-lane="${currentLane}"]`) : null;
+      const nextEl = viewportRef.current.querySelector(`[data-lane="${targetLane}"]`);
 
-      const laneLeft = laneEl.offsetLeft;
-      const laneWidth = laneEl.offsetWidth;
-      const laneCenter = laneLeft + laneWidth / 2;
+      if (currentEl && nextEl) {
+        const currentCenter = currentEl.offsetLeft + currentEl.offsetWidth / 2;
+        const nextCenter = nextEl.offsetLeft + nextEl.offsetWidth / 2;
+        const midpoint = (currentCenter + nextCenter) / 2;
 
-      const desired = laneCenter - viewportWidth / 2;
-      const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
-      const totalWidth = trackEl ? trackEl.scrollWidth : 2800;
-      const maxOffset = Math.max(0, totalWidth - viewportWidth);
+        // Position current chicken around ~30-35% from left on mobile, keeping next lane centered in view
+        const bias = viewportWidth < 640 ? viewportWidth * 0.40 : viewportWidth / 2;
+        const desired = midpoint - bias;
 
-      setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
+        const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
+        const totalWidth = trackEl ? trackEl.scrollWidth : 2800;
+        const maxOffset = Math.max(0, totalWidth - viewportWidth);
+
+        setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
+      } else if (nextEl) {
+        const nextCenter = nextEl.offsetLeft + nextEl.offsetWidth / 2;
+        const desired = nextCenter - viewportWidth * 0.55;
+        const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
+        const totalWidth = trackEl ? trackEl.scrollWidth : 2800;
+        const maxOffset = Math.max(0, totalWidth - viewportWidth);
+
+        setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
+      } else if (currentEl) {
+        const currentCenter = currentEl.offsetLeft + currentEl.offsetWidth / 2;
+        const desired = currentCenter - viewportWidth / 2;
+        const trackEl = viewportRef.current.querySelector(".chicken-camera-track");
+        const totalWidth = trackEl ? trackEl.scrollWidth : 2800;
+        const maxOffset = Math.max(0, totalWidth - viewportWidth);
+
+        setCameraOffset(Math.max(0, Math.min(maxOffset, desired)));
+      }
     };
 
     const timer = requestAnimationFrame(updateCamera);
@@ -587,7 +618,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
       cancelAnimationFrame(timer);
       window.removeEventListener("resize", updateCamera);
     };
-  }, [activeRound?.id, activeChickenLane, isLoss, hazardLane]);
+  }, [activeRound?.id, activeChickenLane, currentLane, isLoss, hazardLane, jumping, jumpLane]);
 
   // Handle jump step (triggered by clicking directly on the board / next lane / action button / Space)
   const handleStep = async () => {
@@ -679,20 +710,20 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
               handleStep();
             }
           }}
-          className={`chicken-left-sidewalk relative w-36 sm:w-44 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-3.5 z-10 shadow-lg ${
+          className={`chicken-left-sidewalk relative w-24 sm:w-36 md:w-44 flex-shrink-0 bg-[#16202e] border-r-4 border-[#243242] flex flex-col items-center justify-between p-2 sm:p-3.5 z-10 shadow-lg ${
             activeRound && currentLane === 0 ? "cursor-pointer hover:bg-[#1c293a]" : ""
           }`}
         >
           {/* Top Traffic Light & Diamond Priority Sign */}
-          <div className="pt-2 flex items-center justify-center gap-2">
+          <div className="pt-2 flex items-center justify-center gap-1.5 sm:gap-2">
             <TrafficLightPole />
             <PriorityRoadSign />
           </div>
 
           {/* Zebra Crossing Lines with beveled road curb markings */}
-          <div className="w-full flex flex-col gap-3 px-1 my-auto opacity-85">
+          <div className="w-full flex flex-col gap-2.5 sm:gap-3 px-1 my-auto opacity-85">
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="w-full h-4 bg-slate-300/40 rounded-sm shadow-inner" />
+              <div key={i} className="w-full h-3.5 sm:h-4 bg-slate-300/40 rounded-sm shadow-inner" />
             ))}
           </div>
 
@@ -747,12 +778,12 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                     }
                   }
                 }}
-                className={`chicken-road-lane relative w-48 sm:w-56 md:w-64 flex-shrink-0 h-full flex flex-col items-center justify-between py-4 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
-                  isNext ? "cursor-pointer hover:bg-slate-800/60 bg-amber-500/[0.04]" : isCurrent && activeRound ? "cursor-pointer" : ""
+                className={`chicken-road-lane relative w-32 sm:w-44 md:w-56 lg:w-64 flex-shrink-0 h-full flex flex-col items-center justify-between py-3 sm:py-5 border-r border-dashed border-slate-700/60 transition-colors duration-200 overflow-hidden ${
+                  isNext ? "cursor-pointer hover:bg-blue-500/[0.12] bg-blue-500/[0.06] border-blue-400/40" : isCurrent && activeRound ? "cursor-pointer" : ""
                 }`}
               >
                 {/* Top Lane Empty Space */}
-                <div className="w-full h-6" />
+                <div className="w-full h-4 sm:h-6" />
 
                 {/* Ambient Car driving down (1 car every ~5s on random lane) */}
                 {laneCars.map((car) => (
@@ -775,7 +806,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                 )}
 
                 {/* Center Road Element: Rozjechany Kurczak (Crash) / Chicken / Gold Coin / Sewer Grate */}
-                <div className="relative flex flex-col items-center justify-center my-auto w-full px-2 pt-6">
+                <div className="relative flex flex-col items-center justify-center my-auto w-full px-1.5 sm:px-2 pt-4 sm:pt-6">
                   {/* Crash: Animated Run-Over Scene with shockwave, feathers, and squished chicken */}
                   {isCrashedLane && (
                     <CrashRunOverScene />
@@ -790,9 +821,9 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
 
                   {/* Next Step GO Arrow Indicator (Click on board to jump!) */}
                   {isNext && !isCrashedLane && !hasChicken && (
-                    <div className="absolute -top-8 z-20 flex flex-col items-center animate-bounce">
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-950/90 px-2.5 py-0.5 rounded border border-amber-500/50 shadow-md">
-                        SKOCZ
+                    <div className="absolute -top-7 sm:-top-8 z-20 flex flex-col items-center animate-bounce pointer-events-none">
+                      <span className="text-[10px] sm:text-xs font-black uppercase text-blue-300 bg-blue-950/95 px-2.5 py-0.5 rounded-full border border-blue-400/70 shadow-lg shadow-blue-950/50">
+                        SKOCZ 👆
                       </span>
                     </div>
                   )}
@@ -817,15 +848,15 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
 
                 {/* Bottom Multiplier Pill Badge */}
                 <div
-                  className={`px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-mono font-bold transition-all shadow-md truncate max-w-[90%] text-center z-10 ${
+                  className={`px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-sm font-mono font-bold transition-all shadow-md truncate max-w-[95%] sm:max-w-[90%] text-center z-10 ${
                     isCrashedLane
                       ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
                       : isCurrent
-                      ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
+                      ? "bg-blue-600 text-white shadow-blue-500/40 scale-105 font-black border border-blue-400"
                       : isCompleted
                       ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
                       : isNext
-                      ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
+                      ? "bg-slate-800 text-blue-300 border border-blue-400/60 animate-pulse font-bold"
                       : "bg-[#141d28] text-slate-400 border border-slate-700/60"
                   }`}
                 >
@@ -837,15 +868,15 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
         </div>
 
         {/* Right Finish Sidewalk / Goal Meta */}
-        <div className="chicken-right-sidewalk relative w-36 sm:w-44 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-3.5 z-10 shadow-lg">
-          <div className="text-xs font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-3 py-1 rounded border border-emerald-500/50 shadow-sm mt-1">
+        <div className="chicken-right-sidewalk relative w-24 sm:w-36 md:w-44 flex-shrink-0 bg-[#16202e] border-l-4 border-[#243242] flex flex-col items-center justify-between p-2 sm:p-3.5 z-10 shadow-lg">
+          <div className="text-[11px] sm:text-xs font-mono font-black tracking-wider text-emerald-400 bg-emerald-950/90 px-2.5 sm:px-3 py-1 rounded border border-emerald-500/50 shadow-sm mt-1">
             META
           </div>
 
           {/* Checkered / Finish Zebra Lines */}
-          <div className="w-full flex flex-col gap-3 px-1 my-auto opacity-90">
+          <div className="w-full flex flex-col gap-2.5 sm:gap-3 px-1 my-auto opacity-90">
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="w-full h-4 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
+              <div key={i} className="w-full h-3.5 sm:h-4 bg-emerald-500/30 border border-emerald-500/20 rounded-sm" />
             ))}
           </div>
 
