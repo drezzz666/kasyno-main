@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } from "lucide-react";
+import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp, ChevronDown, Minus, Plus } from "lucide-react";
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
@@ -842,23 +842,48 @@ export function GameTableDialog({
                       <span className="hidden min-[400px]:inline">Liczba min:</span>
                       <span className="min-[400px]:hidden">Miny:</span>
                     </span>
-                    <div className="relative flex items-center w-14 sm:w-16">
-                      <input
-                        type="number"
-                        min="2"
-                        max="15"
-                        disabled={loading || round?.game === "mines"}
-                        value={mineCount}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setMineCount(isNaN(val) ? "" : Math.max(2, Math.min(15, val)));
-                        }}
-                        onBlur={() => {
-                          setMineCount((c) => Math.max(2, Math.min(15, Number(c) || 5)));
-                        }}
-                        className="w-full h-11 sm:h-10 px-2 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-center text-sm focus:outline-none focus:border-blue-500 shadow-inner"
-                      />
+                    {/* Stepper with Non-Editable Select Dropdown (2-15) */}
+                    <div className="flex items-center gap-1 bg-[#131d2e] p-1 rounded-xl border border-slate-700/80">
+                      <button
+                        type="button"
+                        disabled={loading || round?.game === "mines" || Number(mineCount) <= 2}
+                        onClick={() => setMineCount((c) => Math.max(2, (Number(c) || 5) - 1))}
+                        className="h-9 w-9 rounded-lg bg-[#141b27] hover:bg-[#1e293b] disabled:opacity-40 disabled:hover:bg-[#141b27] text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-slate-700/60 shadow-[0_1px_0_#090d15] active:translate-y-0.5 active:shadow-none"
+                        title="Zmniejsz liczbę min"
+                        aria-label="Zmniejsz liczbę min"
+                      >
+                        <Minus size={14} />
+                      </button>
+
+                      <div className="relative flex items-center">
+                        <select
+                          disabled={loading || round?.game === "mines"}
+                          value={mineCount}
+                          onChange={(e) => setMineCount(Number(e.target.value))}
+                          className="h-9 pl-3 pr-7 rounded-lg bg-[#0c131e] border border-slate-700/80 text-white font-mono font-black text-xs sm:text-sm focus:outline-none focus:border-blue-500 cursor-pointer appearance-none text-center"
+                          aria-label="Wybierz liczbę min od 2 do 15"
+                        >
+                          {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((c) => (
+                            <option key={c} value={c} className="bg-[#131d2e] text-white">
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown size={14} className="pointer-events-none absolute right-2 text-slate-400" />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={loading || round?.game === "mines" || Number(mineCount) >= 15}
+                        onClick={() => setMineCount((c) => Math.min(15, (Number(c) || 5) + 1))}
+                        className="h-9 w-9 rounded-lg bg-[#141b27] hover:bg-[#1e293b] disabled:opacity-40 disabled:hover:bg-[#141b27] text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-slate-700/60 shadow-[0_1px_0_#090d15] active:translate-y-0.5 active:shadow-none"
+                        title="Zwiększ liczbę min"
+                        aria-label="Zwiększ liczbę min"
+                      >
+                        <Plus size={14} />
+                      </button>
                     </div>
+
                     <div className="grid grid-cols-4 gap-1.5 flex-1 md:flex-initial md:flex md:items-center">
                       {[2, 5, 10, 15].map((c) => (
                         <button
@@ -867,7 +892,7 @@ export function GameTableDialog({
                           disabled={loading || round?.game === "mines"}
                           onClick={() => setMineCount(c)}
                           className={`h-11 sm:h-10 px-2 sm:px-3 rounded-lg text-xs font-black font-mono transition-all cursor-pointer flex items-center justify-center ${
-                            mineCount === c
+                            Number(mineCount) === c
                               ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                               : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                           }`}
