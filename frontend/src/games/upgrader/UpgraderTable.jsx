@@ -200,11 +200,11 @@ export function UpgraderTable({
 
   if (arenaOnly) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center relative select-none p-2 sm:p-4">
+      <div className="w-full h-full max-w-2xl mx-auto flex flex-col items-center justify-center relative select-none p-2 sm:p-4 gap-2 sm:gap-3 my-auto">
         {renderWheel()}
         {lastOutcome && !spinning && (
           <div
-            className={`z-20 px-3 sm:px-5 py-1 sm:py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl mt-3 ${
+            className={`z-20 px-3 sm:px-5 py-1 sm:py-2 rounded-xl text-xs sm:text-sm md:text-base font-mono font-black border animate-bounce shadow-2xl ${
               lastOutcome.won
                 ? "bg-emerald-950 text-emerald-300 border-emerald-500 shadow-emerald-500/40"
                 : "bg-rose-950 text-rose-300 border-rose-500 shadow-rose-500/30"
@@ -217,6 +217,50 @@ export function UpgraderTable({
               : `Wylosowano ${(Number(lastOutcome.rolled) || 0).toFixed(2)}% • Przegrana`}
           </div>
         )}
+
+        {/* Prominent Multiplier Preset Console */}
+        <div className="w-full max-w-xl mx-auto flex flex-col gap-2 p-2.5 sm:p-3.5 rounded-2xl bg-[#0c121d]/90 border border-slate-800 shadow-xl backdrop-blur-sm">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">
+              Wybierz Mnożnik Upgrade
+            </span>
+            <div className="flex items-center gap-2 font-mono text-xs">
+              <span className="text-slate-400">Szansa:</span>
+              <span className="text-blue-400 font-black">{winChance.toFixed(2)}%</span>
+              {potentialPayout > 0 && (
+                <>
+                  <span className="text-slate-600 hidden xs:inline">•</span>
+                  <span className="text-slate-400 hidden xs:inline">Wygrana:</span>
+                  <span className="text-emerald-400 font-black hidden xs:inline">{potentialPayout} ₽</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 sm:gap-2 w-full">
+            {MULTIPLIER_PRESETS.map((p) => {
+              const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  disabled={loading || spinning}
+                  onClick={() => setTarget && setTarget(p.val)}
+                  className={`h-11 sm:h-12 rounded-xl font-mono font-black text-xs sm:text-sm md:text-base transition-all cursor-pointer flex flex-col items-center justify-center active:scale-95 ${
+                    isSelected
+                      ? "bg-blue-600 text-white border-2 border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.45)] scale-102"
+                      : "bg-[#141b27] hover:bg-[#1e293b] text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5"
+                  }`}
+                >
+                  <span>{p.label}</span>
+                  <span className={`text-[9px] sm:text-[10px] font-mono leading-none ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                    {(96.0 / p.val).toFixed(0)}%
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
@@ -430,7 +474,7 @@ export function UpgraderTable({
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 mb-1.5">
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 sm:gap-2 mb-2">
             {MULTIPLIER_PRESETS.map((p) => {
               const isSelected = Math.abs(clampedTarget - p.val) < 0.01;
               return (
@@ -439,13 +483,16 @@ export function UpgraderTable({
                   type="button"
                   disabled={loading || spinning}
                   onClick={() => setTarget(p.val)}
-                  className={`py-1.5 rounded-lg text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                  className={`h-11 sm:h-12 rounded-xl font-mono font-black text-xs sm:text-sm md:text-base transition-all cursor-pointer flex flex-col items-center justify-center active:scale-95 ${
                     isSelected
-                      ? "bg-blue-600 text-slate-950 shadow-md scale-102 border-2 border-blue-400"
-                      : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                      ? "bg-blue-600 text-white border-2 border-blue-400 shadow-[0_0_15px_rgba(37,99,235,0.45)] scale-102"
+                      : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60 shadow-[0_2px_0_#090d15] active:translate-y-0.5"
                   }`}
                 >
-                  {p.label}
+                  <span>{p.label}</span>
+                  <span className={`text-[9px] sm:text-[10px] font-mono leading-none ${isSelected ? "text-blue-100" : "text-slate-400"}`}>
+                    {(96.0 / p.val).toFixed(0)}%
+                  </span>
                 </button>
               );
             })}
