@@ -15,19 +15,19 @@ var adminPerms int64 = discordgo.PermissionAdministrator
 
 var slashCommands = []*discordgo.ApplicationCommand{
 	{
-		Name:                     "casino-grant-musordrop",
-		Description:              "Dodaj lub odbierz skrzynki Musor Drop (Lepsze) graczowi lub wszystkim (*)",
+		Name:                     "musordrop",
+		Description:              "Zarządzaj skrzynkami i limitami Musor Drop (Lepsze, Plebs, Arystokracja)",
 		DefaultMemberPermissions: &adminPerms,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "add",
-				Description: "Dodaj skrzynki Musor Drop (Lepsze) graczowi lub wszystkim (*)",
+				Description: "Dodaj skrzynki Musor Drop (Lepsze) graczowi, liście graczy lub wszystkim (*)",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
 						Type:         discordgo.ApplicationCommandOptionString,
 						Name:         "player",
-						Description:  "Nick/ID gracza lub * (wszyscy)",
+						Description:  "Nick/ID gracza, lista po przecinku lub * (wszyscy)",
 						Required:     true,
 						Autocomplete: true,
 					},
@@ -48,12 +48,12 @@ var slashCommands = []*discordgo.ApplicationCommand{
 			{
 				Type:        discordgo.ApplicationCommandOptionSubCommand,
 				Name:        "remove",
-				Description: "Odbierz skrzynki Musor Drop graczowi lub wszystkim (*)",
+				Description: "Odbierz skrzynki Musor Drop od gracza, listy graczy lub wszystkich (*)",
 				Options: []*discordgo.ApplicationCommandOption{
 					{
 						Type:         discordgo.ApplicationCommandOptionString,
 						Name:         "player",
-						Description:  "Nick/ID gracza lub * (wszyscy)",
+						Description:  "Nick/ID gracza, lista po przecinku lub * (wszyscy)",
 						Required:     true,
 						Autocomplete: true,
 					},
@@ -71,29 +71,69 @@ var slashCommands = []*discordgo.ApplicationCommand{
 					},
 				},
 			},
-		},
-	},
-	{
-		Name:                     "casino-reset-musordrop",
-		Description:              "Zresetuj dzienne limity otwarcia skrzynek Musor Drop dla gracza lub wszystkich (*)",
-		DefaultMemberPermissions: &adminPerms,
-		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "player",
-				Description:  "Nick/ID gracza lub * (wszyscy gracze)",
-				Required:     true,
-				Autocomplete: true,
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "set",
+				Description: "Ustaw dokładną liczbę skrzynek Musor Drop dla gracza, listy lub wszystkich (*)",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "player",
+						Description:  "Nick/ID gracza, lista po przecinku lub * (wszyscy)",
+						Required:     true,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionInteger,
+						Name:        "amount",
+						Description: "Nowa dokładna liczba skrzynek Lepszych",
+						Required:    true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "reason",
+						Description: "Powód zmiany",
+						Required:    false,
+					},
+				},
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "box_type",
-				Description: "Typ skrzynki do zresetowania limitu",
-				Required:    false,
-				Choices: []*discordgo.ApplicationCommandOptionChoice{
-					{Name: "Wszystkie dzienne (Plebsowa + Arystokracka)", Value: "all"},
-					{Name: "Plebsowa (Darmowa)", Value: "plebs"},
-					{Name: "Arystokracka (Płatna 500 ₽)", Value: "arystokracja"},
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "reset",
+				Description: "Zresetuj dzienne limity otwarcia skrzynek Musor Drop dla gracza lub wszystkich (*)",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "player",
+						Description:  "Nick/ID gracza lub * (wszyscy gracze)",
+						Required:     true,
+						Autocomplete: true,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "box_type",
+						Description: "Typ skrzynki do zresetowania limitu",
+						Required:    false,
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{Name: "📦 Wszystkie dzienne (Plebsowa + Arystokracka)", Value: "all"},
+							{Name: "🪵 Plebsowa (Darmowa)", Value: "plebs"},
+							{Name: "👑 Arystokracka (Płatna 500 ₽)", Value: "arystokracja"},
+						},
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "info",
+				Description: "Sprawdź stan skrzynek i dziennych limitów gracza",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:         discordgo.ApplicationCommandOptionString,
+						Name:         "player",
+						Description:  "Nick/ID gracza",
+						Required:     true,
+						Autocomplete: true,
+					},
 				},
 			},
 		},
@@ -591,35 +631,62 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 	case "stats", "statystyki":
 		b.respondInteraction(s, i, b.buildGlobalStatsEmbed(ctx))
 
-	case "casino-grant-musordrop", "grant-musordrop", "grantmusor":
-		var gracz, powod string
+	case "musordrop", "musor", "skrzynki", "casino-grant-musordrop", "grant-musordrop", "grantmusor", "casino-reset-musordrop", "reset-musordrop", "resetmusor":
+		var gracz, boxType, powod string
 		var kwota int64
 		for _, opt := range options {
-			if opt.Name == "player" || opt.Name == "gracz" {
+			if opt.Name == "player" || opt.Name == "gracz" || opt.Name == "identifier" {
 				gracz = opt.StringValue()
 			} else if opt.Name == "amount" || opt.Name == "kwota" || opt.Name == "ilosc" {
 				kwota = opt.IntValue()
 			} else if opt.Name == "reason" || opt.Name == "powod" {
 				powod = opt.StringValue()
-			}
-		}
-		if subCmd == "remove" {
-			if kwota > 0 {
-				kwota = -kwota
-			}
-		}
-		b.respondInteraction(s, i, b.executeGrantMusorDrop(ctx, gracz, int(kwota), powod))
-
-	case "casino-reset-musordrop", "reset-musordrop", "resetmusor":
-		var gracz, boxType string
-		for _, opt := range options {
-			if opt.Name == "player" || opt.Name == "gracz" {
-				gracz = opt.StringValue()
 			} else if opt.Name == "box_type" || opt.Name == "skrzynka" || opt.Name == "type" {
 				boxType = opt.StringValue()
 			}
 		}
-		b.respondInteraction(s, i, b.executeResetMusorDrop(ctx, gracz, boxType))
+
+		if subCmd == "" {
+			if strings.Contains(cmd, "reset") {
+				subCmd = "reset"
+			} else if strings.Contains(cmd, "grant") {
+				subCmd = "add"
+			}
+		}
+
+		switch subCmd {
+		case "add":
+			if powod == "" {
+				powod = "Admin Musor Drop Grant (Discord)"
+			}
+			b.respondInteraction(s, i, b.executeGrantMusorDrop(ctx, gracz, int(kwota), powod))
+		case "remove":
+			if powod == "" {
+				powod = "Admin Musor Drop Deduction (Discord)"
+			}
+			val := int(kwota)
+			if val > 0 {
+				val = -val
+			}
+			b.respondInteraction(s, i, b.executeGrantMusorDrop(ctx, gracz, val, powod))
+		case "set":
+			if powod == "" {
+				powod = "Admin Musor Drop Set (Discord)"
+			}
+			b.respondInteraction(s, i, b.executeSetMusorDrop(ctx, gracz, int(kwota), powod))
+		case "reset":
+			b.respondInteraction(s, i, b.executeResetMusorDrop(ctx, gracz, boxType))
+		case "info", "stan", "check":
+			b.respondInteraction(s, i, b.executeMusorDropInfo(ctx, gracz))
+		default:
+			if kwota != 0 {
+				b.respondInteraction(s, i, b.executeGrantMusorDrop(ctx, gracz, int(kwota), powod))
+			} else if gracz != "" {
+				b.respondInteraction(s, i, b.executeMusorDropInfo(ctx, gracz))
+			} else {
+				b.respondInteraction(s, i, b.buildHelpEmbed(true))
+			}
+		}
 
 	case "help", "pomoc":
 		b.respondInteraction(s, i, b.buildHelpEmbed(true))
@@ -1496,6 +1563,171 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMoney(ctx, target, val, reason))
 		default:
 			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Nieznana akcja: użyj `add`, `remove`, `set` lub `revert`.")
+		}
+
+	// Shorthand commands: !givebox <gracz|*> <ilość> [powód]
+	case "!givebox", "!grantbox", "!addbox":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `"+cmd+" <gracz|*> <ilość> [powód]`")
+			return
+		}
+		target := args[0]
+		val, err := strconv.Atoi(args[1])
+		if err != nil || val <= 0 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek (musi być liczbą dodatnią).")
+			return
+		}
+		reason := "Przyznanie administratora (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMusorDrop(ctx, target, val, reason))
+
+	// Shorthand commands: !takebox <gracz|*> <ilość> [powód]
+	case "!takebox", "!removebox":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `"+cmd+" <gracz|*> <ilość> [powód]`")
+			return
+		}
+		target := args[0]
+		val, err := strconv.Atoi(args[1])
+		if err != nil || val <= 0 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek (musi być liczbą dodatnią).")
+			return
+		}
+		reason := "Korekta skrzynek (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMusorDrop(ctx, target, -val, reason))
+
+	// Shorthand commands: !setbox <gracz|*> <ilość> [powód]
+	case "!setbox":
+		if len(args) < 2 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!setbox <gracz|*> <ilość> [powód]`")
+			return
+		}
+		target := args[0]
+		val, err := strconv.Atoi(args[1])
+		if err != nil || val < 0 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek.")
+			return
+		}
+		reason := "Ręczne ustawienie liczby skrzynek (Discord)"
+		if len(args) > 2 {
+			reason = strings.Join(args[2:], " ")
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMusorDrop(ctx, target, val, reason))
+
+	// Shorthand commands: !resetbox <gracz|*> [box_type]
+	case "!resetbox", "!resetmusor":
+		if len(args) < 1 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!resetbox <gracz|*> [plebs|arystokracja|all]`")
+			return
+		}
+		target := args[0]
+		boxType := "all"
+		if len(args) > 1 {
+			boxType = args[1]
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeResetMusorDrop(ctx, target, boxType))
+
+	// Shorthand commands: !boxinfo <gracz>
+	case "!boxinfo", "!musorinfo":
+		if len(args) < 1 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!boxinfo <gracz>`")
+			return
+		}
+		_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeMusorDropInfo(ctx, args[0]))
+
+	// Full Musor Drop text command: !musor, !musordrop, !skrzynki
+	case "!musor", "!musordrop", "!skrzynki":
+		if len(args) == 0 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor <add|remove|set|reset|info> <gracz|*> [ilość/typ] [powód]`\nPrzykłady:\n• `!musor add * 5 Prezent`\n• `!musor remove gracz1 2`\n• `!musor set gracz1 10`\n• `!musor reset * all`\n• `!musor info gracz1`")
+			return
+		}
+
+		sub := strings.ToLower(args[0])
+		switch sub {
+		case "add", "give", "+":
+			if len(args) < 3 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor add <gracz|*> <ilość> [powód]`")
+				return
+			}
+			val, err := strconv.Atoi(args[2])
+			if err != nil || val <= 0 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek.")
+				return
+			}
+			reason := "Admin Musor Drop Grant"
+			if len(args) > 3 {
+				reason = strings.Join(args[3:], " ")
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMusorDrop(ctx, args[1], val, reason))
+
+		case "remove", "take", "sub", "-":
+			if len(args) < 3 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor remove <gracz|*> <ilość> [powód]`")
+				return
+			}
+			val, err := strconv.Atoi(args[2])
+			if err != nil || val <= 0 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek.")
+				return
+			}
+			reason := "Admin Musor Drop Deduction"
+			if len(args) > 3 {
+				reason = strings.Join(args[3:], " ")
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMusorDrop(ctx, args[1], -val, reason))
+
+		case "set", "=":
+			if len(args) < 3 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor set <gracz|*> <ilość> [powód]`")
+				return
+			}
+			val, err := strconv.Atoi(args[2])
+			if err != nil || val < 0 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❌ Niepoprawna liczba skrzynek.")
+				return
+			}
+			reason := "Admin Musor Drop Set"
+			if len(args) > 3 {
+				reason = strings.Join(args[3:], " ")
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeSetMusorDrop(ctx, args[1], val, reason))
+
+		case "reset":
+			if len(args) < 2 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor reset <gracz|*> [plebs|arystokracja|all]`")
+				return
+			}
+			boxType := "all"
+			if len(args) > 2 {
+				boxType = args[2]
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeResetMusorDrop(ctx, args[1], boxType))
+
+		case "info", "stan", "check":
+			if len(args) < 2 {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!musor info <gracz>`")
+				return
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeMusorDropInfo(ctx, args[1]))
+
+		default:
+			// If first argument is player name and second is number: !musor <gracz> <ilość>
+			if len(args) >= 2 {
+				if val, err := strconv.Atoi(args[1]); err == nil {
+					reason := "Admin Musor Drop Grant"
+					if len(args) > 2 {
+						reason = strings.Join(args[2:], " ")
+					}
+					_, _ = s.ChannelMessageSendEmbed(m.ChannelID, b.executeGrantMusorDrop(ctx, args[0], val, reason))
+					return
+				}
+			}
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Nieznana podkomenda `!musor`. Dostępne: `add`, `remove`, `set`, `reset`, `info`.")
 		}
 
 	case "!schedule", "!drop", "!harmonogram", "!autodrop":

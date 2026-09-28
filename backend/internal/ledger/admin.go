@@ -730,6 +730,59 @@ func (s *Service) GrantMusorBoxes(ctx context.Context, identifier string, amount
 	return p.Nick, curBoxes, newBoxes, nil
 }
 
+// SetMusorBoxesAll sets exact Musor Drop boxes for ALL registered players.
+func (s *Service) SetMusorBoxesAll(ctx context.Context, amount int, reason string) (int, error) {
+	if amount < 0 {
+		return 0, fmt.Errorf("liczba skrzynek nie może być ujemna")
+	}
+
+	t := NowMs()
+	tag, err := s.db.Pool.Exec(ctx, `
+		UPDATE players
+		SET musor_lepsza_boxes = $1,
+		    updated_at = $2
+	`, amount, t)
+	if err != nil {
+		return 0, fmt.Errorf("błąd masowego ustawiania skrzynek: %w", err)
+	}
+
+	return int(tag.RowsAffected()), nil
+}
+
+// SetMusorBoxes sets exact Musor Drop boxes for a single player.
+func (s *Service) SetMusorBoxes(ctx context.Context, identifier string, amount int, reason string) (string, int, int, error) {
+	if amount < 0 {
+		return "", 0, 0, fmt.Errorf("liczba skrzynek nie może być ujemna")
+	}
+
+	var p Player
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT user_id, nick, COALESCE(musor_lepsza_boxes, 0)
+		FROM players
+		WHERE user_id = $1 OR nick = $1 OR email = $1
+		LIMIT 1
+	`, identifier).Scan(&p.UserID, &p.Nick, &p.MusorLepszaBoxes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", 0, 0, fmt.Errorf("nie znaleziono gracza o identyfikatorze '%s'", identifier)
+	}
+	if err != nil {
+		return "", 0, 0, err
+	}
+
+	prevBoxes := p.MusorLepszaBoxes
+	t := NowMs()
+	_, err = s.db.Pool.Exec(ctx, `
+		UPDATE players
+		SET musor_lepsza_boxes = $1, updated_at = $2
+		WHERE user_id = $3
+	`, amount, t, p.UserID)
+	if err != nil {
+		return "", 0, 0, fmt.Errorf("błąd aktualizacji stanu skrzynek gracza: %w", err)
+	}
+
+	return p.Nick, prevBoxes, amount, nil
+}
+
 // ResetMusorDropDaily resets daily opened box counters for a user (or all users).
 func (s *Service) ResetMusorDropDaily(ctx context.Context, identifier, boxType string) (int, error) {
 	dayKey := TodayString()
