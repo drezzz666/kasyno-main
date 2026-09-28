@@ -5151,12 +5151,13 @@ body {
 
   .game-table-dialog,
   .game-dialog-box {
-    max-width: 1380px !important;
-    width: 94vw !important;
-    height: auto !important;
-    max-height: calc(100dvh - 48px) !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    max-width: 1440px !important;
+    width: 96vw !important;
+    height: calc(100dvh - 32px) !important;
+    max-height: calc(100dvh - 32px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
     border-radius: 18px !important;
     margin: auto !important;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
