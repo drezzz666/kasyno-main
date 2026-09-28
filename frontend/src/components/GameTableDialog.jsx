@@ -842,6 +842,23 @@ export function GameTableDialog({
                       <span className="hidden min-[400px]:inline">Liczba min:</span>
                       <span className="min-[400px]:hidden">Miny:</span>
                     </span>
+                    <div className="relative flex items-center w-14 sm:w-16">
+                      <input
+                        type="number"
+                        min="2"
+                        max="15"
+                        disabled={loading || round?.game === "mines"}
+                        value={mineCount}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setMineCount(isNaN(val) ? "" : Math.max(2, Math.min(15, val)));
+                        }}
+                        onBlur={() => {
+                          setMineCount((c) => Math.max(2, Math.min(15, Number(c) || 5)));
+                        }}
+                        className="w-full h-11 sm:h-10 px-2 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-center text-sm focus:outline-none focus:border-blue-500 shadow-inner"
+                      />
+                    </div>
                     <div className="grid grid-cols-4 gap-1.5 flex-1 md:flex-initial md:flex md:items-center">
                       {[2, 5, 10, 15].map((c) => (
                         <button
