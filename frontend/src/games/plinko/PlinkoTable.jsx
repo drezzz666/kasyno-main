@@ -97,6 +97,10 @@ const getPinPos = (r, c, totalRows) => {
   return { x: colX, y: rowY };
 };
 
+// Physical sizing helpers for authentic casino scale
+const getPinRadius = (r) => Math.max(2.8, 4.4 - r * 0.09);
+const getBallRadius = (r) => Math.max(3.8, 5.2 - r * 0.08);
+
 // Render 3D solid sphere ball with shadow and lighting
 function drawBall(ctx, b) {
   ctx.save();
@@ -131,15 +135,15 @@ function drawBall(ctx, b) {
 
   // 3. Crisp outer rim
   ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
-  ctx.lineWidth = 1.0;
+  ctx.lineWidth = 0.75;
   ctx.beginPath();
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.stroke();
 
   // 4. Specular gloss highlight
-  ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.70)";
   ctx.beginPath();
-  ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.26, 0, Math.PI * 2);
+  ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.28, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.restore();
@@ -246,7 +250,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     ctx.restore();
 
     // D. All metallic pins rendered with high precision
-    const pinRadius = Math.max(3.2, 5.2 - rows * 0.12);
+    const pinRadius = getPinRadius(rows);
 
     for (let r = 0; r < rows; ++r) {
       const cols = 3 + r;
@@ -305,7 +309,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     }
 
     // 2. Draw active pin hits / spring shockwaves
-    const pinRadius = Math.max(3.2, 5.2 - rows * 0.12);
+    const pinRadius = getPinRadius(rows);
     if (pinHitsRef.current.size > 0) {
       pinHitsRef.current.forEach((hitInfo, pinKey) => {
         const elapsed = now - hitInfo.startTime;
@@ -353,13 +357,13 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
       // Handle landing settle phase (soft settle bounce in container)
       if (b.settling) {
-        b.settleProgress += dt / 140;
+        b.settleProgress += dt / 220;
         if (b.settleProgress >= 1) {
           // Ball has finished settling into the hopper
           continue;
         }
         const p = b.settleProgress;
-        b.y = b.finalY - Math.sin(p * Math.PI) * 5;
+        b.y = b.finalY - Math.sin(p * Math.PI) * 4;
         b.alpha = 1 - p * 0.75;
         aliveBalls.push(b);
         drawBall(ctx, b);
@@ -480,8 +484,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const rowHeight = (HEIGHT - PADDING_TOP - PADDING_BOTTOM) / (numRows - 1);
 
       // Proportional physical dimensions
-      const pinRadius = Math.max(3.2, 5.2 - numRows * 0.12);
-      const ballRadius = Math.max(6.5, 9.2 - numRows * 0.16);
+      const pinRadius = getPinRadius(numRows);
+      const ballRadius = getBallRadius(numRows);
       const collRadius = pinRadius + ballRadius;
 
       // Extract or compute path with exact targetSlot mapping
@@ -525,7 +529,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         p1: { x: startX, y: startY + (contact0.y - startY) * 0.4 },
         p2: { x: contact0.x, y: contact0.y - (contact0.y - startY) * 0.25 },
         p3: contact0,
-        duration: turbo ? 65 : 155,
+        duration: turbo ? 90 : 260,
         hitPin: { r: 0, c: 1 },
       });
 
@@ -555,10 +559,10 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         };
 
         // Parabolic arc with apex hang time and downward acceleration
-        const apexHeight = Math.max(5.5, rowHeight * 0.22);
+        const apexHeight = Math.max(5.0, rowHeight * 0.24);
         const p1 = {
           x: launchPoint.x + dir * (pinDistX * 0.22),
-          y: launchPoint.y - apexHeight * 0.85,
+          y: launchPoint.y - apexHeight * 0.90,
         };
         const p2 = {
           x: strikePoint.x - dir * (pinDistX * 0.08),
@@ -567,7 +571,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
         // Depth-dependent duration: gravitational acceleration as the ball falls
         const rowProgress = r / (numRows - 1);
-        const duration = turbo ? (46 + (1 - rowProgress) * 20) : (115 + (1 - rowProgress) * 55);
+        const duration = turbo ? (65 + (1 - rowProgress) * 25) : (220 + (1 - rowProgress) * 90);
 
         segments.push({
           p0: launchPoint,
@@ -596,10 +600,10 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const binCenterX = PADDING_X + (targetSlot + 0.5) * pinDistX;
       const binCenterY = HEIGHT - PADDING_BOTTOM + 21;
 
-      const exitApexHeight = Math.max(5.5, rowHeight * 0.20);
+      const exitApexHeight = Math.max(5.0, rowHeight * 0.22);
       const exitApex = {
         x: launchPoint.x + finalDir * (pinDistX * 0.20),
-        y: launchPoint.y - exitApexHeight * 0.70,
+        y: launchPoint.y - exitApexHeight * 0.75,
       };
       const binEntry = {
         x: binCenterX,
@@ -611,7 +615,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         p1: exitApex,
         p2: binEntry,
         p3: { x: binCenterX, y: binCenterY },
-        duration: turbo ? 65 : 140,
+        duration: turbo ? 85 : 240,
         isFinal: true,
       });
 
