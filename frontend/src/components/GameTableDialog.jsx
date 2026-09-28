@@ -1175,14 +1175,9 @@ export function GameTableDialog({
                       >
                         <CheckCircle2 size={18} />
                         <span>WYPŁAĆ {money(finalPayout)} ({currentMultiplier.toFixed(2)}×)</span>
-                        {profit > 0 && (
-                          <span className="text-[11px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_rgba(16,185,129,0.2)]">
-                            +{money(profit)}
-                          </span>
-                        )}
                         {eventBonus > 0 && (
                           <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
-                            +{money(eventBonus)} (Event ×{eventMult.toFixed(2)})
+                            +{money(eventBonus)}
                           </span>
                         )}
                       </button>
@@ -1217,14 +1212,9 @@ export function GameTableDialog({
                             ? "Wybierz pole na planszy"
                             : `WYPŁAĆ ${money(finalPayout)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
-                        {canCashout && profit > 0 && (
-                          <span className="text-[11px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_rgba(16,185,129,0.2)]">
-                            +{money(profit)}
-                          </span>
-                        )}
                         {canCashout && eventBonus > 0 && (
                           <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
-                            +{money(eventBonus)} (Event ×{eventMult.toFixed(2)})
+                            +{money(eventBonus)}
                           </span>
                         )}
                       </button>
@@ -1286,11 +1276,6 @@ export function GameTableDialog({
                           <span className="truncate">
                             WYPŁAĆ {money(finalPayout)} (×{(Number(currentMult) || 1.0).toFixed(2)})
                           </span>
-                          {!isCashoutDisabled && profit > 0 && (
-                            <span className="text-[10px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1 py-0.5 rounded font-mono font-bold">
-                              +{money(profit)}
-                            </span>
-                          )}
                           {!isCashoutDisabled && eventBonus > 0 && (
                             <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.5)]">
                               +{money(eventBonus)}

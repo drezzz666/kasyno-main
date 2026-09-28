@@ -8,11 +8,9 @@ const FALL_ANIMATIONS = ["flutterFallA", "flutterFallB", "flutterFallC"];
 const SWAY_ANIMATIONS = ["swayPhysicsA", "swayPhysicsB"];
 
 export function MoneyRain({
-  isActive = false,
-  duration = 30, // seconds
   onClose,
 }) {
-  const [running, setRunning] = useState(isActive);
+  const [running, setRunning] = useState(false);
   const [banknotes, setBanknotes] = useState([]);
   const [sparkles, setSparkles] = useState([]);
 
@@ -25,7 +23,7 @@ export function MoneyRain({
     setRunning(false);
     clearInterval(spawnTimerRef.current);
     clearInterval(sparkleTimerRef.current);
-    clearInterval(countdownTimerRef.current);
+    clearTimeout(countdownTimerRef.current);
     sounds.stopMoneyRainMusic();
     if (onClose) onClose();
   }, [onClose]);
@@ -48,25 +46,25 @@ export function MoneyRain({
       });
     } catch {}
 
-    // Auto-stop countdown
-    clearInterval(countdownTimerRef.current);
+    // Auto-stop countdown for celebratory shower:
+    // Even if the live multiplier lasts for 24h, the intense visual animation
+    // runs for a generous celebration time (e.g. 60-90s) to keep CPU performant.
+    const showerDuration = Math.min(Math.max(Number(sec) || 60, 20), 120);
+
+    clearTimeout(countdownTimerRef.current);
     countdownTimerRef.current = setTimeout(() => {
       stopRain();
-    }, sec * 1000);
+    }, showerDuration * 1000);
   }, [stopRain]);
 
-  // Synchronize with external prop or window events
-  useEffect(() => {
-    if (isActive) {
-      startRain(duration);
-    } else {
-      stopRain();
-    }
-  }, [isActive, duration, startRain, stopRain]);
-
+  // Synchronize strictly with window events
   useEffect(() => {
     const handleStartEvent = (e) => {
-      const dur = e.detail?.duration || 30;
+      if (e.detail?.action === "stop") {
+        stopRain();
+        return;
+      }
+      const dur = e.detail?.duration || 60;
       startRain(dur);
     };
     const handleStopEvent = () => {
@@ -189,6 +187,19 @@ export function MoneyRain({
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
+      {/* User Dismiss Button (allows closing the shower while bonus continues) */}
+      {running && (
+        <button
+          type="button"
+          className="money-rain-dismiss-btn"
+          onClick={stopRain}
+          style={{ pointerEvents: "auto" }}
+          title="Zamknij animację deszczu (bonus pozostaje aktywny)"
+        >
+          ✕ Zamknij deszcz
+        </button>
+      )}
+
       {/* Golden Sparkles */}
       {sparkles.map((sp) => (
         <div

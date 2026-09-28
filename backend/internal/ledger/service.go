@@ -53,32 +53,83 @@ type Service struct {
 }
 
 func NewService(database *db.DB) *Service {
-	return &Service{db: database}
+	s := &Service{db: database}
+	s.restoreActiveEventFromDB()
+	return s
+}
+
+func (s *Service) restoreActiveEventFromDB() {
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var ev LiveEventInfo
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT name, multiplier, started_at, ends_at, started_by
+		FROM live_events
+		WHERE is_active = true AND ends_at > NOW()
+		ORDER BY id DESC LIMIT 1
+	`).Scan(&ev.Name, &ev.Multiplier, &ev.StartedAt, &ev.EndsAt, &ev.StartedBy)
+	if err == nil {
+		s.eventMu.Lock()
+		s.activeEvent = &ev
+		s.eventMu.Unlock()
+		log.Printf("🌧️ [LiveEvent] Przywrócono aktywne wydarzenie: %s (×%.2f) do %v", ev.Name, ev.Multiplier, ev.EndsAt)
+	}
 }
 
 func (s *Service) SetActiveEvent(ev *LiveEventInfo) {
 	s.eventMu.Lock()
-	defer s.eventMu.Unlock()
 	s.activeEvent = ev
+	s.eventMu.Unlock()
+
+	if s.db != nil && s.db.Pool != nil && ev != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = s.db.Pool.Exec(ctx, `UPDATE live_events SET is_active = false WHERE is_active = true`)
+			_, _ = s.db.Pool.Exec(ctx, `
+				INSERT INTO live_events (name, multiplier, started_at, ends_at, started_by, is_active)
+				VALUES ($1, $2, $3, $4, $5, true)
+			`, ev.Name, ev.Multiplier, ev.StartedAt, ev.EndsAt, ev.StartedBy)
+		}()
+	}
 }
 
 func (s *Service) GetActiveEvent() *LiveEventInfo {
 	s.eventMu.RLock()
-	defer s.eventMu.RUnlock()
-	if s.activeEvent == nil {
+	ev := s.activeEvent
+	s.eventMu.RUnlock()
+
+	if ev == nil {
 		return nil
 	}
-	if time.Now().After(s.activeEvent.EndsAt) {
+	if time.Now().After(ev.EndsAt) {
+		s.eventMu.Lock()
+		if s.activeEvent != nil && time.Now().After(s.activeEvent.EndsAt) {
+			s.activeEvent = nil
+		}
+		s.eventMu.Unlock()
 		return nil
 	}
-	cpy := *s.activeEvent
+	cpy := *ev
 	return &cpy
 }
 
 func (s *Service) ClearActiveEvent() {
 	s.eventMu.Lock()
-	defer s.eventMu.Unlock()
 	s.activeEvent = nil
+	s.eventMu.Unlock()
+
+	if s.db != nil && s.db.Pool != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = s.db.Pool.Exec(ctx, `UPDATE live_events SET is_active = false WHERE is_active = true`)
+		}()
+	}
 }
 
 func NowMs() int64 {
