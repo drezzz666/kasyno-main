@@ -56,7 +56,7 @@
 - [ ] **Synchronizacja serwerowa:** Próba wypłaty `cashout_crash` z zawyżonym mnożnikiem jest weryfikowana serwerowo względem czasu lotu ($+150\text{ ms}$ tolerancji na ping).
 
 ### 2.3 💣 Mines (Saper)
-- [ ] **Siatka:** $5 \times 5$ (25 kafelków), wybór min od 2 do 24.
+- [ ] **Siatka:** $5 \times 5$ (25 kafelków), wybór min od 5 do 24.
 - [ ] **Maskowanie stanu:** W stanie aktywnym (`active`) serwer zwraca `MaskActive`, ukrywając pozycje nieodkrytych min. Pełna plansza odkrywana jest dopiero po uderzeniu w minę lub `cashout`.
 
 ### 2.4 🔴 Ruletka Europejska (Roulette)

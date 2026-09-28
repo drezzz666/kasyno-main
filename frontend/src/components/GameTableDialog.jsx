@@ -727,11 +727,30 @@ export function GameTableDialog({
             )}
 
             {game === "limbo" && (
-              <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
+              <LimboTable
+                target={limboTarget}
+                setTarget={setLimboTarget}
+                last={last}
+                animating={limboAnimating}
+                displayMult={limboDisplayMult}
+                loading={loading}
+                bet={bet}
+              />
             )}
 
             {game === "crash" && (
-              <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
+              <CrashTable
+                bet={bet}
+                isPlaying={crashPlaying}
+                currentMult={crashMult}
+                isCrashed={crashCrashed}
+                isCashedOut={crashCashedOut}
+                graphPoints={crashGraphPoints}
+                last={last}
+                autoCashout={crashAutoCashout}
+                setAutoCashout={setCrashAutoCashout}
+                loading={loading}
+              />
             )}
 
             {game === "upgrader" && (
@@ -818,10 +837,13 @@ export function GameTableDialog({
               {/* Middle: Game-Specific Selectors */}
               <div className="w-full md:w-auto flex items-center justify-center gap-2 flex-wrap">
                 {game === "mines" && (
-                  <div className="w-full md:w-auto flex items-center gap-2">
-                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
-                    <div className="grid grid-cols-6 gap-1.5 w-full md:w-auto md:flex md:items-center">
-                      {[2, 3, 5, 10, 15, 20].map((c) => (
+                  <div className="w-full md:w-auto flex items-center justify-center gap-2">
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-300 flex-shrink-0">
+                      <span className="hidden min-[400px]:inline">Liczba min:</span>
+                      <span className="min-[400px]:hidden">Miny:</span>
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5 flex-1 md:flex-initial md:flex md:items-center">
+                      {[5, 10, 15, 20].map((c) => (
                         <button
                           key={c}
                           type="button"
@@ -883,14 +905,14 @@ export function GameTableDialog({
                         type="button"
                         disabled={loading || isShootingRPS}
                         onClick={() => setChoice(item.id)}
-                        className={`h-11 sm:h-10 px-2 rounded-lg flex items-center justify-center gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
+                        className={`h-12 sm:h-10 px-2 sm:px-3 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
                           choice === item.id
                             ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                             : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                         }`}
                       >
-                        <span className="text-base">{item.icon}</span>
-                        <span>{item.name}</span>
+                        <span className="text-lg sm:text-base leading-none">{item.icon}</span>
+                        <span className="text-[11px] sm:text-xs leading-none">{item.name}</span>
                       </button>
                     ))}
                   </div>
@@ -941,23 +963,7 @@ export function GameTableDialog({
 
                 {game === "limbo" && (
                   <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-1">
-                      {[1.5, 2.0, 3.0, 5.0, 10.0, 100.0].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          disabled={loading || limboAnimating}
-                          onClick={() => setLimboTarget(val)}
-                          className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
-                            Math.abs(limboTarget - val) < 0.01
-                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
-                              : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
-                          }`}
-                        >
-                          {val}×
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400">Cel:</span>
                     <div className="relative flex items-center w-28 sm:w-32">
                       <input
                         type="number"
@@ -968,9 +974,12 @@ export function GameTableDialog({
                         disabled={loading || limboAnimating}
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 1.5 && v <= 10000) setLimboTarget(v);
+                          setLimboTarget(isNaN(v) ? "" : v);
                         }}
-                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500"
+                        onBlur={() => {
+                          setLimboTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
+                        }}
+                        className="w-full h-11 sm:h-10 px-3 pr-7 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500 shadow-inner"
                         placeholder="Mnożnik"
                       />
                       <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">×</span>
@@ -980,23 +989,7 @@ export function GameTableDialog({
 
                 {game === "crash" && (
                   <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-1">
-                      {[1.2, 1.5, 2.0, 3.0, 5.0, 10.0].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
-                          disabled={crashPlaying || loading}
-                          onClick={() => setCrashAutoCashout(val)}
-                          className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
-                            Math.abs(crashAutoCashout - val) < 0.01
-                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
-                              : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
-                          }`}
-                        >
-                          {val}×
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400">Cel:</span>
                     <div className="relative flex items-center w-28 sm:w-32">
                       <input
                         type="number"
@@ -1007,9 +1000,12 @@ export function GameTableDialog({
                         value={crashAutoCashout}
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
-                          if (!isNaN(v) && v >= 0.8 && v <= 1000) setCrashAutoCashout(v);
+                          setCrashAutoCashout(isNaN(v) ? "" : v);
                         }}
-                        className="w-full px-3 py-1.5 sm:py-2 rounded-xl bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500"
+                        onBlur={() => {
+                          setCrashAutoCashout((t) => Math.max(0.8, Math.min(1000, Number(t) || 2.0)));
+                        }}
+                        className="w-full h-11 sm:h-10 px-3 pr-7 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500 shadow-inner"
                       />
                       <span className="absolute right-2.5 text-xs font-black text-slate-400 pointer-events-none">× cel</span>
                     </div>
@@ -1017,7 +1013,7 @@ export function GameTableDialog({
                 )}
 
                 {game === "upgrader" && (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <div className="flex items-center bg-[#131d2e] p-1 rounded-xl border border-slate-700/80">
                       <button
                         type="button"
@@ -1043,43 +1039,28 @@ export function GameTableDialog({
                       </button>
                     </div>
 
-                    <div className="hidden sm:flex items-center gap-1">
-                      {[1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0].map((val) => (
-                        <button
-                          key={val}
-                          type="button"
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400">Cel:</span>
+                      <div className="relative flex items-center w-24 sm:w-28">
+                        <input
+                          type="number"
+                          step="0.05"
+                          min="1.5"
+                          max="10000"
+                          value={upgraderTarget}
                           disabled={loading || upgraderBusy}
-                          onClick={() => setUpgraderTarget(val)}
-                          className={`px-2 py-1.5 rounded-lg text-xs font-black font-mono transition-all cursor-pointer ${
-                            Math.abs(upgraderTarget - val) < 0.01
-                              ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
-                              : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
-                          }`}
-                        >
-                          {val}×
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="relative flex items-center w-24 sm:w-28">
-                      <input
-                        type="number"
-                        step="0.05"
-                        min="1.5"
-                        max="10000"
-                        value={upgraderTarget}
-                        disabled={loading || upgraderBusy}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          setUpgraderTarget(isNaN(v) ? "" : v);
-                        }}
-                        onBlur={() => {
-                          setUpgraderTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
-                        }}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs font-black focus:outline-none focus:border-blue-500"
-                        placeholder="Mnożnik"
-                      />
-                      <span className="absolute right-2 text-xs font-black text-slate-400 pointer-events-none">×</span>
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setUpgraderTarget(isNaN(v) ? "" : v);
+                          }}
+                          onBlur={() => {
+                            setUpgraderTarget((t) => Math.max(1.5, Math.min(10000, Number(t) || 2.0)));
+                          }}
+                          className="w-full h-11 sm:h-10 px-2.5 pr-6 rounded-lg bg-[#131d2e] border border-slate-700 text-white font-mono text-xs sm:text-sm font-black focus:outline-none focus:border-blue-500 shadow-inner"
+                          placeholder="Mnożnik"
+                        />
+                        <span className="absolute right-2 text-xs font-black text-slate-400 pointer-events-none">×</span>
+                      </div>
                     </div>
                   </div>
                 )}

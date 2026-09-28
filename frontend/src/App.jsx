@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
-import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format } from "./lib/formatters";
+import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format, truncateNick } from "./lib/formatters";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -945,12 +945,14 @@ export default function App() {
                             userNick.slice(0, 2).toUpperCase()
                           )}
                         </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5">
-                            <span className="rank-name font-bold text-slate-100">{userNick}</span>
-                            <span className="rank-you-badge">Ty</span>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="rank-name font-bold text-slate-100 truncate" title={userNick}>
+                              {truncateNick(userNick, 20)}
+                            </span>
+                            <span className="rank-you-badge flex-shrink-0">Ty</span>
                           </div>
-                          <span className="text-[11px] text-slate-400 font-mono">
+                          <span className="text-[11px] text-slate-400 font-mono truncate">
                             {rankingType === "level"
                               ? `Stan konta: ${money(data.player.balance)}`
                               : `Poziom ${data.player.level || 1} • ${data.player.xp || 0} XP`}
@@ -998,25 +1000,27 @@ export default function App() {
                         return (
                           <div
                             key={l.nick || idx}
-                            className={`ranking-row ${isMe ? "ranking-row-me" : ""}`}
+                            className={`ranking-row ${isMe ? "ranking-row-me" : ""} ${rankNum <= 3 ? `row-place-${rankNum}` : ""}`}
                           >
-                            <div className="ranking-left">
-                              <span className={`rank-place place-${rankNum}`}>
+                            <div className="ranking-left min-w-0">
+                              <span className={`rank-place ${rankNum <= 3 ? `place-${rankNum}` : ""}`}>
                                 #{rankNum}
                               </span>
-                              <div className="ranking-row-avatar">
+                              <div className="ranking-row-avatar flex-shrink-0">
                                 {l.avatar ? (
                                   <img src={l.avatar} alt={l.nick} className="ranking-avatar-img" />
                                 ) : (
                                   (l.nick || "G").slice(0, 2).toUpperCase()
                                 )}
                               </div>
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="rank-name">{l.nick || "Gracz"}</span>
-                                  {isMe && <span className="rank-you-pill">Ty</span>}
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="rank-name truncate" title={l.nick}>
+                                    {truncateNick(l.nick || "Gracz", 20)}
+                                  </span>
+                                  {isMe && <span className="rank-you-pill flex-shrink-0">Ty</span>}
                                 </div>
-                                <span className="text-[10px] text-slate-500 font-mono">
+                                <span className="text-[10px] text-slate-500 font-mono truncate">
                                   {rankingType === "level"
                                     ? `Konto: ${money(l.balance)}`
                                     : `Poziom ${l.level || 1}`}
@@ -1024,14 +1028,14 @@ export default function App() {
                               </div>
                             </div>
                             {rankingType === "level" ? (
-                              <div className="flex flex-col items-end">
+                              <div className="flex flex-col items-end flex-shrink-0 ml-2">
                                 <span className="rank-level-badge">LVL {l.level || 1}</span>
                                 <span className="text-[10px] text-slate-400 font-mono">
                                   {l.xp || 0} XP
                                 </span>
                               </div>
                             ) : (
-                              <span className="rank-balance">{money(l.balance)}</span>
+                              <span className="rank-balance flex-shrink-0 ml-2">{money(l.balance)}</span>
                             )}
                           </div>
                         );

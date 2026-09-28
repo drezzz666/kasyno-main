@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { format, money, dailyBonus, gameName, getHistoryDetails, formatHistoryTime } from "./formatters.js";
+import { format, money, dailyBonus, gameName, getHistoryDetails, formatHistoryTime, truncateNick } from "./formatters.js";
 
 describe("Frontend Formatters QA Test Suite", () => {
   it("format: formats numbers in pl-PL locale correctly", () => {
@@ -74,5 +74,13 @@ describe("Frontend Formatters QA Test Suite", () => {
     expect(formatHistoryTime(0)).toBe("");
     const ts = new Date("2026-09-28T12:30:00Z").getTime();
     expect(formatHistoryTime(ts)).toBeTruthy();
+  });
+
+  it("truncateNick: cuts nicknames longer than maxLen with ellipsis", () => {
+    expect(truncateNick("Kamil")).toBe("Kamil");
+    expect(truncateNick("SuperDlugiNickGracza1234567890", 20)).toBe("SuperDlugiNickGracza...");
+    expect(truncateNick("DokladnieDwadziecia1", 20)).toBe("DokladnieDwadziecia1");
+    expect(truncateNick("", 20)).toBe("Gracz");
+    expect(truncateNick(null, 20)).toBe("Gracz");
   });
 });

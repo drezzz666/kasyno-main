@@ -181,10 +181,10 @@ func TestGameLimbo_InteractiveSimulation(t *testing.T) {
 
 // 7. GAME: MINES (SAPER)
 func TestGameMines_InteractiveSimulation(t *testing.T) {
-	// 1. Start round with 3 mines
-	mPayload := mines.InitialStart(3)
-	if len(mPayload.Mines) != 3 {
-		t.Fatalf("mines: expected 3 mines, got %d", len(mPayload.Mines))
+	// 1. Start round with 5 mines
+	mPayload := mines.InitialStart(5)
+	if len(mPayload.Mines) != 5 {
+		t.Fatalf("mines: expected 5 mines, got %d", len(mPayload.Mines))
 	}
 	if len(mPayload.Revealed) != 0 {
 		t.Fatalf("mines: initial revealed should be empty")

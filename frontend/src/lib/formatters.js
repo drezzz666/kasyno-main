@@ -111,3 +111,10 @@ export function formatHistoryTime(timestamp) {
     minute: "2-digit",
   });
 }
+
+export function truncateNick(nick, maxLen = 20) {
+  if (!nick) return "Gracz";
+  const str = String(nick).trim();
+  if (str.length <= maxLen) return str;
+  return `${str.slice(0, maxLen)}...`;
+}

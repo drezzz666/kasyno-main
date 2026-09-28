@@ -72,6 +72,9 @@ func TestValidateMines(t *testing.T) {
 	if err := ValidateMinesStart(5); err != nil {
 		t.Errorf("expected 5 mines to be valid")
 	}
+	if err := ValidateMinesStart(4); err == nil {
+		t.Errorf("expected 4 mines to fail")
+	}
 	if err := ValidateMinesStart(1); err == nil {
 		t.Errorf("expected 1 mine to fail")
 	}
