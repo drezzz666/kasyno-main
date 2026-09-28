@@ -33,35 +33,35 @@ func TestGameEdgeCases_Crash(t *testing.T) {
 
 // TestGameEdgeCases_Mines verifies extreme mine counts and safe reveal logic.
 func TestGameEdgeCases_Mines(t *testing.T) {
-	// 5 Mines minimum
-	m5 := mines.InitialStart(5)
-	if len(m5.Mines) != 5 {
-		t.Fatalf("Expected 5 mines, got %d", len(m5.Mines))
+	// 2 Mines minimum
+	m2 := mines.InitialStart(2)
+	if len(m2.Mines) != 2 {
+		t.Fatalf("Expected 2 mines, got %d", len(m2.Mines))
 	}
-	if len(m5.Revealed) != 0 {
+	if len(m2.Revealed) != 0 {
 		t.Fatalf("Initial revealed count should be 0")
 	}
 
-	// 24 Mines maximum: 1 safe diamond
-	m24 := mines.InitialStart(24)
-	if len(m24.Mines) != 24 {
-		t.Fatalf("Expected 24 mines, got %d", len(m24.Mines))
+	// 15 Mines maximum
+	m15 := mines.InitialStart(15)
+	if len(m15.Mines) != 15 {
+		t.Fatalf("Expected 15 mines, got %d", len(m15.Mines))
 	}
 
-	// Below minimum (<5) defaults to 5
+	// Below minimum (<2) defaults to 2
 	mDef := mines.InitialStart(1)
-	if len(mDef.Mines) != 5 {
-		t.Fatalf("Expected default 5 mines for input 1, got %d", len(mDef.Mines))
+	if len(mDef.Mines) != 2 {
+		t.Fatalf("Expected default 2 mines for input 1, got %d", len(mDef.Mines))
 	}
 
-	// Above maximum (>24) clamps to 24
+	// Above maximum (>15) clamps to 15
 	mMax := mines.InitialStart(30)
-	if len(mMax.Mines) != 24 {
-		t.Fatalf("Expected 24 mines for input 30, got %d", len(mMax.Mines))
+	if len(mMax.Mines) != 15 {
+		t.Fatalf("Expected 15 mines for input 30, got %d", len(mMax.Mines))
 	}
 
 	// Masking must hide mine positions
-	masked := mines.MaskMines(m24)
+	masked := mines.MaskMines(m15)
 	if len(masked.Mines) != 0 {
 		t.Fatalf("SECURITY VIOLATION: Masked mines payload exposed mine locations: %v", masked.Mines)
 	}
