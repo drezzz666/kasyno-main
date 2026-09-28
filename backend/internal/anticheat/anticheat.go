@@ -538,8 +538,8 @@ func ValidateCrashTarget(target float64) error {
 }
 
 func ValidateMinesStart(mineCount int) error {
-	if mineCount < 2 || mineCount > 15 {
-		return fmt.Errorf("%w: liczba min musi wynosić od 2 do 15", ErrInvalidGameParam)
+	if mineCount != 2 && mineCount != 5 && mineCount != 10 && mineCount != 15 {
+		return fmt.Errorf("%w: dozwolona liczba min to 2, 5, 10 lub 15", ErrInvalidGameParam)
 	}
 	return nil
 }
