@@ -215,6 +215,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"today":            today,
 		"recentWins":       recentWins,
 		"musorDrop":        musorDropState,
+		"activeEvent":      h.ledger.GetActiveEvent(),
 		"autoMuted":        IsMutedSubnet(GetClientIP(r)),
 		"autoMutedReason":  "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
 	}

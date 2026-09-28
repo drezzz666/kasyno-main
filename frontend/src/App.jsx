@@ -70,8 +70,37 @@ export default function App() {
   });
 
   const [tosModalOpen, setTosModalOpen] = useState(false);
-
   const [captchaOpen, setCaptchaOpen] = useState(false);
+
+  // Live Casino Event State (e.g. Money Rain + Multiplier)
+  const [activeEvent, setActiveEvent] = useState(() => data?.activeEvent || null);
+
+  useEffect(() => {
+    if (data?.activeEvent) {
+      setActiveEvent(data.activeEvent);
+    }
+  }, [data?.activeEvent]);
+
+  useEffect(() => {
+    const handleStart = (e) => {
+      const payload = e.detail || {};
+      setActiveEvent({
+        name: payload.event || "money-rain",
+        multiplier: payload.multiplier || 1.25,
+        duration: payload.duration || 60,
+      });
+    };
+    const handleStop = () => {
+      setActiveEvent(null);
+    };
+
+    window.addEventListener("casino:start_money_rain", handleStart);
+    window.addEventListener("casino:stop_money_rain", handleStop);
+    return () => {
+      window.removeEventListener("casino:start_money_rain", handleStart);
+      window.removeEventListener("casino:stop_money_rain", handleStop);
+    };
+  }, []);
 
   const handleAcceptTos = useCallback(async () => {
     const uid = data?.player?.user_id;
@@ -1203,6 +1232,7 @@ export default function App() {
           setTurbo={handleSetTurbo}
           tosAccepted={tosAccepted}
           onOpenTosModal={() => setTosModalOpen(true)}
+          activeEvent={activeEvent}
         />
       )}
 

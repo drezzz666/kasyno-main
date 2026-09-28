@@ -109,19 +109,47 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		}
 
 		var req struct {
-			Event     string `json:"event"`
-			Action    string `json:"action"`
-			Duration  int    `json:"duration"`
-			StartedBy string `json:"started_by"`
+			Event      string  `json:"event"`
+			Action     string  `json:"action"`
+			Duration   int     `json:"duration"`
+			Multiplier float64 `json:"multiplier"`
+			StartedBy  string  `json:"started_by"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, `{"error":"Invalid payload"}`, http.StatusBadRequest)
 			return
 		}
 
+		mult := req.Multiplier
+		if mult <= 1.0 {
+			mult = 1.25 // Default +25% bonus (1.25x) during Money Rain
+		}
+
 		evType := ws.EventMoneyRain
 		if req.Action == "stop" {
 			evType = ws.EventStopMoneyRain
+			ledgerService.ClearActiveEvent()
+		} else {
+			dur := time.Duration(req.Duration) * time.Second
+			if req.Duration <= 0 {
+				dur = 60 * time.Second
+			}
+			now := time.Now()
+			endsAt := now.Add(dur)
+			ev := &ledger.LiveEventInfo{
+				Name:       req.Event,
+				Multiplier: mult,
+				StartedAt:  now,
+				EndsAt:     endsAt,
+				StartedBy:  req.StartedBy,
+			}
+			ledgerService.SetActiveEvent(ev)
+			time.AfterFunc(dur, func() {
+				cur := ledgerService.GetActiveEvent()
+				if cur != nil && cur.EndsAt.Equal(endsAt) {
+					ledgerService.ClearActiveEvent()
+				}
+			})
 		}
 
 		wsHub.Broadcast(ws.Event{
@@ -130,11 +158,12 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 				"event":      req.Event,
 				"action":     req.Action,
 				"duration":   req.Duration,
+				"multiplier": mult,
 				"started_by": req.StartedBy,
 			},
 		})
 
-		JSON(w, http.StatusOK, map[string]string{"status": "ok", "event": req.Event, "action": req.Action})
+		JSON(w, http.StatusOK, map[string]interface{}{"status": "ok", "event": req.Event, "action": req.Action, "multiplier": mult})
 	})
 
 	// Auth routes (public)

@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
@@ -545,6 +547,12 @@ var slashCommands = []*discordgo.ApplicationCommand{
 						Type:        discordgo.ApplicationCommandOptionString,
 						Name:        "duration",
 						Description: "Czas trwania (np. 60s, 10m, 1h, domyślnie: 60s)",
+						Required:    false,
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionNumber,
+						Name:        "multiplier",
+						Description: "Mnożnik bonusowy wygranych (np. 1.25 = +25% do wygranych, domyślnie: 1.25)",
 						Required:    false,
 					},
 				},
@@ -1898,6 +1906,12 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ %v", err))
 				return
 			}
+			mult := 1.25
+			if len(args) > 3 {
+				if mVal, err := strconv.ParseFloat(args[3], 64); err == nil && mVal > 1.0 {
+					mult = mVal
+				}
+			}
 			now := time.Now()
 			endsAt := now.Add(dur)
 			b.SetActiveEvent(&ActiveEventInfo{
@@ -1908,7 +1922,7 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				StartedBy: m.Author.Username,
 			})
 			// Broadcast to all casino players (in-memory + HTTP to AppURL)
-			b.dispatchLiveEventToCasino(ev, "start", int(dur.Seconds()), m.Author.Username)
+			b.dispatchLiveEventToCasino(ev, "start", int(dur.Seconds()), mult, m.Author.Username)
 			time.AfterFunc(dur, func() {
 				curr := b.GetActiveEvent()
 				if curr != nil && curr.EndsAt.Equal(endsAt) {
@@ -1923,6 +1937,11 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 					{
 						Name:   "⏳ Czas trwania",
 						Value:  fmt.Sprintf("**%s** (<t:%d:R>)", friendly, endsAt.Unix()),
+						Inline: true,
+					},
+					{
+						Name:   "⚡ Bonusowy Mnożnik",
+						Value:  fmt.Sprintf("**×%.2f (+%d%% do każdej wygranej)**", mult, int(math.Round((mult-1.0)*100))),
 						Inline: true,
 					},
 					{
@@ -1949,7 +1968,7 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				ev = args[1]
 			}
 			b.ClearActiveEvent()
-			b.dispatchLiveEventToCasino(ev, "stop", 0, "")
+			b.dispatchLiveEventToCasino(ev, "stop", 0, 1.0, "")
 			embed := &discordgo.MessageEmbed{
 				Title:       "⏹️ Wydarzenie Zatrzymane",
 				Description: fmt.Sprintf("Wydarzenie **%s** zostało natychmiast przerwane na platformie.", ev),
@@ -2015,12 +2034,18 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 	case "start":
 		eventName := "money-rain"
 		durStr := "60s"
+		mult := 1.25
 		for _, opt := range options {
 			if opt.Name == "name" || opt.Name == "event" {
 				eventName = opt.StringValue()
 			} else if opt.Name == "duration" || opt.Name == "czas" {
 				durStr = opt.StringValue()
+			} else if opt.Name == "multiplier" || opt.Name == "mnoznik" {
+				mult = opt.FloatValue()
 			}
+		}
+		if mult <= 1.0 {
+			mult = 1.25
 		}
 
 		dur, friendly, err := parseEventDuration(durStr)
@@ -2048,7 +2073,7 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 		})
 
 		// Broadcast through WebSocket to all connected casino players (in-memory + HTTP to AppURL)
-		b.dispatchLiveEventToCasino(eventName, "start", int(dur.Seconds()), startedBy)
+		b.dispatchLiveEventToCasino(eventName, "start", int(dur.Seconds()), mult, startedBy)
 
 		time.AfterFunc(dur, func() {
 			current := b.GetActiveEvent()
@@ -2065,6 +2090,11 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 				{
 					Name:   "⏳ Czas trwania",
 					Value:  fmt.Sprintf("**%s** (<t:%d:R>)", friendly, endsAt.Unix()),
+					Inline: true,
+				},
+				{
+					Name:   "⚡ Bonusowy Mnożnik",
+					Value:  fmt.Sprintf("**×%.2f (+%d%% do każdej wygranej)**", mult, int(math.Round((mult-1.0)*100))),
 					Inline: true,
 				},
 				{
@@ -2094,7 +2124,7 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 		}
 
 		b.ClearActiveEvent()
-		b.dispatchLiveEventToCasino(eventName, "stop", 0, "")
+		b.dispatchLiveEventToCasino(eventName, "stop", 0, 1.0, "")
 
 		embed := &discordgo.MessageEmbed{
 			Title:       "⏹️ Wydarzenie Zatrzymane",
@@ -2152,10 +2182,29 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 	}
 }
 
-func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int, startedBy string) {
+func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int, multiplier float64, startedBy string) {
+	if multiplier <= 1.0 {
+		multiplier = 1.25
+	}
 	evType := ws.EventMoneyRain
 	if action == "stop" {
 		evType = ws.EventStopMoneyRain
+	}
+
+	// Update ledger in-memory if available
+	if b.ledger != nil {
+		if action == "start" {
+			dur := time.Duration(durSeconds) * time.Second
+			b.ledger.SetActiveEvent(&ledger.LiveEventInfo{
+				Name:       eventName,
+				Multiplier: multiplier,
+				StartedAt:  time.Now(),
+				EndsAt:     time.Now().Add(dur),
+				StartedBy:  startedBy,
+			})
+		} else {
+			b.ledger.ClearActiveEvent()
+		}
 	}
 
 	// 1. Direct in-memory broadcast if wsHub is available in the current process
@@ -2166,6 +2215,7 @@ func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int
 				"event":      eventName,
 				"action":     action,
 				"duration":   durSeconds,
+				"multiplier": multiplier,
 				"started_by": startedBy,
 			},
 		})
@@ -2186,6 +2236,7 @@ func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int
 			"event":      eventName,
 			"action":     action,
 			"duration":   durSeconds,
+			"multiplier": multiplier,
 			"started_by": startedBy,
 		})
 

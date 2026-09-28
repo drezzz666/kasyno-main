@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/db"
@@ -37,12 +38,47 @@ var (
 	ErrRevisionConflict    = errors.New("REVISION_CONFLICT")
 )
 
+type LiveEventInfo struct {
+	Name       string    `json:"name"`
+	Multiplier float64   `json:"multiplier"`
+	StartedAt  time.Time `json:"started_at"`
+	EndsAt     time.Time `json:"ends_at"`
+	StartedBy  string    `json:"started_by"`
+}
+
 type Service struct {
-	db *db.DB
+	db          *db.DB
+	eventMu     sync.RWMutex
+	activeEvent *LiveEventInfo
 }
 
 func NewService(database *db.DB) *Service {
 	return &Service{db: database}
+}
+
+func (s *Service) SetActiveEvent(ev *LiveEventInfo) {
+	s.eventMu.Lock()
+	defer s.eventMu.Unlock()
+	s.activeEvent = ev
+}
+
+func (s *Service) GetActiveEvent() *LiveEventInfo {
+	s.eventMu.RLock()
+	defer s.eventMu.RUnlock()
+	if s.activeEvent == nil {
+		return nil
+	}
+	if time.Now().After(s.activeEvent.EndsAt) {
+		return nil
+	}
+	cpy := *s.activeEvent
+	return &cpy
+}
+
+func (s *Service) ClearActiveEvent() {
+	s.eventMu.Lock()
+	defer s.eventMu.Unlock()
+	s.activeEvent = nil
 }
 
 func NowMs() int64 {
@@ -1462,6 +1498,15 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 }
 
 func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string, payout int64, resultText string, finalPayloadJSON string) (*SettleOutcome, error) {
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
+		basePayout := payout
+		payout = int64(math.Round(float64(payout) * ev.Multiplier))
+		bonus := payout - basePayout
+		if bonus > 0 {
+			resultText = fmt.Sprintf("%s (+%d ₽ event bonus ×%.2f)", resultText, bonus, ev.Multiplier)
+		}
+	}
+
 	t := NowMs()
 	tx, err := s.db.Pool.Begin(ctx)
 	if err != nil {
@@ -1561,6 +1606,15 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, bet, payout int64, resultText string, payloadJSON string) (*SettleOutcome, error) {
 	if bet <= 0 {
 		return nil, ErrInvalidBet
+	}
+
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
+		basePayout := payout
+		payout = int64(math.Round(float64(payout) * ev.Multiplier))
+		bonus := payout - basePayout
+		if bonus > 0 {
+			resultText = fmt.Sprintf("%s (+%d ₽ event bonus ×%.2f)", resultText, bonus, ev.Multiplier)
+		}
 	}
 
 	roundID := uuid.NewString()

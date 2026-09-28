@@ -58,12 +58,17 @@ class CasinoSoundEngine {
       localStorage.setItem("fgt_muted", String(this.muted));
     } catch {}
     if (this.moneyRainAudio) {
-      this.moneyRainAudio.volume = this.muted ? 0 : 0.25;
+      this.moneyRainAudio.volume = this.muted ? 0 : Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+      if (this.muted) {
+        try { this.moneyRainAudio.pause(); } catch {}
+      } else if (this.moneyRainActive && typeof document !== "undefined" && !document.hidden) {
+        this.moneyRainAudio.play().catch(() => {});
+      }
     }
     if (this.muted) {
       this.pauseBgm();
     } else {
-      if (this.bgmIsPlaying || !this.bgmSource) {
+      if (this.bgmIsPlaying || !this.bgmSource || this.moneyRainActive) {
         this.resumeBgm();
       }
     }
@@ -153,10 +158,25 @@ class CasinoSoundEngine {
       } catch {}
       this.bgmSource = null;
     }
+    if (this.moneyRainAudio) {
+      try {
+        this.moneyRainAudio.pause();
+      } catch {}
+    }
     this.cleanupMediaSession();
   }
 
   resumeBgm() {
+    if (this.moneyRainActive) {
+      if (!this.muted && (this.bgmVolume === undefined || this.bgmVolume > 0) && this.moneyRainAudio) {
+        if (typeof document === "undefined" || !document.hidden) {
+          const vol = Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+          this.moneyRainAudio.volume = vol;
+          this.moneyRainAudio.play().catch(() => {});
+        }
+      }
+      return;
+    }
     if (!this.muted && this.bgmVolume > 0 && !this.bgmSource) {
       this.playBgm(this.bgmVolume);
     }
@@ -171,11 +191,17 @@ class CasinoSoundEngine {
       } catch {}
     }
     if (this.moneyRainAudio) {
-      this.moneyRainAudio.volume = this.muted ? 0 : Math.min(1, this.bgmVolume * 1.1);
+      const vol = this.muted ? 0 : Math.min(1, this.bgmVolume * 0.9);
+      this.moneyRainAudio.volume = vol;
+      if (this.bgmVolume === 0 || this.muted) {
+        try { this.moneyRainAudio.pause(); } catch {}
+      } else if (this.moneyRainActive && this.moneyRainAudio.paused && (typeof document === "undefined" || !document.hidden)) {
+        this.moneyRainAudio.play().catch(() => {});
+      }
     }
     if (this.bgmVolume === 0) {
       this.pauseBgm();
-    } else if (!this.muted && !this.bgmSource && this.bgmIsPlaying) {
+    } else if (!this.muted && !this.bgmSource && this.bgmIsPlaying && !this.moneyRainActive) {
       this.resumeBgm();
     }
   }
@@ -195,15 +221,21 @@ class CasinoSoundEngine {
       this.moneyRainAudio.loop = true;
     }
 
-    this.moneyRainAudio.volume = this.muted ? 0 : 0.25;
+    const currentVol = this.muted ? 0 : Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+    this.moneyRainAudio.volume = currentVol;
     this.moneyRainAudio.currentTime = 0;
+
+    // Do not play if user is currently in another tab or muted!
+    if (this.muted || currentVol <= 0 || (typeof document !== "undefined" && document.hidden)) {
+      return;
+    }
 
     const promise = this.moneyRainAudio.play();
     if (promise !== undefined) {
       promise.catch(() => {
-        // If browser autoplay policy blocked, auto-play on next interaction
+        // If browser autoplay policy blocked, auto-play on next user gesture
         const unlock = () => {
-          if (this.moneyRainActive && this.moneyRainAudio) {
+          if (this.moneyRainActive && this.moneyRainAudio && !this.muted && (typeof document === "undefined" || !document.hidden)) {
             this.moneyRainAudio.play().catch(() => {});
           }
         };

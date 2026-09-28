@@ -45,6 +45,7 @@ export function GameTableDialog({
   setTurbo,
   tosAccepted = true,
   onOpenTosModal,
+  activeEvent: propActiveEvent,
 }) {
   const dialogRef = useRef(null);
   const lastActionTimeRef = useRef(0);
@@ -52,6 +53,39 @@ export function GameTableDialog({
   const outcomeTimerRef = useRef(null);
   const plinkoRef = useRef(null);
   const chickenRef = useRef(null);
+
+  const [currentEvent, setCurrentEvent] = useState(() => {
+    return propActiveEvent || data?.activeEvent || null;
+  });
+
+  useEffect(() => {
+    if (propActiveEvent) {
+      setCurrentEvent(propActiveEvent);
+    } else if (data?.activeEvent) {
+      setCurrentEvent(data.activeEvent);
+    }
+  }, [propActiveEvent, data?.activeEvent]);
+
+  useEffect(() => {
+    const handleStart = (e) => {
+      const p = e.detail || {};
+      setCurrentEvent({
+        name: p.event || "money-rain",
+        multiplier: p.multiplier || 1.25,
+        duration: p.duration || 60,
+      });
+    };
+    const handleStop = () => {
+      setCurrentEvent(null);
+    };
+
+    window.addEventListener("casino:start_money_rain", handleStart);
+    window.addEventListener("casino:stop_money_rain", handleStop);
+    return () => {
+      window.removeEventListener("casino:start_money_rain", handleStart);
+      window.removeEventListener("casino:stop_money_rain", handleStop);
+    };
+  }, []);
 
   const round = data?.active?.game === game ? data.active : null;
 
@@ -632,6 +666,12 @@ export function GameTableDialog({
             <p>Stolik do gry</p>
           </div>
           <div className="flex items-center gap-2">
+            {currentEvent?.multiplier > 1.0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-black animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.25)]">
+                <span>🌧️ EVENT ×{currentEvent.multiplier.toFixed(2)}</span>
+                <span className="text-[10px] text-amber-200/80 font-bold hidden sm:inline">(+{Math.round((currentEvent.multiplier - 1) * 100)}%)</span>
+              </div>
+            )}
             <div className="balance-chip" title="Stan Twojego portfela">
               <span className="balance-val">{data?.player ? money(data.player.balance) : "—"}</span>
             </div>
@@ -1120,14 +1160,31 @@ export function GameTableDialog({
                   }
 
                   if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
+                    const currentMultiplier = Number(crashMult) || 1.0;
+                    const eventMult = currentEvent?.multiplier || 1.0;
+                    const basePayout = Math.floor(bet * currentMultiplier);
+                    const finalPayout = Math.floor(basePayout * eventMult);
+                    const profit = finalPayout - bet;
+                    const eventBonus = finalPayout - basePayout;
+
                     return (
                       <button
                         type="button"
-                        className="w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
+                        className="w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
                         onClick={handleManualCrashCashout}
                       >
                         <CheckCircle2 size={18} />
-                        <span>WYPŁAĆ ({(Number(crashMult) || 1.0).toFixed(2)}×)</span>
+                        <span>WYPŁAĆ {money(finalPayout)} ({currentMultiplier.toFixed(2)}×)</span>
+                        {profit > 0 && (
+                          <span className="text-[11px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_rgba(16,185,129,0.2)]">
+                            +{money(profit)}
+                          </span>
+                        )}
+                        {eventBonus > 0 && (
+                          <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
+                            +{money(eventBonus)} (Event ×{eventMult.toFixed(2)})
+                          </span>
+                        )}
                       </button>
                     );
                   }
@@ -1136,7 +1193,11 @@ export function GameTableDialog({
                     const p = round.payload || {};
                     const revealed = p.revealed || [];
                     const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
+                    const eventMult = currentEvent?.multiplier || 1.0;
+                    const basePayout = Math.floor(bet * currentMult);
+                    const finalPayout = Math.floor(basePayout * eventMult);
+                    const profit = finalPayout - bet;
+                    const eventBonus = finalPayout - basePayout;
                     const canCashout = revealed.length > 0 && !loading;
 
                     return (
@@ -1144,7 +1205,7 @@ export function GameTableDialog({
                         type="button"
                         disabled={!canCashout}
                         onClick={handleMinesCashout}
-                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
+                        className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                           canCashout
                             ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
                             : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
@@ -1154,8 +1215,18 @@ export function GameTableDialog({
                         <span>
                           {revealed.length === 0
                             ? "Wybierz pole na planszy"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
+                            : `WYPŁAĆ ${money(finalPayout)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
+                        {canCashout && profit > 0 && (
+                          <span className="text-[11px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1.5 py-0.5 rounded font-mono font-bold shadow-[0_0_6px_rgba(16,185,129,0.2)]">
+                            +{money(profit)}
+                          </span>
+                        )}
+                        {canCashout && eventBonus > 0 && (
+                          <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
+                            +{money(eventBonus)} (Event ×{eventMult.toFixed(2)})
+                          </span>
+                        )}
                       </button>
                     );
                   }
@@ -1163,7 +1234,11 @@ export function GameTableDialog({
                   if (round?.game === "chicken") {
                     const currentLane = round.payload?.currentLane || 0;
                     const currentMult = round.payload?.multiplier ?? 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
+                    const eventMult = currentEvent?.multiplier || 1.0;
+                    const basePayout = Math.floor(bet * currentMult);
+                    const finalPayout = Math.floor(basePayout * eventMult);
+                    const profit = finalPayout - bet;
+                    const eventBonus = finalPayout - basePayout;
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
                     const isStepDisabled = loading || chickenBusy || currentLane >= 17;
 
@@ -1209,8 +1284,18 @@ export function GameTableDialog({
                         >
                           <CheckCircle2 size={16} />
                           <span className="truncate">
-                            WYPŁAĆ {money(currentProfit)}
+                            WYPŁAĆ {money(finalPayout)} (×{(Number(currentMult) || 1.0).toFixed(2)})
                           </span>
+                          {!isCashoutDisabled && profit > 0 && (
+                            <span className="text-[10px] sm:text-xs bg-slate-950/80 text-emerald-400 border border-emerald-500/40 px-1 py-0.5 rounded font-mono font-bold">
+                              +{money(profit)}
+                            </span>
+                          )}
+                          {!isCashoutDisabled && eventBonus > 0 && (
+                            <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.5)]">
+                              +{money(eventBonus)}
+                            </span>
+                          )}
                         </button>
                       </div>
                     );
