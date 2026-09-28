@@ -58,7 +58,7 @@ class CasinoSoundEngine {
       localStorage.setItem("fgt_muted", String(this.muted));
     } catch {}
     if (this.moneyRainAudio) {
-      this.moneyRainAudio.volume = this.muted ? 0 : 0.75;
+      this.moneyRainAudio.volume = this.muted ? 0 : 0.25;
     }
     if (this.muted) {
       this.pauseBgm();
@@ -170,6 +170,9 @@ class CasinoSoundEngine {
         this.bgmGain.gain.setValueAtTime(this.muted ? 0 : this.bgmVolume, this.ctx.currentTime);
       } catch {}
     }
+    if (this.moneyRainAudio) {
+      this.moneyRainAudio.volume = this.muted ? 0 : Math.min(1, this.bgmVolume * 1.1);
+    }
     if (this.bgmVolume === 0) {
       this.pauseBgm();
     } else if (!this.muted && !this.bgmSource && this.bgmIsPlaying) {
@@ -192,7 +195,7 @@ class CasinoSoundEngine {
       this.moneyRainAudio.loop = true;
     }
 
-    this.moneyRainAudio.volume = this.muted ? 0 : 0.75;
+    this.moneyRainAudio.volume = this.muted ? 0 : 0.25;
     this.moneyRainAudio.currentTime = 0;
 
     const promise = this.moneyRainAudio.play();
