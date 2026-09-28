@@ -567,7 +567,7 @@ export function GameTableDialog({
       return;
     }
 
-    if (game === "mines") return post({ action: "start_mines", bet, mines: mineCount });
+    if (game === "mines") return post({ action: "start_mines", bet, mines: Math.max(2, Math.min(15, Number(mineCount) || 5)) });
     if (game === "chicken") return post({ action: "start_chicken", bet });
 
     if (game === "roulette") {
@@ -843,7 +843,7 @@ export function GameTableDialog({
                       <span className="min-[400px]:hidden">Miny:</span>
                     </span>
                     <div className="grid grid-cols-4 gap-1.5 flex-1 md:flex-initial md:flex md:items-center">
-                      {[5, 10, 15, 20].map((c) => (
+                      {[2, 5, 10, 15].map((c) => (
                         <button
                           key={c}
                           type="button"

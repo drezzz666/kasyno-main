@@ -69,14 +69,23 @@ func TestValidateCoinflipAndRPS(t *testing.T) {
 }
 
 func TestValidateMines(t *testing.T) {
-	if err := ValidateMinesStart(5); err != nil {
-		t.Errorf("expected 5 mines to be valid")
+	if err := ValidateMinesStart(2); err != nil {
+		t.Errorf("expected 2 mines to be valid: %v", err)
 	}
-	if err := ValidateMinesStart(4); err == nil {
-		t.Errorf("expected 4 mines to fail")
+	if err := ValidateMinesStart(5); err != nil {
+		t.Errorf("expected 5 mines to be valid: %v", err)
+	}
+	if err := ValidateMinesStart(15); err != nil {
+		t.Errorf("expected 15 mines to be valid: %v", err)
 	}
 	if err := ValidateMinesStart(1); err == nil {
 		t.Errorf("expected 1 mine to fail")
+	}
+	if err := ValidateMinesStart(16); err == nil {
+		t.Errorf("expected 16 mines to fail")
+	}
+	if err := ValidateMinesStart(20); err == nil {
+		t.Errorf("expected 20 mines to fail")
 	}
 	if err := ValidateMinesStart(25); err == nil {
 		t.Errorf("expected 25 mines to fail")
