@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { postCasinoAction } from "../lib/api";
 
 export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
+  const isBalanceLocked = typeof currentBalance === "number" && currentBalance >= 2000;
   const [captchaData, setCaptchaData] = useState(null);
   const [inputVal, setInputVal] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   // Fetch server-generated pure binary PNG captcha image
   const fetchCaptcha = async (preserveError = false) => {
+    if (isBalanceLocked) return;
     setLoading(true);
     if (!preserveError) {
       setErrorMsg("");
@@ -62,10 +64,12 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
   };
 
   useEffect(() => {
-    fetchCaptcha(false);
-    const t = setTimeout(() => inputRef.current?.focus(), 150);
-    return () => clearTimeout(t);
-  }, []);
+    if (!isBalanceLocked) {
+      fetchCaptcha(false);
+      const t = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [isBalanceLocked]);
 
   useEffect(() => {
     return () => {
@@ -78,7 +82,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!inputVal.trim() || loading || !captchaData) return;
+    if (!inputVal.trim() || loading || !captchaData || isBalanceLocked) return;
 
     setLoading(true);
     setErrorMsg("");
@@ -140,41 +144,38 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
     }
   };
 
-  const isBalanceLocked = typeof currentBalance === "number" && currentBalance >= 2000;
-
   return (
     <div className="captcha-minigame-container">
-      {isBalanceLocked && (
-        <div className="p-3 mb-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs text-center">
-          Kranik Captcha jest kołem ratunkowym dostępnym tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽.
-          <div className="text-[11px] text-slate-400 mt-1">Twoje obecne saldo: {currentBalance.toLocaleString()} ₽</div>
-        </div>
-      )}
-
-      {/* Server-Side Rendered Distorted PNG Image */}
+      {/* Server-Side Rendered Distorted PNG Image or Balance Lock Info */}
       <div className="captcha-canvas-wrap">
-        {captchaData?.image && !isBalanceLocked ? (
+        {isBalanceLocked ? (
+          <div className="h-[75px] w-[280px] flex items-center justify-center text-center px-4 text-xs text-slate-300 font-medium leading-relaxed select-none">
+            Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽
+          </div>
+        ) : captchaData?.image ? (
           <img
             src={captchaData.image}
             alt="Captcha"
             className={`captcha-img ${successAnim ? "success-glow" : ""}`}
           />
         ) : (
-          <div className="h-[75px] w-[280px] flex items-center justify-center text-slate-500 text-xs font-mono text-center px-4">
-            {isBalanceLocked ? "Kranik zablokowany (saldo ≥ 2 000 ₽)" : loading ? "Ładowanie..." : "Brak obrazu"}
+          <div className="h-[75px] w-[280px] flex items-center justify-center text-slate-500 text-xs font-mono">
+            {loading ? "Ładowanie..." : "Brak obrazu"}
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => fetchCaptcha(false)}
-          disabled={loading || isBalanceLocked}
-          className="captcha-refresh-btn"
-          title="Odśwież kod"
-          aria-label="Odśwież kod"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin text-amber-400" : "text-slate-300"} />
-        </button>
+        {!isBalanceLocked && (
+          <button
+            type="button"
+            onClick={() => fetchCaptcha(false)}
+            disabled={loading}
+            className="captcha-refresh-btn"
+            title="Odśwież kod"
+            aria-label="Odśwież kod"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin text-amber-400" : "text-slate-300"} />
+          </button>
+        )}
       </div>
 
       {/* Form & Input */}
@@ -198,7 +199,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           />
         </div>
 
-        {errorMsg && (
+        {!isBalanceLocked && errorMsg && (
           <div className="captcha-status-msg error">
             <AlertCircle size={15} className="shrink-0" />
             <span>{errorMsg}</span>

@@ -238,7 +238,7 @@ func (h *CasinoHandler) GetCaptcha(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if p.Balance >= 2000 {
-		JSONError(w, http.StatusForbidden, "Kranik Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽")
+		JSONError(w, http.StatusForbidden, "Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽")
 		return
 	}
 
@@ -447,7 +447,7 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 	if p.Balance >= 2000 {
 		JSON(w, http.StatusBadRequest, map[string]interface{}{
 			"ok":    false,
-			"error": "Kranik Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽",
+			"error": "Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽",
 		})
 		return
 	}
