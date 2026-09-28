@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
+	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
 
 var adminPerms int64 = discordgo.PermissionAdministrator
@@ -516,6 +517,62 @@ var slashCommands = []*discordgo.ApplicationCommand{
 		DefaultMemberPermissions: &adminPerms,
 	},
 	{
+		Name:                     "event",
+		Description:              "Zarządzaj wydarzeniami na żywo w kasynie (np. Money Rain)",
+		DefaultMemberPermissions: &adminPerms,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "start",
+				Description: "Uruchom wydarzenie na żywo (np. Money Rain) dla wszystkich graczy",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "name",
+						Description: "Nazwa wydarzenia (np. money-rain)",
+						Required:    true,
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{
+								Name:  "Money Rain (Deszcz Kasy)",
+								Value: "money-rain",
+							},
+						},
+					},
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "duration",
+						Description: "Czas trwania (np. 60s, 10m, 1h, domyślnie: 60s)",
+						Required:    false,
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "stop",
+				Description: "Zatrzymaj aktualnie trwające wydarzenie",
+				Options: []*discordgo.ApplicationCommandOption{
+					{
+						Type:        discordgo.ApplicationCommandOptionString,
+						Name:        "name",
+						Description: "Nazwa wydarzenia do zatrzymania",
+						Required:    true,
+						Choices: []*discordgo.ApplicationCommandOptionChoice{
+							{
+								Name:  "Money Rain (Deszcz Kasy)",
+								Value: "money-rain",
+							},
+						},
+					},
+				},
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+				Name:        "status",
+				Description: "Sprawdź status aktualnego wydarzenia na żywo",
+			},
+		},
+	},
+	{
 		Name:                     "help",
 		Description:              "Show command guide and help documentation",
 		DefaultMemberPermissions: &adminPerms,
@@ -610,6 +667,9 @@ func (b *Bot) handleInteractionCreate(s *discordgo.Session, i *discordgo.Interac
 	defer cancel()
 
 	switch cmd {
+	case "event", "wydarzenie":
+		b.handleEventCommand(s, i, subCmd, options)
+
 	case "player", "gracz":
 		target := ""
 		for _, opt := range options {
@@ -1813,6 +1873,315 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 		default:
 			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Nieznana podkomenda `!schedule`. Dostępne: `list`, `add`, `remove`, `toggle`, `run`.")
 		}
+
+	case "!event", "!wydarzenie":
+		if len(args) == 0 {
+			_, _ = s.ChannelMessageSend(m.ChannelID, "❓ Użycie: `!event start <nazwa> [czas]` (np. `!event start money-rain 60s`) lub `!event stop <nazwa>`")
+			return
+		}
+		sub := strings.ToLower(args[0])
+		switch sub {
+		case "start":
+			ev := "money-rain"
+			durStr := "60s"
+			if len(args) > 1 {
+				ev = args[1]
+			}
+			if len(args) > 2 {
+				durStr = args[2]
+			}
+			dur, friendly, err := parseEventDuration(durStr)
+			if err != nil {
+				_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ %v", err))
+				return
+			}
+			now := time.Now()
+			endsAt := now.Add(dur)
+			b.SetActiveEvent(&ActiveEventInfo{
+				Name:      ev,
+				Duration:  dur,
+				StartedAt: now,
+				EndsAt:    endsAt,
+				StartedBy: m.Author.Username,
+			})
+			if b.wsHub != nil {
+				b.wsHub.Broadcast(ws.Event{
+					Type: ws.EventMoneyRain,
+					Payload: map[string]interface{}{
+						"event":      ev,
+						"action":     "start",
+						"duration":   int(dur.Seconds()),
+						"started_by": m.Author.Username,
+					},
+				})
+			}
+			time.AfterFunc(dur, func() {
+				curr := b.GetActiveEvent()
+				if curr != nil && curr.EndsAt.Equal(endsAt) {
+					b.ClearActiveEvent()
+				}
+			})
+			embed := &discordgo.MessageEmbed{
+				Title:       "🌧️ Wydarzenie Uruchomione: Money Rain!",
+				Description: "Deszcz pieniędzy został pomyślnie rozesłany na żywo do wszystkich graczy w kasynie!",
+				Color:       ColorEmerald,
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:   "⏳ Czas trwania",
+						Value:  fmt.Sprintf("**%s** (<t:%d:R>)", friendly, endsAt.Unix()),
+						Inline: true,
+					},
+					{
+						Name:   "👤 Uruchomione przez",
+						Value:  fmt.Sprintf("**%s**", m.Author.Username),
+						Inline: true,
+					},
+					{
+						Name:   "🎵 Muzyka & Efekty",
+						Value:  "ABBA – *Money, Money, Money* + spadające banknoty 3D",
+						Inline: false,
+					},
+				},
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: "2FGT Kasyno • System Wydarzeń Na Żywo",
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+		case "stop":
+			ev := "money-rain"
+			if len(args) > 1 {
+				ev = args[1]
+			}
+			b.ClearActiveEvent()
+			if b.wsHub != nil {
+				b.wsHub.Broadcast(ws.Event{
+					Type: ws.EventStopMoneyRain,
+					Payload: map[string]interface{}{
+						"event":  ev,
+						"action": "stop",
+					},
+				})
+			}
+			embed := &discordgo.MessageEmbed{
+				Title:       "⏹️ Wydarzenie Zatrzymane",
+				Description: fmt.Sprintf("Wydarzenie **%s** zostało natychmiast przerwane na platformie.", ev),
+				Color:       ColorRose,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: "2FGT Kasyno • System Wydarzeń Na Żywo",
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+			_, _ = s.ChannelMessageSendEmbed(m.ChannelID, embed)
+
+		case "status":
+			active := b.GetActiveEvent()
+			if active == nil {
+				_, _ = s.ChannelMessageSend(m.ChannelID, "ℹ️ Brak aktywnego wydarzenia. Możesz uruchomić np.: `!event start money-rain 60s`")
+				return
+			}
+			remaining := time.Until(active.EndsAt)
+			_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🌧️ Trwa wydarzenie **%s**! Pozostało ok. %d sek. (uruchomił: %s)", active.Name, int(remaining.Seconds()), active.StartedBy))
+		}
+	}
+}
+
+func parseEventDuration(durStr string) (time.Duration, string, error) {
+	durStr = strings.TrimSpace(strings.ToLower(durStr))
+	if durStr == "" {
+		return 60 * time.Second, "60 sekund", nil
+	}
+	// Pure integer without unit -> default to seconds
+	if n, err := strconv.Atoi(durStr); err == nil {
+		if n <= 0 {
+			return 0, "", fmt.Errorf("czas trwania musi być większy od 0")
+		}
+		return time.Duration(n) * time.Second, fmt.Sprintf("%d sekund", n), nil
+	}
+	d, err := time.ParseDuration(durStr)
+	if err != nil {
+		return 0, "", fmt.Errorf("niepoprawny format czasu (użyj np. 60s, 10m, 1h)")
+	}
+	if d < 5*time.Second {
+		return 0, "", fmt.Errorf("czas trwania musi wynosić minimum 5 sekund")
+	}
+	if d > 24*time.Hour {
+		return 0, "", fmt.Errorf("maksymalny czas trwania wydarzenia to 24 godziny")
+	}
+	var friendly string
+	if d < time.Minute {
+		friendly = fmt.Sprintf("%d sekund", int(d.Seconds()))
+	} else if d < time.Hour {
+		if int(d.Seconds())%60 == 0 {
+			friendly = fmt.Sprintf("%d minut", int(d.Minutes()))
+		} else {
+			friendly = fmt.Sprintf("%d minut %d sekund", int(d.Minutes()), int(d.Seconds())%60)
+		}
+	} else {
+		friendly = fmt.Sprintf("%.1f godzin", d.Hours())
+	}
+	return d, friendly, nil
+}
+
+func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionCreate, subCmd string, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	switch subCmd {
+	case "start":
+		eventName := "money-rain"
+		durStr := "60s"
+		for _, opt := range options {
+			if opt.Name == "name" || opt.Name == "event" {
+				eventName = opt.StringValue()
+			} else if opt.Name == "duration" || opt.Name == "czas" {
+				durStr = opt.StringValue()
+			}
+		}
+
+		dur, friendly, err := parseEventDuration(durStr)
+		if err != nil {
+			b.respondInteractionError(s, i, fmt.Sprintf("⚠️ %v", err))
+			return
+		}
+
+		startedBy := "Administrator"
+		if i.Member != nil && i.Member.User != nil {
+			startedBy = i.Member.User.Username
+		} else if i.User != nil {
+			startedBy = i.User.Username
+		}
+
+		now := time.Now()
+		endsAt := now.Add(dur)
+
+		b.SetActiveEvent(&ActiveEventInfo{
+			Name:      eventName,
+			Duration:  dur,
+			StartedAt: now,
+			EndsAt:    endsAt,
+			StartedBy: startedBy,
+		})
+
+		// Broadcast through WebSocket to all connected casino players
+		if b.wsHub != nil {
+			b.wsHub.Broadcast(ws.Event{
+				Type: ws.EventMoneyRain,
+				Payload: map[string]interface{}{
+					"event":      eventName,
+					"action":     "start",
+					"duration":   int(dur.Seconds()),
+					"started_by": startedBy,
+				},
+			})
+		}
+
+		time.AfterFunc(dur, func() {
+			current := b.GetActiveEvent()
+			if current != nil && current.EndsAt.Equal(endsAt) {
+				b.ClearActiveEvent()
+			}
+		})
+
+		embed := &discordgo.MessageEmbed{
+			Title:       "🌧️ Wydarzenie Uruchomione: Money Rain!",
+			Description: "Deszcz pieniędzy został pomyślnie rozesłany na żywo do wszystkich graczy w kasynie!",
+			Color:       ColorEmerald,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "⏳ Czas trwania",
+					Value:  fmt.Sprintf("**%s** (<t:%d:R>)", friendly, endsAt.Unix()),
+					Inline: true,
+				},
+				{
+					Name:   "👤 Uruchomione przez",
+					Value:  fmt.Sprintf("**%s**", startedBy),
+					Inline: true,
+				},
+				{
+					Name:   "🎵 Muzyka & Efekty",
+					Value:  "ABBA – *Money, Money, Money* + spadające banknoty 3D",
+					Inline: false,
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "2FGT Kasyno • System Wydarzeń Na Żywo",
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		b.respondInteraction(s, i, embed)
+
+	case "stop":
+		eventName := "money-rain"
+		for _, opt := range options {
+			if opt.Name == "name" || opt.Name == "event" {
+				eventName = opt.StringValue()
+			}
+		}
+
+		b.ClearActiveEvent()
+
+		if b.wsHub != nil {
+			b.wsHub.Broadcast(ws.Event{
+				Type: ws.EventStopMoneyRain,
+				Payload: map[string]interface{}{
+					"event":  eventName,
+					"action": "stop",
+				},
+			})
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Title:       "⏹️ Wydarzenie Zatrzymane",
+			Description: fmt.Sprintf("Wydarzenie **%s** zostało natychmiast przerwane na platformie.", eventName),
+			Color:       ColorRose,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "2FGT Kasyno • System Wydarzeń Na Żywo",
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		b.respondInteraction(s, i, embed)
+
+	case "status":
+		active := b.GetActiveEvent()
+		if active == nil {
+			embed := &discordgo.MessageEmbed{
+				Title:       "ℹ️ Status Wydarzeń",
+				Description: "Obecnie **żadne wydarzenie nie jest aktywne**.\n\nAby uruchomić nowe wydarzenie, użyj:\n`/event start money-rain 60s`",
+				Color:       ColorSky,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: "2FGT Kasyno • System Wydarzeń Na Żywo",
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+			b.respondInteraction(s, i, embed)
+			return
+		}
+
+		remaining := time.Until(active.EndsAt)
+		embed := &discordgo.MessageEmbed{
+			Title:       "🌧️ Aktualne Wydarzenie Na Żywo",
+			Description: fmt.Sprintf("Aktualnie trwa wydarzenie **%s**!", active.Name),
+			Color:       ColorEmerald,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "⏳ Pozostały czas",
+					Value:  fmt.Sprintf("<t:%d:R> (ok. %d sek)", active.EndsAt.Unix(), int(remaining.Seconds())),
+					Inline: true,
+				},
+				{
+					Name:   "👤 Uruchomił",
+					Value:  active.StartedBy,
+					Inline: true,
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: "2FGT Kasyno • Użyj /event stop aby zatrzymać",
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		b.respondInteraction(s, i, embed)
+
+	default:
+		b.respondInteractionError(s, i, "Nieznana podkomenda. Użyj: `/event start`, `/event stop` lub `/event status`.")
 	}
 }
 

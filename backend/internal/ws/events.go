@@ -9,6 +9,8 @@ const (
 	EventLeaderboardUpdate EventType = "leaderboard_update"
 	EventPing              EventType = "ping"
 	EventPong              EventType = "pong"
+	EventMoneyRain         EventType = "money_rain"
+	EventStopMoneyRain     EventType = "stop_money_rain"
 )
 
 type Event struct {
