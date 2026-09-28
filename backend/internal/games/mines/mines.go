@@ -45,11 +45,11 @@ func CalculateMultiplier(revealedCount int, mineCount int) float64 {
 
 // GenerateMines randomly selects unique mine positions in [0, TotalTiles)
 func GenerateMines(mineCount int) []int {
-	if mineCount < 2 {
-		mineCount = 2
+	if mineCount < 5 {
+		mineCount = 5
 	}
-	if mineCount > 15 {
-		mineCount = 15
+	if mineCount > TotalTiles-1 {
+		mineCount = TotalTiles - 1
 	}
 
 	minesMap := make(map[int]bool)
@@ -67,11 +67,11 @@ func GenerateMines(mineCount int) []int {
 
 // InitialStart creates a new Mines game payload
 func InitialStart(mineCount int) Payload {
-	if mineCount < 2 {
-		mineCount = 2
+	if mineCount < 5 {
+		mineCount = 5
 	}
-	if mineCount > 15 {
-		mineCount = 15
+	if mineCount > 24 {
+		mineCount = 24
 	}
 
 	mines := GenerateMines(mineCount)

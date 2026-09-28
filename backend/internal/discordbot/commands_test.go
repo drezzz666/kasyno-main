@@ -3,8 +3,6 @@ package discordbot
 import (
 	"strings"
 	"testing"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 func TestIsAllUsersIdentifier(t *testing.T) {
@@ -70,41 +68,6 @@ func TestSlashCommandNames(t *testing.T) {
 		}
 		if strings.Contains(cmd.Name, " ") {
 			t.Errorf("command %s cannot contain spaces", cmd.Name)
-		}
-	}
-}
-
-func TestMusorDropSlashCommandStructure(t *testing.T) {
-	var musorCmd *discordgo.ApplicationCommand
-	for _, cmd := range slashCommands {
-		if cmd.Name == "musordrop" {
-			musorCmd = cmd
-			break
-		}
-	}
-	if musorCmd == nil {
-		t.Fatal("expected 'musordrop' slash command to be registered in slashCommands")
-	}
-
-	expectedSubCommands := map[string]bool{
-		"add":    false,
-		"remove": false,
-		"set":    false,
-		"reset":  false,
-		"info":   false,
-	}
-
-	for _, opt := range musorCmd.Options {
-		if opt.Type == discordgo.ApplicationCommandOptionSubCommand {
-			if _, exists := expectedSubCommands[opt.Name]; exists {
-				expectedSubCommands[opt.Name] = true
-			}
-		}
-	}
-
-	for sub, found := range expectedSubCommands {
-		if !found {
-			t.Errorf("expected sub-command %q in musordrop command", sub)
 		}
 	}
 }
@@ -175,29 +138,5 @@ func TestParseRevertTimestamp(t *testing.T) {
 		})
 	}
 }
-
-func TestTruncateNick(t *testing.T) {
-	tests := []struct {
-		input    string
-		maxLen   int
-		expected string
-	}{
-		{"Kamil", 20, "Kamil"},
-		{"SuperDlugiNickGracza1234567890", 20, "SuperDlugiNickGracza..."},
-		{"DokladnieDwadziecia1", 20, "DokladnieDwadziecia1"},
-		{"", 20, "Gracz"},
-		{"   ", 20, "Gracz"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			res := truncateNick(tt.input, tt.maxLen)
-			if res != tt.expected {
-				t.Errorf("truncateNick(%q, %d) = %q, want %q", tt.input, tt.maxLen, res, tt.expected)
-			}
-		})
-	}
-}
-
 
 

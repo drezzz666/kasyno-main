@@ -1,5 +1,5 @@
 import React from "react";
-import { money, gameName, truncateNick } from "../lib/formatters";
+import { money, gameName } from "../lib/formatters";
 
 export function LiveTicker({ wins = [] }) {
   if (!wins || wins.length === 0) return null;
@@ -14,18 +14,17 @@ export function LiveTicker({ wins = [] }) {
         {wins.map((w, idx) => {
           const isBig = w.payout >= (w.bet ? w.bet * 4 : 500);
           const gName = gameName(w.game) || w.game;
-          const rawNick = w.nick || "Gracz";
-          const nick = truncateNick(rawNick, 20);
+          const nick = w.nick || "Gracz";
 
           return (
             <div
-              key={w.id || `${rawNick}-${w.payout}-${idx}`}
+              key={w.id || `${nick}-${w.payout}-${idx}`}
               className={`ticker-item ${isBig ? "big-win" : ""}`}
             >
               {w.avatar && (
-                <img src={w.avatar} alt={rawNick} className="ticker-avatar" />
+                <img src={w.avatar} alt={nick} className="ticker-avatar" />
               )}
-              <span className="ticker-nick" title={rawNick}>{nick}</span>
+              <span className="ticker-nick" title={nick}>{nick}</span>
               <span className="ticker-game">{gName}</span>
               <span className="ticker-win">+{money(w.payout)}</span>
             </div>

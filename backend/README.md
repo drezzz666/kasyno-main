@@ -20,7 +20,7 @@ Wysokowydajny, nowoczesny serwer backendowy kasyna społecznościowego (Social C
 3. **Silniki gier**:
    - **Ruletka Europejska** (`internal/games/roulette`): Zakłady pojedyncze 0–36 (×36), kolory/parzyste/połowy (×2), tuziny (×3).
    - **Blackjack** (`internal/games/blackjack`): Prawidłowe asy (1/11), Natural Blackjack 3:2 (2.5×), remis (Push), dealer stand na 17+, brak dobierania dealera przy furze gracza.
-   - **Mines** (`internal/games/mines`): Siatka 5×5 (25 pól), 2–15 min, wzór kombinatoryczny RTP 97%, funkcja Cash-out.
+   - **Mines** (`internal/games/mines`): Siatka 5×5 (25 pól), 5–24 min, wzór kombinatoryczny RTP 97%, funkcja Cash-out.
    - **Midnight 2fgt Sloty** (`internal/games/slots`): 5 bębnów, 3 rzędy, wypłaty za 3, 4 i 5 pasujących symboli na linii środkowej.
    - **Provably Fair** (`internal/games/provablyfair`): Kryptograficzne losowanie i weryfikacja HMAC-SHA256 (Server Seed + Client Seed + Nonce).
 

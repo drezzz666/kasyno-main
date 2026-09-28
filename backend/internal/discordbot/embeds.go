@@ -12,18 +12,6 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
 )
 
-func truncateNick(nick string, maxLen int) string {
-	nick = strings.TrimSpace(nick)
-	if nick == "" {
-		return "Gracz"
-	}
-	runes := []rune(nick)
-	if len(runes) <= maxLen {
-		return nick
-	}
-	return string(runes[:maxLen]) + "..."
-}
-
 func (b *Bot) buildLeaderboardEmbed(ctx context.Context, category string) *discordgo.MessageEmbed {
 	if category == "level" {
 		leaders, err := b.ledger.GetLevelLeaderboard(ctx, 10)
@@ -42,9 +30,8 @@ func (b *Bot) buildLeaderboardEmbed(ctx context.Context, category string) *disco
 			if idx < len(medals) {
 				rankIcon = medals[idx]
 			}
-			displayName := truncateNick(l.Nick, 20)
 			sb.WriteString(fmt.Sprintf("%s **%s** — LVL **%d** *(%d XP)* • %s\n",
-				rankIcon, displayName, l.Level, l.XP, formatFGT(l.Balance)))
+				rankIcon, l.Nick, l.Level, l.XP, formatFGT(l.Balance)))
 		}
 
 		return &discordgo.MessageEmbed{
@@ -75,9 +62,8 @@ func (b *Bot) buildLeaderboardEmbed(ctx context.Context, category string) *disco
 		if idx < len(medals) {
 			rankIcon = medals[idx]
 		}
-		displayName := truncateNick(l.Nick, 20)
 		sb.WriteString(fmt.Sprintf("%s **%s** — **%s** *(Poziom %d)*\n",
-			rankIcon, displayName, formatFGT(l.Balance), l.Level))
+			rankIcon, l.Nick, formatFGT(l.Balance), l.Level))
 	}
 
 	return &discordgo.MessageEmbed{
@@ -241,15 +227,6 @@ func (b *Bot) buildHelpEmbed(isAdmin bool) *discordgo.MessageEmbed {
 				"`/schedule remove <identifier>` — Delete a scheduled drop\n" +
 				"`/schedule toggle <identifier> <active>` — Enable or disable a drop\n" +
 				"`/schedule run <identifier>` — Test run a drop immediately",
-			Inline: false,
-		},
-		{
-			Name: "📦 Musor Drop Management (/musordrop)",
-			Value: "`/musordrop add <player> <amount> [reason]` — Dodaj skrzynki Musor Drop (Lepsze)\n" +
-				"`/musordrop remove <player> <amount> [reason]` — Odbierz skrzynki Musor Drop\n" +
-				"`/musordrop set <player> <amount> [reason]` — Ustaw dokładną liczbę skrzynek Lepszych\n" +
-				"`/musordrop reset <player> [box_type]` — Zresetuj dzienne limity otwarcia skrzynek\n" +
-				"`/musordrop info <player>` — Sprawdź stan skrzynek i limitów gracza",
 			Inline: false,
 		},
 		{
@@ -862,9 +839,8 @@ func (b *Bot) buildUsersListEmbed(ctx context.Context, search string) *discordgo
 
 	var sb strings.Builder
 	for idx, p := range players {
-		displayName := truncateNick(p.Nick, 20)
 		sb.WriteString(fmt.Sprintf("`%d.` **%s** (`%s`) — %s | LVL %d | Streak: %dd\n",
-			idx+1, displayName, p.UserID, formatFGT(p.Balance), p.Level, p.Streak))
+			idx+1, p.Nick, p.UserID, formatFGT(p.Balance), p.Level, p.Streak))
 	}
 
 	title := fmt.Sprintf("👥 Lista Graczy Kasyna (Znaleziono %d)", total)
@@ -898,7 +874,7 @@ func (b *Bot) buildUsersSelectMenu(ctx context.Context, search string) []discord
 			desc = desc[:97] + "..."
 		}
 		options = append(options, discordgo.SelectMenuOption{
-			Label:       truncateNick(p.Nick, 20),
+			Label:       p.Nick,
 			Value:       "select_player:" + p.Nick,
 			Description: desc,
 			Emoji:       &discordgo.ComponentEmoji{Name: "👤"},
@@ -1267,8 +1243,6 @@ func (b *Bot) executeGrantMusorDrop(ctx context.Context, identifier string, amou
 		}
 	}
 
-	logoURL := b.appURL + "/musor-drop-hero.webp"
-
 	if isAllUsersIdentifier(identifier) {
 		count, total, err := b.ledger.GrantMusorBoxesAll(ctx, amount, reason)
 		if err != nil {
@@ -1291,97 +1265,14 @@ func (b *Bot) executeGrantMusorDrop(ctx context.Context, identifier string, amou
 		return &discordgo.MessageEmbed{
 			Color: actionColor,
 			Title: actionTitle,
-			Thumbnail: &discordgo.MessageEmbedThumbnail{
-				URL: logoURL,
-			},
 			Fields: []*discordgo.MessageEmbedField{
 				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
 				{Name: "📦 Zmiana na konto", Value: fmt.Sprintf("**%+d skrzynek Lepszych**", amount), Inline: true},
 				{Name: "💎 Łącznie", Value: fmt.Sprintf("**%+d skrzynek**", total), Inline: true},
 				{Name: "📝 Powód", Value: reason, Inline: false},
 			},
-			Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop (Operacja masowa)"},
+			Footer:    &discordgo.MessageEmbedFooter{Text: "Operacja masowa (*) na skrzynkach została pomyślnie zrealizowana"},
 			Timestamp: time.Now().Format(time.RFC3339),
-		}
-	}
-
-	if strings.Contains(identifier, ",") {
-		rawParts := strings.Split(identifier, ",")
-		var players []string
-		seen := make(map[string]bool)
-		for _, p := range rawParts {
-			clean := strings.TrimSpace(p)
-			if clean != "" && !seen[strings.ToLower(clean)] {
-				seen[strings.ToLower(clean)] = true
-				players = append(players, clean)
-			}
-		}
-
-		if len(players) > 1 {
-			type grantRes struct {
-				nick      string
-				prevBoxes int
-				newBoxes  int
-				err       error
-			}
-			var results []grantRes
-			var successCount int
-			var totalBoxes int
-
-			for _, p := range players {
-				nick, prevBoxes, newBoxes, err := b.ledger.GrantMusorBoxes(ctx, p, amount, reason)
-				if err != nil {
-					results = append(results, grantRes{nick: p, err: err})
-				} else {
-					successCount++
-					totalBoxes += amount
-					results = append(results, grantRes{nick: nick, prevBoxes: prevBoxes, newBoxes: newBoxes})
-				}
-			}
-
-			b.invalidatePlayerCache()
-
-			actionTitle := fmt.Sprintf("🎁 Zaktualizowano skrzynki dla %d graczy", successCount)
-			actionColor := ColorEmerald
-			if amount < 0 {
-				actionColor = ColorGold
-				actionTitle = fmt.Sprintf("📦 Odjęto skrzynki od %d graczy", successCount)
-			}
-			if successCount == 0 {
-				actionColor = ColorRose
-				actionTitle = "❌ Błąd: Nie znaleziono podanych graczy"
-			}
-
-			var details []string
-			for _, r := range results {
-				if r.err != nil {
-					details = append(details, fmt.Sprintf("❌ **%s**: %v", r.nick, r.err))
-				} else {
-					details = append(details, fmt.Sprintf("👤 **%s**: `%d` ➔ **%d** (%+d skrzynek)", r.nick, r.prevBoxes, r.newBoxes, amount))
-				}
-			}
-
-			desc := strings.Join(details, "\n")
-			if len(desc) > 2000 {
-				desc = desc[:1990] + "..."
-			}
-
-			return &discordgo.MessageEmbed{
-				Color:       actionColor,
-				Title:       actionTitle,
-				Description: desc,
-				Thumbnail: &discordgo.MessageEmbedThumbnail{
-					URL: logoURL,
-				},
-				Fields: []*discordgo.MessageEmbedField{
-					{Name: "👥 Pomyślnie zaktualizowano", Value: fmt.Sprintf("**%d / %d graczy**", successCount, len(players)), Inline: true},
-					{Name: "📦 Zmiana na konto", Value: fmt.Sprintf("**%+d skrzynek**", amount), Inline: true},
-					{Name: "💎 Łącznie", Value: fmt.Sprintf("**%+d skrzynek**", totalBoxes), Inline: true},
-					{Name: "📝 Powód", Value: reason, Inline: false},
-				},
-				Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop (Operacja grupowa)"},
-				Timestamp: time.Now().Format(time.RFC3339),
-			}
 		}
 	}
 
@@ -1406,150 +1297,13 @@ func (b *Bot) executeGrantMusorDrop(ctx context.Context, identifier string, amou
 	return &discordgo.MessageEmbed{
 		Color: actionColor,
 		Title: actionTitle,
-		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: logoURL,
-		},
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "👤 Gracz", Value: fmt.Sprintf("**%s**", nick), Inline: true},
 			{Name: "📦 Zmiana", Value: fmt.Sprintf("**%+d skrzynek**", amount), Inline: true},
 			{Name: "📊 Stan skrzynek Lepszych", Value: fmt.Sprintf("`%d` ➔ **%d**", prevBoxes, newBoxes), Inline: true},
 			{Name: "📝 Powód", Value: reason, Inline: false},
 		},
-		Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop"},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
-
-func (b *Bot) executeSetMusorDrop(ctx context.Context, identifier string, newCount int, reason string) *discordgo.MessageEmbed {
-	if reason == "" {
-		reason = "Admin Musor Drop Set"
-	}
-
-	logoURL := b.appURL + "/musor-drop-hero.webp"
-
-	if isAllUsersIdentifier(identifier) {
-		count, err := b.ledger.SetMusorBoxesAll(ctx, newCount, reason)
-		if err != nil {
-			return &discordgo.MessageEmbed{
-				Color:       ColorRose,
-				Title:       "❌ Błąd masowego ustawiania skrzynek",
-				Description: fmt.Sprintf("Nie udało się ustawić skrzynek dla wszystkich graczy: **%v**", err),
-			}
-		}
-
-		b.invalidatePlayerCache()
-
-		return &discordgo.MessageEmbed{
-			Color: ColorEmerald,
-			Title: "📦 [GLOBAL] Ustawiono jednakową liczbę skrzynek dla WSZYSTKICH graczy (*)",
-			Thumbnail: &discordgo.MessageEmbedThumbnail{
-				URL: logoURL,
-			},
-			Fields: []*discordgo.MessageEmbedField{
-				{Name: "👥 Zaktualizowano kont", Value: fmt.Sprintf("**%d graczy**", count), Inline: true},
-				{Name: "📦 Nowy stan skrzynek Lepszych", Value: fmt.Sprintf("**%d szt.**", newCount), Inline: true},
-				{Name: "📝 Powód", Value: reason, Inline: false},
-			},
-			Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop (Modyfikacja masowa)"},
-			Timestamp: time.Now().Format(time.RFC3339),
-		}
-	}
-
-	if strings.Contains(identifier, ",") {
-		rawParts := strings.Split(identifier, ",")
-		var players []string
-		seen := make(map[string]bool)
-		for _, p := range rawParts {
-			clean := strings.TrimSpace(p)
-			if clean != "" && !seen[strings.ToLower(clean)] {
-				seen[strings.ToLower(clean)] = true
-				players = append(players, clean)
-			}
-		}
-
-		if len(players) > 1 {
-			type setRes struct {
-				nick      string
-				prevBoxes int
-				err       error
-			}
-			var results []setRes
-			var successCount int
-
-			for _, p := range players {
-				nick, prevBoxes, _, err := b.ledger.SetMusorBoxes(ctx, p, newCount, reason)
-				if err != nil {
-					results = append(results, setRes{nick: p, err: err})
-				} else {
-					successCount++
-					results = append(results, setRes{nick: nick, prevBoxes: prevBoxes})
-				}
-			}
-
-			b.invalidatePlayerCache()
-
-			actionTitle := fmt.Sprintf("✅ Ustawiono skrzynki dla %d graczy", successCount)
-			actionColor := ColorEmerald
-			if successCount == 0 {
-				actionColor = ColorRose
-				actionTitle = "❌ Błąd: Nie znaleziono podanych graczy"
-			}
-
-			var details []string
-			for _, r := range results {
-				if r.err != nil {
-					details = append(details, fmt.Sprintf("❌ **%s**: %v", r.nick, r.err))
-				} else {
-					details = append(details, fmt.Sprintf("👤 **%s**: `%d` ➔ **%d szt.**", r.nick, r.prevBoxes, newCount))
-				}
-			}
-
-			desc := strings.Join(details, "\n")
-			if len(desc) > 2000 {
-				desc = desc[:1990] + "..."
-			}
-
-			return &discordgo.MessageEmbed{
-				Color:       actionColor,
-				Title:       actionTitle,
-				Description: desc,
-				Thumbnail: &discordgo.MessageEmbedThumbnail{
-					URL: logoURL,
-				},
-				Fields: []*discordgo.MessageEmbedField{
-					{Name: "👥 Zaktualizowano", Value: fmt.Sprintf("**%d / %d graczy**", successCount, len(players)), Inline: true},
-					{Name: "📦 Nowy stan na konto", Value: fmt.Sprintf("**%d skrzynek**", newCount), Inline: true},
-					{Name: "📝 Powód", Value: reason, Inline: false},
-				},
-				Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop (Modyfikacja grupowa)"},
-				Timestamp: time.Now().Format(time.RFC3339),
-			}
-		}
-	}
-
-	nick, prevBoxes, setBoxes, err := b.ledger.SetMusorBoxes(ctx, identifier, newCount, reason)
-	if err != nil {
-		return &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Błąd ustawiania skrzynek",
-			Description: fmt.Sprintf("Nie udało się zaktualizować skrzynek dla gracza `%s`: **%v**", identifier, err),
-		}
-	}
-
-	b.invalidatePlayerCache()
-
-	return &discordgo.MessageEmbed{
-		Color: ColorEmerald,
-		Title: "✅ Ustawiono skrzynki Musor Drop",
-		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: logoURL,
-		},
-		Fields: []*discordgo.MessageEmbedField{
-			{Name: "👤 Gracz", Value: fmt.Sprintf("**%s**", nick), Inline: true},
-			{Name: "📊 Stan skrzynek Lepszych", Value: fmt.Sprintf("`%d` ➔ **%d szt.**", prevBoxes, setBoxes), Inline: true},
-			{Name: "📝 Powód", Value: reason, Inline: false},
-		},
-		Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Musor Drop"},
+		Footer:    &discordgo.MessageEmbedFooter{Text: "Musor Drop • Ekwipunek skrzynek"},
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 }
@@ -1566,111 +1320,28 @@ func (b *Bot) executeResetMusorDrop(ctx context.Context, identifier, boxType str
 
 	b.invalidatePlayerCache()
 
-	logoURL := b.appURL + "/musor-drop-hero.webp"
-
-	boxLabel := "Wszystkie dzienne (Plebsowa i Arystokracka)"
+	boxLabel := "wszystkie dzienne skrzynki (Plebsowa i Arystokracka)"
 	switch strings.ToLower(boxType) {
 	case "plebs", "plebsowa":
-		boxLabel = "🪵 Skrzynka Plebsowa (Darmowa)"
+		boxLabel = "skrzynka Plebsowa"
 	case "arystokracja", "arystokracka":
-		boxLabel = "👑 Skrzynka Arystokracka (Płatna 500 ₽)"
+		boxLabel = "skrzynka Arystokracka"
 	}
 
-	targetLabel := fmt.Sprintf("`%s`", identifier)
+	targetLabel := fmt.Sprintf("dla gracza `%s`", identifier)
 	if isAllUsersIdentifier(identifier) {
-		targetLabel = "**WSZYSCY gracze (*)**"
+		targetLabel = "dla WSZYSTKICH graczy (*)"
 	}
 
 	return &discordgo.MessageEmbed{
 		Color: ColorEmerald,
 		Title: "🔄 Zresetowano dzienne limity Musor Drop",
-		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: logoURL,
-		},
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "🎯 Cel", Value: targetLabel, Inline: true},
 			{Name: "📦 Typ skrzynki", Value: boxLabel, Inline: true},
 			{Name: "🧹 Usunięto wpisów dziennych", Value: fmt.Sprintf("**%d**", affected), Inline: true},
 		},
-		Footer:    &discordgo.MessageEmbedFooter{Text: "Kasyno 2FGT • Gracz może ponownie otworzyć dzisiejsze skrzynki"},
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-}
-
-func (b *Bot) executeMusorDropInfo(ctx context.Context, identifier string) *discordgo.MessageEmbed {
-	player, _, _, err := b.ledger.AdminGetUser(ctx, identifier)
-	if err != nil {
-		return &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Błąd wyszukiwania gracza",
-			Description: fmt.Sprintf("Nie znaleziono gracza o identyfikatorze: `%s`", identifier),
-		}
-	}
-
-	state, err := b.ledger.GetMusorDropState(ctx, player.UserID)
-	if err != nil {
-		return &discordgo.MessageEmbed{
-			Color:       ColorRose,
-			Title:       "❌ Błąd pobierania stanu Musor Drop",
-			Description: fmt.Sprintf("Nie udało się pobrać stanu skrzynek dla gracza **%s**: **%v**", player.Nick, err),
-		}
-	}
-
-	plebsStatus := fmt.Sprintf("Otwarto dzisiaj: **%d / %d**", state.PlebsUsed, state.PlebsLimit)
-	if state.PlebsUsed < state.PlebsLimit {
-		plebsStatus += " ✅ *(Gotowa do otwarcia)*"
-	} else {
-		plebsStatus += " ⏳ *(Limit wyczerpany)*"
-	}
-
-	arystStatus := fmt.Sprintf("Otwarto dzisiaj: **%d / %d**", state.ArystokracjaUsed, state.ArystokracjaLimit)
-	if state.ArystokracjaUsed < state.ArystokracjaLimit {
-		arystStatus += " 💰 *(Dostępna za 500 ₽)*"
-	} else {
-		arystStatus += " ⏳ *(Limit wyczerpany)*"
-	}
-
-	avatarURL := b.getValidAvatarURL(player.Avatar)
-	logoURL := b.appURL + "/musor-drop-hero.webp"
-
-	return &discordgo.MessageEmbed{
-		Color:       ColorSky,
-		Title:       fmt.Sprintf("📦 Stan Musor Drop — %s", player.Nick),
-		Description: fmt.Sprintf("Ekwipunek i dzienne limity skrzynek gracza **%s** (Poziom %d)", player.Nick, player.Level),
-		Thumbnail: &discordgo.MessageEmbedThumbnail{
-			URL: logoURL,
-		},
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "💎 Skrzynki Lepsze (Ekwipunek)",
-				Value:  fmt.Sprintf("**%d szt.** w posiadaniu", state.LepszaBoxes),
-				Inline: false,
-			},
-			{
-				Name:   "🪵 Skrzynka Plebsowa (Darmowa)",
-				Value:  plebsStatus,
-				Inline: false,
-			},
-			{
-				Name:   "👑 Skrzynka Arystokracka (Płatna 500 ₽)",
-				Value:  arystStatus,
-				Inline: false,
-			},
-			{
-				Name:   "💰 Saldo gracza",
-				Value:  fmt.Sprintf("**%s**", formatFGT(player.Balance)),
-				Inline: true,
-			},
-			{
-				Name:   "🆔 User ID",
-				Value:  fmt.Sprintf("`%s`", player.UserID),
-				Inline: true,
-			},
-		},
-		Footer: &discordgo.MessageEmbedFooter{
-			Text:    "Kasyno 2FGT • Musor Drop Info",
-			IconURL: avatarURL,
-		},
+		Footer:    &discordgo.MessageEmbedFooter{Text: "Gracz może ponownie otworzyć dzisiejsze darmowe/płatne skrzynki"},
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 }
