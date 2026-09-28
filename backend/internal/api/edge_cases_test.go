@@ -33,12 +33,12 @@ func TestGameEdgeCases_Crash(t *testing.T) {
 
 // TestGameEdgeCases_Mines verifies extreme mine counts and safe reveal logic.
 func TestGameEdgeCases_Mines(t *testing.T) {
-	// 2 Mines minimum
-	m2 := mines.InitialStart(2)
-	if len(m2.Mines) != 2 {
-		t.Fatalf("Expected 2 mines, got %d", len(m2.Mines))
+	// 5 Mines minimum
+	m5 := mines.InitialStart(5)
+	if len(m5.Mines) != 5 {
+		t.Fatalf("Expected 5 mines, got %d", len(m5.Mines))
 	}
-	if len(m2.Revealed) != 0 {
+	if len(m5.Revealed) != 0 {
 		t.Fatalf("Initial revealed count should be 0")
 	}
 
@@ -48,7 +48,7 @@ func TestGameEdgeCases_Mines(t *testing.T) {
 		t.Fatalf("Expected 24 mines, got %d", len(m24.Mines))
 	}
 
-	// Below minimum (<2) defaults to 5
+	// Below minimum (<5) defaults to 5
 	mDef := mines.InitialStart(1)
 	if len(mDef.Mines) != 5 {
 		t.Fatalf("Expected default 5 mines for input 1, got %d", len(mDef.Mines))

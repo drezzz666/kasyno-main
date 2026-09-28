@@ -818,10 +818,13 @@ export function GameTableDialog({
               {/* Middle: Game-Specific Selectors */}
               <div className="w-full md:w-auto flex items-center justify-center gap-2 flex-wrap">
                 {game === "mines" && (
-                  <div className="w-full md:w-auto flex items-center gap-2">
-                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
-                    <div className="grid grid-cols-6 gap-1.5 w-full md:w-auto md:flex md:items-center">
-                      {[2, 3, 5, 10, 15, 20].map((c) => (
+                  <div className="w-full md:w-auto flex items-center justify-center gap-2">
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-300 flex-shrink-0">
+                      <span className="hidden min-[400px]:inline">Liczba min:</span>
+                      <span className="min-[400px]:hidden">Miny:</span>
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5 flex-1 md:flex-initial md:flex md:items-center">
+                      {[5, 10, 15, 20].map((c) => (
                         <button
                           key={c}
                           type="button"
