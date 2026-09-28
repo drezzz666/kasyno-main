@@ -148,6 +148,15 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 				cur := ledgerService.GetActiveEvent()
 				if cur != nil && cur.EndsAt.Equal(endsAt) {
 					ledgerService.ClearActiveEvent()
+					if wsHub != nil {
+						wsHub.Broadcast(ws.Event{
+							Type: ws.EventStopMoneyRain,
+							Payload: map[string]interface{}{
+								"event":  req.Event,
+								"action": "stop",
+							},
+						})
+					}
 				}
 			})
 		}

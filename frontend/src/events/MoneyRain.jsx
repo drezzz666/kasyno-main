@@ -46,14 +46,62 @@ export function MoneyRain({
     } catch {}
   }, []);
 
-  // Continuous rain and music as long as activeEvent is active
+  // Continuous rain and music as long as activeEvent is active and not expired
   useEffect(() => {
-    if (activeEvent && activeEvent.multiplier > 1.0) {
-      startRain();
-    } else {
+    if (!activeEvent || !activeEvent.multiplier || activeEvent.multiplier <= 1.0) {
       stopRain();
+      return;
     }
+
+    const endsAtMs = activeEvent.ends_at
+      ? new Date(activeEvent.ends_at).getTime()
+      : activeEvent.endsAt
+      ? new Date(activeEvent.endsAt).getTime()
+      : null;
+
+    if (endsAtMs && Date.now() >= endsAtMs) {
+      stopRain();
+      return;
+    }
+
+    startRain();
+
+    let endTimer = null;
+    if (endsAtMs) {
+      const remaining = endsAtMs - Date.now();
+      if (remaining > 0) {
+        endTimer = setTimeout(() => {
+          stopRain();
+        }, remaining);
+      } else {
+        stopRain();
+      }
+    }
+
+    return () => {
+      if (endTimer) clearTimeout(endTimer);
+    };
   }, [activeEvent, startRain, stopRain]);
+
+  // Liveness heartbeat to kill rain & music the second event expiration time is reached
+  useEffect(() => {
+    if (!running) return;
+    const watcher = setInterval(() => {
+      if (!activeEvent) {
+        stopRain();
+        return;
+      }
+      const endsAtMs = activeEvent.ends_at
+        ? new Date(activeEvent.ends_at).getTime()
+        : activeEvent.endsAt
+        ? new Date(activeEvent.endsAt).getTime()
+        : null;
+      if (endsAtMs && Date.now() >= endsAtMs) {
+        stopRain();
+      }
+    }, 1000);
+    return () => clearInterval(watcher);
+  }, [running, activeEvent, stopRain]);
 
   // Synchronize with window events (e.g. when triggered from WebSocket or devtools)
   useEffect(() => {

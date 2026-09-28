@@ -1550,12 +1550,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 
 func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string, payout int64, resultText string, finalPayloadJSON string) (*SettleOutcome, error) {
 	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
-		basePayout := payout
 		payout = int64(math.Round(float64(payout) * ev.Multiplier))
-		bonus := payout - basePayout
-		if bonus > 0 {
-			resultText = fmt.Sprintf("%s (+%d ₽ event bonus ×%.2f)", resultText, bonus, ev.Multiplier)
-		}
 	}
 
 	t := NowMs()
@@ -1660,12 +1655,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	}
 
 	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
-		basePayout := payout
 		payout = int64(math.Round(float64(payout) * ev.Multiplier))
-		bonus := payout - basePayout
-		if bonus > 0 {
-			resultText = fmt.Sprintf("%s (+%d ₽ event bonus ×%.2f)", resultText, bonus, ev.Multiplier)
-		}
 	}
 
 	roundID := uuid.NewString()

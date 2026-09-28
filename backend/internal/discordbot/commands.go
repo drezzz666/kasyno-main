@@ -1934,6 +1934,7 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				curr := b.GetActiveEvent()
 				if curr != nil && curr.EndsAt.Equal(endsAt) {
 					b.ClearActiveEvent()
+					b.dispatchLiveEventToCasino(ev, "stop", 0, 1.0, "system")
 				}
 			})
 			embed := &discordgo.MessageEmbed{
@@ -2094,6 +2095,7 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 			current := b.GetActiveEvent()
 			if current != nil && current.EndsAt.Equal(endsAt) {
 				b.ClearActiveEvent()
+				b.dispatchLiveEventToCasino(eventName, "stop", 0, 1.0, "system")
 			}
 		})
 

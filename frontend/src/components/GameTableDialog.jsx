@@ -635,12 +635,6 @@ export function GameTableDialog({
             <p>Stolik do gry</p>
           </div>
           <div className="flex items-center gap-2">
-            {currentEvent?.multiplier > 1.0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-xs font-black animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.25)]">
-                <span>🌧️ EVENT ×{currentEvent.multiplier.toFixed(2)}</span>
-                <span className="text-[10px] text-amber-200/80 font-bold hidden sm:inline">(+{Math.round((currentEvent.multiplier - 1) * 100)}%)</span>
-              </div>
-            )}
             <div className="balance-chip" title="Stan Twojego portfela">
               <span className="balance-val">{data?.player ? money(data.player.balance) : "—"}</span>
             </div>
@@ -1144,11 +1138,6 @@ export function GameTableDialog({
                       >
                         <CheckCircle2 size={18} />
                         <span>WYPŁAĆ {money(finalPayout)} ({currentMultiplier.toFixed(2)}×)</span>
-                        {eventBonus > 0 && (
-                          <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
-                            +{money(eventBonus)}
-                          </span>
-                        )}
                       </button>
                     );
                   }
@@ -1181,11 +1170,6 @@ export function GameTableDialog({
                             ? "Wybierz pole na planszy"
                             : `WYPŁAĆ ${money(finalPayout)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
-                        {canCashout && eventBonus > 0 && (
-                          <span className="text-[11px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_10px_rgba(251,191,36,0.5)]">
-                            +{money(eventBonus)}
-                          </span>
-                        )}
                       </button>
                     );
                   }
@@ -1245,11 +1229,6 @@ export function GameTableDialog({
                           <span className="truncate">
                             WYPŁAĆ {money(finalPayout)} (×{(Number(currentMult) || 1.0).toFixed(2)})
                           </span>
-                          {!isCashoutDisabled && eventBonus > 0 && (
-                            <span className="text-[10px] sm:text-xs bg-amber-400 text-slate-950 border border-amber-300 px-1 py-0.5 rounded font-mono font-black animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.5)]">
-                              +{money(eventBonus)}
-                            </span>
-                          )}
                         </button>
                       </div>
                     );

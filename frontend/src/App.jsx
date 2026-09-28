@@ -76,18 +76,32 @@ export default function App() {
   const [activeEvent, setActiveEvent] = useState(() => data?.activeEvent || null);
 
   useEffect(() => {
-    if (data?.activeEvent) {
-      setActiveEvent(data.activeEvent);
+    const ev = data?.activeEvent || null;
+    if (!ev || !ev.multiplier || ev.multiplier <= 1.0) {
+      setActiveEvent(null);
+      return;
     }
+    const endsAtMs = ev.ends_at
+      ? new Date(ev.ends_at).getTime()
+      : ev.endsAt
+      ? new Date(ev.endsAt).getTime()
+      : null;
+    if (endsAtMs && Date.now() >= endsAtMs) {
+      setActiveEvent(null);
+      return;
+    }
+    setActiveEvent(ev);
   }, [data?.activeEvent]);
 
   useEffect(() => {
     const handleStart = (e) => {
       const payload = e.detail || {};
+      const dur = Number(payload.duration) || 60;
       setActiveEvent({
         name: payload.event || "money-rain",
         multiplier: payload.multiplier || 1.25,
-        duration: payload.duration || 60,
+        duration: dur,
+        ends_at: payload.ends_at || new Date(Date.now() + dur * 1000).toISOString(),
       });
     };
     const handleStop = () => {
@@ -627,18 +641,6 @@ export default function App() {
 
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
-          {activeEvent && activeEvent.multiplier > 1.0 && (
-            <button
-              type="button"
-              className="event-pill"
-              onClick={() => window.dispatchEvent(new CustomEvent("casino:start_money_rain"))}
-              title={`Money Rain aktywny: ×${activeEvent.multiplier.toFixed(2)} (+${Math.round((activeEvent.multiplier - 1) * 100)}% do wygranych). Kliknij, aby włączyć efekty.`}
-            >
-              <span className="event-pill-icon">🌧️</span>
-              <span className="event-pill-text">×{activeEvent.multiplier.toFixed(2)}</span>
-            </button>
-          )}
-
           <button
             type="button"
             className="icon-btn"
