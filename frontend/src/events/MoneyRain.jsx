@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { BanknoteSvg } from "./BanknoteSvg";
 import { sounds } from "../lib/sounds";
 import confetti from "canvas-confetti";
+import { toast } from "sonner";
 import "./MoneyRain.css";
 
 const FALL_ANIMATIONS = ["flutterFallA", "flutterFallB", "flutterFallC"];
@@ -35,16 +36,24 @@ export function MoneyRain({
     // Start event music via sounds engine immediately and loop continuously
     sounds.playMoneyRainMusic();
 
+    // Notify player that Cash Rain is active
+    const mult = activeEvent?.multiplier || 1.25;
+    toast.success("🌧️ Cash Rain jest aktywny!", {
+      id: "cash-rain-active-toast",
+      description: `Mnożnik wygranych ×${Number(mult).toFixed(2)} jest teraz włączony!`,
+      duration: 6000,
+    });
+
     // Golden celebratory burst at event onset
     try {
       confetti({
-        particleCount: 60,
-        spread: 90,
+        particleCount: 35,
+        spread: 80,
         origin: { y: 0.1 },
         colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
       });
     } catch {}
-  }, []);
+  }, [activeEvent]);
 
   // Continuous rain and music as long as activeEvent is active and not expired
   useEffect(() => {
@@ -125,42 +134,42 @@ export function MoneyRain({
     };
   }, [startRain, stopRain]);
 
-  // Spawning loop for Fluttering 3D Banknotes
+  // Spawning loop for Fluttering 3D Banknotes (subtle, non-intrusive rate)
   useEffect(() => {
     if (!running) return;
 
     spawnTimerRef.current = setInterval(() => {
       const id = nextIdRef.current++;
-      const left = Math.random() * 88 + 4; // 4% to 92% screen width
+      const left = Math.random() * 86 + 6; // 6% to 92% screen width
       
       // Depth layering: 0 = background, 1 = midground, 2 = foreground
       const depthTier = Math.random();
-      let scale = 1;
+      let scale = 0.85;
       let blur = "none";
-      let zIndex = 9999;
-      let width = 96;
+      let zIndex = 9998;
+      let width = 72;
 
-      if (depthTier < 0.25) {
+      if (depthTier < 0.35) {
         // Far background
-        width = 65;
+        width = 54;
         scale = 0.72;
         blur = "blur(0.8px)";
         zIndex = 9997;
-      } else if (depthTier < 0.75) {
+      } else if (depthTier < 0.8) {
         // Midground
-        width = 90;
-        scale = 0.95;
+        width = 68;
+        scale = 0.85;
         zIndex = 9998;
       } else {
-        // Crisp foreground
-        width = 115;
-        scale = 1.08;
-        zIndex = 10000;
+        // Foreground
+        width = 82;
+        scale = 0.95;
+        zIndex = 9999;
       }
 
       const height = (width * 310) / 540;
-      const fallDuration = Math.random() * 2.5 + 3.8; // 3.8s to 6.3s
-      const swayDuration = Math.random() * 1.2 + 1.8; // 1.8s to 3.0s
+      const fallDuration = Math.random() * 2.5 + 4.8; // 4.8s to 7.3s
+      const swayDuration = Math.random() * 1.5 + 2.0; // 2.0s to 3.5s
       const animVariant = FALL_ANIMATIONS[Math.floor(Math.random() * FALL_ANIMATIONS.length)];
       const swayVariant = SWAY_ANIMATIONS[Math.floor(Math.random() * SWAY_ANIMATIONS.length)];
       const startDelay = Math.random() * 0.2;
@@ -181,8 +190,8 @@ export function MoneyRain({
         bornAt: Date.now(),
       };
 
-      setBanknotes((prev) => [...prev.slice(-55), newNote]);
-    }, 240);
+      setBanknotes((prev) => [...prev.slice(-7), newNote]);
+    }, 1200);
 
     return () => clearInterval(spawnTimerRef.current);
   }, [running]);
@@ -194,8 +203,8 @@ export function MoneyRain({
     sparkleTimerRef.current = setInterval(() => {
       const id = nextIdRef.current++;
       const left = Math.random() * 96 + 2;
-      const fallDuration = Math.random() * 2 + 2.5;
-      const size = Math.random() * 4 + 3;
+      const fallDuration = Math.random() * 2 + 3.0;
+      const size = Math.random() * 3 + 2.5;
 
       const newSparkle = {
         id,
@@ -205,8 +214,8 @@ export function MoneyRain({
         bornAt: Date.now(),
       };
 
-      setSparkles((prev) => [...prev.slice(-30), newSparkle]);
-    }, 200);
+      setSparkles((prev) => [...prev.slice(-8), newSparkle]);
+    }, 700);
 
     return () => clearInterval(sparkleTimerRef.current);
   }, [running]);
@@ -232,6 +241,16 @@ export function MoneyRain({
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
+      {/* Floating Top Notify Pill */}
+      {running && (
+        <div className="money-rain-notify-pill">
+          <span className="money-rain-notify-pulse" />
+          <span className="money-rain-notify-label">Cash Rain aktywny</span>
+          <span className="money-rain-notify-mult">
+            ×{Number(activeEvent?.multiplier || 1.25).toFixed(2)}
+          </span>
+        </div>
+      )}
 
       {/* Golden Sparkles */}
       {sparkles.map((sp) => (

@@ -150,7 +150,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
       <div className="captcha-canvas-wrap">
         {isBalanceLocked ? (
           <div className="h-[75px] w-[280px] flex items-center justify-center text-center px-4 text-xs text-slate-300 font-medium leading-relaxed select-none">
-            Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽
+            Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽
           </div>
         ) : captchaData?.image ? (
           <img

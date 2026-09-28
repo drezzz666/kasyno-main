@@ -174,7 +174,7 @@ var palette = []color.RGBA{
 	{R: 245, G: 158, B: 11, A: 255},  // Gold
 }
 
-// RenderCaptchaPNG generates pure binary PNG image bytes
+// RenderCaptchaPNG generates pure binary PNG image bytes with anti-OCR warp and noise
 func RenderCaptchaPNG(text string) []byte {
 	const width = 280
 	const height = 75
@@ -192,10 +192,10 @@ func RenderCaptchaPNG(text string) []byte {
 		}
 	}
 
-	// 2. Background Noise lines
-	for i := 0; i < 6; i++ {
+	// 2. Background Noise lines (10 lines with varying colors and angles)
+	for i := 0; i < 10; i++ {
 		col := palette[i%len(palette)]
-		col.A = 70
+		col.A = 80
 		x0, _ := rand.Int(rand.Reader, big.NewInt(width))
 		y0, _ := rand.Int(rand.Reader, big.NewInt(height))
 		x1, _ := rand.Int(rand.Reader, big.NewInt(width))
@@ -203,27 +203,31 @@ func RenderCaptchaPNG(text string) []byte {
 		drawLine(img, int(x0.Int64()), int(y0.Int64()), int(x1.Int64()), int(y1.Int64()), col)
 	}
 
-	// 3. Background Random Noise Specks
-	for i := 0; i < 80; i++ {
+	// 3. Background Random Noise Specks (120 specks)
+	for i := 0; i < 120; i++ {
 		x, _ := rand.Int(rand.Reader, big.NewInt(width))
 		y, _ := rand.Int(rand.Reader, big.NewInt(height))
 		cIdx, _ := rand.Int(rand.Reader, big.NewInt(int64(len(palette))))
 		col := palette[cIdx.Int64()]
-		col.A = 120
+		col.A = 130
 		img.Set(int(x.Int64()), int(y.Int64()), col)
 		img.Set(int(x.Int64())+1, int(y.Int64()), col)
 	}
 
-	// 4. Render Characters with Font Matrix + Scale + Thickness
+	// 4. Render Characters with Font Matrix + Scale + Slant + Jitter
 	chars := []rune(text)
 	charCount := len(chars)
 	const scale = 5
 	const charW = 5 * scale
 	const charH = 7 * scale
-	totalTextW := charCount*charW + (charCount-1)*8
+	spacing := 5
+	if charCount > 6 {
+		spacing = 3
+	}
+	totalTextW := charCount*charW + (charCount-1)*spacing
 	startX := (width - totalTextW) / 2
-	if startX < 12 {
-		startX = 12
+	if startX < 10 {
+		startX = 10
 	}
 
 	for idx, ch := range chars {
@@ -232,8 +236,13 @@ func RenderCaptchaPNG(text string) []byte {
 			glyph = font5x7['?']
 		}
 		col := palette[idx%len(palette)]
-		cX := startX + idx*(charW+8)
-		cY := (height-charH)/2 + int(math.Sin(float64(idx)*1.3)*5)
+
+		// Per-character jitter and mild slant
+		charJitterY := int(math.Sin(float64(idx)*1.7)*5.0) + int(float64((int(ch)%5)-2)*1.2)
+		slant := float64((int(ch)%5)-2) * 0.08 // mild slant between -0.16 and +0.16
+
+		cX := startX + idx*(charW+spacing)
+		cY := (height-charH)/2 + charJitterY
 
 		for row := 0; row < 7; row++ {
 			bits := glyph[row]
@@ -241,7 +250,7 @@ func RenderCaptchaPNG(text string) []byte {
 				if (bits & (1 << (4 - colBit))) != 0 {
 					for dy := 0; dy < scale; dy++ {
 						for dx := 0; dx < scale; dx++ {
-							px := cX + colBit*scale + dx
+							px := cX + colBit*scale + dx + int(float64(row*scale+dy)*slant)
 							py := cY + row*scale + dy
 							if px >= 0 && px < width && py >= 0 && py < height {
 								img.Set(px, py, col)
@@ -253,29 +262,46 @@ func RenderCaptchaPNG(text string) []byte {
 		}
 	}
 
-	// 5. Apply Wave Distortion
+	// 5. Apply Multi-Harmonic Wave Distortion
 	distorted := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(distorted, distorted.Bounds(), img, image.Point{}, draw.Src)
 
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			srcX := x + int(math.Cos(float64(y)/8.0)*2.0)
-			srcY := y + int(math.Sin(float64(x)/10.0)*3.5)
+			srcX := x + int(math.Sin(float64(y)/7.0)*3.5 + math.Cos(float64(x)/16.0)*1.8)
+			srcY := y + int(math.Cos(float64(x)/9.0)*3.8 + math.Sin(float64(y)/8.0)*1.8)
 			if srcX >= 0 && srcX < width && srcY >= 0 && srcY < height {
 				distorted.Set(x, y, img.At(srcX, srcY))
 			}
 		}
 	}
 
-	// 6. Foreground Intersecting Sine Curve
+	// 6. Two Foreground Intersecting Sine Wave Interference Curves
 	for x := 0; x < width; x++ {
-		y := int(float64(height)/2.0 + math.Sin(float64(x)/14.0)*12.0)
-		if y >= 0 && y < height {
-			distorted.Set(x, y, color.RGBA{R: 251, G: 191, B: 36, A: 160})
-			if y+1 < height {
-				distorted.Set(x, y+1, color.RGBA{R: 251, G: 191, B: 36, A: 160})
+		// Curve 1: Gold wave
+		y1 := int(float64(height)/2.0 + math.Sin(float64(x)/13.0)*13.0 + math.Cos(float64(x)/28.0)*5.0)
+		if y1 >= 0 && y1 < height {
+			distorted.Set(x, y1, color.RGBA{R: 251, G: 191, B: 36, A: 160})
+			if y1+1 < height {
+				distorted.Set(x, y1+1, color.RGBA{R: 251, G: 191, B: 36, A: 140})
 			}
 		}
+
+		// Curve 2: Cyan wave crossing in opposite direction
+		y2 := int(float64(height)/2.0 - math.Cos(float64(x)/16.0)*12.0 + math.Sin(float64(x)/22.0)*6.0)
+		if y2 >= 0 && y2 < height {
+			distorted.Set(x, y2, color.RGBA{R: 56, G: 189, B: 248, A: 150})
+			if y2+1 < height {
+				distorted.Set(x, y2+1, color.RGBA{R: 56, G: 189, B: 248, A: 130})
+			}
+		}
+	}
+
+	// 7. Foreground pepper noise (50 specks on top)
+	for i := 0; i < 50; i++ {
+		x, _ := rand.Int(rand.Reader, big.NewInt(width))
+		y, _ := rand.Int(rand.Reader, big.NewInt(height))
+		distorted.Set(int(x.Int64()), int(y.Int64()), color.RGBA{R: 240, G: 240, B: 245, A: 180})
 	}
 
 	var buf bytes.Buffer
@@ -331,25 +357,35 @@ func Generate(userID, secret string) *Challenge {
 
 	if isMath {
 		chType = "math"
-		opVal, _ := rand.Int(rand.Reader, big.NewInt(2))
-		if opVal.Int64() == 0 {
-			a, _ := rand.Int(rand.Reader, big.NewInt(35))
-			b, _ := rand.Int(rand.Reader, big.NewInt(35))
-			n1 := a.Int64() + 5
-			n2 := b.Int64() + 3
+		opVal, _ := rand.Int(rand.Reader, big.NewInt(3))
+		switch opVal.Int64() {
+		case 0: // 2-digit addition: e.g. 38 + 47 = 85
+			a, _ := rand.Int(rand.Reader, big.NewInt(50))
+			b, _ := rand.Int(rand.Reader, big.NewInt(40))
+			n1 := a.Int64() + 25
+			n2 := b.Int64() + 18
 			displayText = fmt.Sprintf("%d+%d", n1, n2)
 			answer = strconv.FormatInt(n1+n2, 10)
-		} else {
-			a, _ := rand.Int(rand.Reader, big.NewInt(40))
-			b, _ := rand.Int(rand.Reader, big.NewInt(20))
-			n1 := a.Int64() + 25
-			n2 := b.Int64() + 2
+		case 1: // 2-digit subtraction: e.g. 74 - 28 = 46
+			a, _ := rand.Int(rand.Reader, big.NewInt(50))
+			b, _ := rand.Int(rand.Reader, big.NewInt(30))
+			n1 := a.Int64() + 45
+			n2 := b.Int64() + 14
 			displayText = fmt.Sprintf("%d-%d", n1, n2)
 			answer = strconv.FormatInt(n1-n2, 10)
+		default: // 3-term calculation: e.g. 15+8-6 = 17
+			a, _ := rand.Int(rand.Reader, big.NewInt(25))
+			b, _ := rand.Int(rand.Reader, big.NewInt(20))
+			c, _ := rand.Int(rand.Reader, big.NewInt(15))
+			n1 := a.Int64() + 10
+			n2 := b.Int64() + 5
+			n3 := c.Int64() + 3
+			displayText = fmt.Sprintf("%d+%d-%d", n1, n2, n3)
+			answer = strconv.FormatInt(n1+n2-n3, 10)
 		}
 	} else {
 		chType = "text"
-		answer = randomString(5)
+		answer = randomString(6) // 6 alphanumeric characters
 		displayText = answer
 	}
 
