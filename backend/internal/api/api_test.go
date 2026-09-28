@@ -7,14 +7,12 @@ import (
 	"crypto/cipher"
 	"crypto/ecdh"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -138,40 +136,6 @@ func TestVerifyEndpoint(t *testing.T) {
 	handler.Verify(recAuth, reqAuth)
 	if recAuth.Code != http.StatusOK {
 		t.Errorf("expected 200 for authenticated request, got %d", recAuth.Code)
-	}
-}
-
-func TestOpaqueReplayAndChallengeResponses(t *testing.T) {
-	secret := "test-secret-key-12345"
-	userID := "user_replay_test"
-
-	// 1. Generate challenge
-	c := anticheat.GenerateBrowserChallenge(userID, secret)
-
-	// 2. Solve challenge
-	solvedNonce := ""
-	prefix := "000"
-	for i := 0; ; i++ {
-		nonceCand := string(rune('0' + (i % 10)))
-		nonceCand = strconv.Itoa(i)
-		h := sha256.Sum256([]byte(c.ID + ":" + c.Salt + ":" + nonceCand))
-		if strings.HasPrefix(hex.EncodeToString(h[:]), prefix) {
-			solvedNonce = nonceCand
-			break
-		}
-	}
-
-	proofHeader := c.ID + ":" + c.Salt + ":" + strconv.FormatInt(c.IssuedAt, 10) + ":" + strconv.Itoa(c.Difficulty) + ":" + c.Signature + ":" + solvedNonce
-
-	// 3. First verification -> PASS
-	if err := anticheat.VerifyBrowserProof(userID, secret, proofHeader); err != nil {
-		t.Fatalf("first verification failed: %v", err)
-	}
-
-	// 4. Second verification (Replay Attack) -> FAIL with ErrChallengeReused
-	err := anticheat.VerifyBrowserProof(userID, secret, proofHeader)
-	if err != anticheat.ErrChallengeReused {
-		t.Fatalf("expected ErrChallengeReused on replay, got: %v", err)
 	}
 }
 
@@ -347,6 +311,28 @@ func TestEncryptedClientErrorReporting(t *testing.T) {
 	}
 }
 
+func TestIsMutedSubnet(t *testing.T) {
+	tests := []struct {
+		ip       string
+		expected bool
+	}{
+		{"193.93.68.0", true},
+		{"193.93.68.1", true},
+		{"193.93.69.50", true},
+		{"193.93.69.18", true},
+		{"193.93.71.255", true},
+		{"193.93.67.255", false},
+		{"193.93.72.0", false},
+		{"8.8.8.8", false},
+		{"127.0.0.1", false},
+		{"", false},
+		{"invalid", false},
+	}
 
-
-
+	for _, tt := range tests {
+		got := IsMutedSubnet(tt.ip)
+		if got != tt.expected {
+			t.Errorf("IsMutedSubnet(%q) = %v; want %v", tt.ip, got, tt.expected)
+		}
+	}
+}

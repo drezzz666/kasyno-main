@@ -16,7 +16,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
         <div className="modal-header">
           <div>
             <h3 id="info-dialog-title">Zasady i Mnożniki Gier</h3>
-            <p>Zasady 10 gier klubowych kasyna $FGT</p>
+            <p>Zasady 10 gier klubowych kasyna</p>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij okno zasad" autoFocus>
             <X size={18} />
@@ -131,7 +131,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
           <div className="info-points-simple">
             <div className="point-item">
               <ShieldCheck size={18} className="text-emerald-400 shrink-0" />
-              <span>Tokeny $FGT są wyłącznie wirtualną walutą klubową (0 PLN). Brak wpłat i wypłat.</span>
+              <span>Wirtualne ruble (₽) są wyłącznie walutą symulacyjną (0 PLN). Brak wpłat i wypłat.</span>
             </div>
             <div className="point-item">
               <Lock size={18} className="text-cyan-400 shrink-0" />
@@ -151,7 +151,7 @@ export function InfoModal({ open, onClose, onOpenTos }) {
                 <span>Dokumentacja Prawna</span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Pełny regulamin platformy, polityka 18+, zasady antybotowe oraz status waluty $FGT.
+                Pełny regulamin platformy, polityka 18+, zasady antybotowe oraz status wirtualnych rubli.
               </p>
             </div>
             <button

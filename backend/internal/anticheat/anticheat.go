@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrRateLimitExceeded   = errors.New("RATE_LIMIT_EXCEEDED: Zbyt wiele akcji naraz. Zwolnij tempo.")
-	ErrInvalidBetAmount    = errors.New("INVALID_BET: Stawka musi wynosić od 1 do 10,000,000 $FGT.")
+	ErrInvalidBetAmount    = errors.New("INVALID_BET: Stawka musi wynosić od 1 do 10,000,000 ₽.")
 	ErrInsufficientBalance = errors.New("INSUFFICIENT_BALANCE: Brak wystarczających środków na koncie.")
 	ErrInvalidGameParam    = errors.New("INVALID_PARAM: Nieprawidłowe parametry gry.")
 	ErrInvalidMove         = errors.New("INVALID_MOVE: Niedozwolony ruch w obecnym stanie gry.")

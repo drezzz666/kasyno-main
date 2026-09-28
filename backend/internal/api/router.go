@@ -32,7 +32,6 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 			rep.ReportSecurityAlert(category, ip, userID, nick, action, details)
 		}
 	})
-	anticheat.SetChallengeTelemetryCallback(tel.RecordChallengeEvent)
 
 	// WebSocket telemetry hooks
 	ws.SetWSTelemetryCallbacks(tel.RecordWSConnect, tel.RecordWSDisconnect, tel.RecordWSEvent)
@@ -129,7 +128,6 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		r.Use(auth.RequireAuth(ledgerService, cfg.SessionSecret))
 
 		r.Route("/api/casino", func(r chi.Router) {
-			r.Get("/challenge", casinoHandler.GetChallenge)
 			r.Get("/captcha", casinoHandler.GetCaptcha)
 			r.Post("/captcha", casinoHandler.SolveCaptcha)
 			r.Get("/", casinoHandler.GetState)

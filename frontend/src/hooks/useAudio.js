@@ -88,10 +88,19 @@ export function useAudio() {
     }
   };
 
+  const handleSetMuted = (val) => {
+    setMuted(val);
+    sounds.setMuted(val);
+    try {
+      localStorage.setItem("fgt_muted", String(val));
+    } catch {}
+  };
+
   return {
     muted,
     volume,
     toggleMute,
     setVolume: handleVolumeChange,
+    setMuted: handleSetMuted,
   };
 }

@@ -17,12 +17,14 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/anticheat"
 	"github.com/drezzz666/kasyno/backend/internal/auth"
 	"github.com/drezzz666/kasyno/backend/internal/captcha"
+	"github.com/drezzz666/kasyno/backend/internal/discordbot"
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
 	"github.com/drezzz666/kasyno/backend/internal/games/chicken"
 	"github.com/drezzz666/kasyno/backend/internal/games/coinflip"
 	"github.com/drezzz666/kasyno/backend/internal/games/crash"
 	"github.com/drezzz666/kasyno/backend/internal/games/limbo"
 	"github.com/drezzz666/kasyno/backend/internal/games/mines"
+	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/games/plinko"
 	"github.com/drezzz666/kasyno/backend/internal/games/roulette"
 	"github.com/drezzz666/kasyno/backend/internal/games/rps"
@@ -193,6 +195,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 	missions, missionNextReset, _ := h.ledger.GetDailyMissions(r.Context(), p.UserID)
 	recentWins, _ := h.ledger.GetRecentGlobalWins(r.Context(), 15)
 	playerStats, _ := h.ledger.GetPlayerStats(r.Context(), p.UserID)
+	musorDropState, _ := h.ledger.GetMusorDropState(r.Context(), p.UserID)
 
 	resp := map[string]interface{}{
 		"player":           p,
@@ -211,28 +214,12 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"levelLeaders":     levelLeaders,
 		"today":            today,
 		"recentWins":       recentWins,
-		"challenge":        anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
+		"musorDrop":        musorDropState,
+		"autoMuted":        IsMutedSubnet(GetClientIP(r)),
+		"autoMutedReason":  "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
 	}
 
 	JSON(w, http.StatusOK, resp)
-}
-
-// GetChallenge handles GET /api/casino/challenge
-func (h *CasinoHandler) GetChallenge(w http.ResponseWriter, r *http.Request) {
-	p := auth.GetPlayerFromContext(r.Context())
-	if p == nil {
-		JSONError(w, http.StatusUnauthorized, "Wymagane logowanie")
-		return
-	}
-
-	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
-	if !h.rateLimiter.AllowStateRead(p.UserID) {
-		JSONError(w, http.StatusTooManyRequests, "Zbyt częste pobieranie wyzwań.")
-		return
-	}
-
-	challenge := anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret)
-	JSON(w, http.StatusOK, challenge)
 }
 
 // GetCaptcha handles GET /api/casino/captcha
@@ -331,23 +318,6 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	}
 	game, _ := body["game"].(string)
 
-	// 0. Anti-Bot & Anti-Replay: verify single-use browser proof-of-work challenge for game actions
-	// Captcha actions (solve_captcha, claim_captcha, get_captcha) are self-verifying human challenges with HMAC signatures
-	isCaptchaAction := action == "solve_captcha" || action == "claim_captcha" || action == "get_captcha"
-	if !isCaptchaAction {
-		proofHeader := r.Header.Get("X-Browser-Proof")
-		if err := anticheat.VerifyBrowserProof(p.UserID, h.sessionSecret, proofHeader); err != nil {
-			if !errors.Is(err, anticheat.ErrChallengeReused) && !errors.Is(err, anticheat.ErrChallengeExpired) {
-				h.recordFraud(r, p, "CHALLENGE_VERIFICATION_FAILED", err.Error())
-			}
-			JSON(w, http.StatusForbidden, map[string]interface{}{
-				"error":     "Wystąpił błąd podczas przetwarzania żądania. Spróbuj ponownie.",
-				"code":      "REQ_FAILED",
-				"challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
-			})
-			return
-		}
-	}
 
 	// Anti-Cheat: register identity (nick + IP) for bot logs, then check game rate limit
 	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
@@ -368,6 +338,13 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch action {
+	case "accept_tos", "tos_accept":
+		_ = h.ledger.AcceptTos(r.Context(), p.UserID)
+		p.TosAccepted = time.Now().UnixMilli()
+		JSON(w, http.StatusOK, map[string]interface{}{
+			"success": true,
+			"player":  p,
+		})
 	case "bonus":
 		h.handleBonus(w, r, p)
 	case "claim_mission", "mission":
@@ -394,11 +371,60 @@ func (h *CasinoHandler) PostAction(w http.ResponseWriter, r *http.Request) {
 		h.handleCashoutCrash(w, r, p, body)
 	case "settle_crash", "crash_settle":
 		h.handleSettleCrash(w, r, p, body)
-	case "refund_active", "cancel_active":
-		h.handleRefundActive(w, r, p)
+	case "musor_drop_status":
+		h.handleMusorDropStatus(w, r, p)
+	case "musor_drop_open", "open_musor_box":
+		h.handleMusorDropOpen(w, r, p, body)
 	default:
 		h.handleInstantGame(w, r, p, body)
 	}
+}
+
+func (h *CasinoHandler) handleMusorDropStatus(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
+	state, err := h.ledger.GetMusorDropState(r.Context(), p.UserID)
+	if err != nil {
+		JSONError(w, http.StatusInternalServerError, "Błąd pobierania stanu Musor Drop")
+		return
+	}
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"state":   state,
+	})
+}
+
+func (h *CasinoHandler) handleMusorDropOpen(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	boxType, _ := body["box_type"].(string)
+	if boxType == "" {
+		boxType, _ = body["boxType"].(string)
+	}
+	if boxType == "" {
+		boxType = "plebs"
+	}
+
+	bType := musordrop.BoxType(boxType)
+	outcome, err := h.ledger.OpenMusorBox(r.Context(), p.UserID, bType)
+	if err != nil {
+		if errors.Is(err, ledger.ErrInsufficientFunds) {
+			JSONError(w, http.StatusBadRequest, "Niewystarczające środki na zakup skrzynki (500 ₽).")
+			return
+		}
+		JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Broadcast win to all players if prize > 0
+	if outcome.Prize > 0 {
+		h.broadcastWin("", p.Nick, "musordrop", p.Avatar, outcome.Prize, 0, outcome.PrizeName)
+		if bot := discordbot.GetGlobalBot(); bot != nil {
+			bot.AnnounceMusorDropWin(p.Nick, string(bType), outcome.PrizeName, outcome.Prize, outcome.IsJackpot)
+		}
+	}
+
+	JSON(w, http.StatusOK, map[string]interface{}{
+		"success":   true,
+		"outcome":   outcome,
+		"balance":   outcome.Balance,
+	})
 }
 
 func (h *CasinoHandler) handleGetCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player) {
@@ -428,7 +454,6 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		JSON(w, http.StatusBadRequest, map[string]interface{}{
 			"ok":             false,
 			"error":          err.Error(),
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -453,7 +478,6 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		"ok":             true,
 		"amount":         rewardAmount,
 		"balance":        newBal,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -482,7 +506,6 @@ func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *l
 		"amount":         amount,
 		"balance":        newBal,
 		"streak":         streak,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -527,7 +550,6 @@ func (h *CasinoHandler) handleMission(w http.ResponseWriter, r *http.Request, p 
 		"missions":         missions,
 		"missionNextReset": missionNextReset,
 		"missionClaimed":   true,
-		"next_challenge":   anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -858,7 +880,6 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 		"roundsToday":    outcome.RoundsToday,
 		"leveledUp":      outcome.LeveledUp,
 		"levelUpBonus":   outcome.LevelUpBonus,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -935,7 +956,6 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 				"roundsToday":    outcome.RoundsToday,
 				"leveledUp":      outcome.LeveledUp,
 				"levelUpBonus":   outcome.LevelUpBonus,
-				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -945,7 +965,6 @@ func (h *CasinoHandler) handleDealBlackjack(w http.ResponseWriter, r *http.Reque
 		"ok":             true,
 		"round":          ToPublicRound(round),
 		"balance":        balAfterBet,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -979,7 +998,6 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 					"xp":             xp,
 					"level":          lvl,
 					"roundsToday":    roundsToday,
-					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 				})
 				return
 			}
@@ -1047,7 +1065,6 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 			"roundsToday":    outcome.RoundsToday,
 			"leveledUp":      outcome.LeveledUp,
 			"levelUpBonus":   outcome.LevelUpBonus,
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -1072,7 +1089,6 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 			JSON(w, http.StatusOK, map[string]interface{}{
 				"ok":             true,
 				"round":          ToPublicRound(activeRound),
-				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -1107,7 +1123,6 @@ func (h *CasinoHandler) handleActBlackjack(w http.ResponseWriter, r *http.Reques
 		"roundsToday":    outcome.RoundsToday,
 		"leveledUp":      outcome.LeveledUp,
 		"levelUpBonus":   outcome.LevelUpBonus,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1153,7 +1168,6 @@ func (h *CasinoHandler) handleStartMines(w http.ResponseWriter, r *http.Request,
 		"ok":             true,
 		"round":          ToPublicRound(round),
 		"balance":        balAfterBet,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1187,7 +1201,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 					"xp":             xp,
 					"level":          lvl,
 					"roundsToday":    roundsToday,
-					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 				})
 				return
 			}
@@ -1238,7 +1251,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 			"roundsToday":    outcome.RoundsToday,
 			"leveledUp":      outcome.LeveledUp,
 			"levelUpBonus":   outcome.LevelUpBonus,
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -1257,7 +1269,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 			JSON(w, http.StatusOK, map[string]interface{}{
 				"ok":             true,
 				"round":          ToPublicRound(activeRound),
-				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -1301,7 +1312,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 			"roundsToday":    outcome.RoundsToday,
 			"leveledUp":      outcome.LeveledUp,
 			"levelUpBonus":   outcome.LevelUpBonus,
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -1321,7 +1331,6 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 	JSON(w, http.StatusOK, map[string]interface{}{
 		"ok":             true,
 		"round":          ToPublicRound(activeRound),
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1367,7 +1376,6 @@ func (h *CasinoHandler) handleStartChicken(w http.ResponseWriter, r *http.Reques
 		"ok":             true,
 		"round":          ToPublicRound(round),
 		"balance":        balAfterBet,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1401,7 +1409,6 @@ func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request,
 					"xp":             xp,
 					"level":          lvl,
 					"roundsToday":    roundsToday,
-					"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 				})
 				return
 			}
@@ -1452,7 +1459,6 @@ func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request,
 			"roundsToday":    outcome.RoundsToday,
 			"leveledUp":      outcome.LeveledUp,
 			"levelUpBonus":   outcome.LevelUpBonus,
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -1511,7 +1517,6 @@ func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request,
 			"roundsToday":    outcome.RoundsToday,
 			"leveledUp":      outcome.LeveledUp,
 			"levelUpBonus":   outcome.LevelUpBonus,
-			"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 		})
 		return
 	}
@@ -1530,7 +1535,6 @@ func (h *CasinoHandler) handleActChicken(w http.ResponseWriter, r *http.Request,
 	JSON(w, http.StatusOK, map[string]interface{}{
 		"ok":             true,
 		"round":          ToPublicRound(activeRound),
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1668,7 +1672,6 @@ func (h *CasinoHandler) handleStartCrash(w http.ResponseWriter, r *http.Request,
 		"ok":             true,
 		"round":          ToPublicRound(round),
 		"balance":        balAfterBet,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1693,7 +1696,6 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 				"balance":        bal,
 				"xp":             xp,
 				"level":          lvl,
-				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -1791,7 +1793,6 @@ func (h *CasinoHandler) handleCashoutCrash(w http.ResponseWriter, r *http.Reques
 		"roundsToday":    outcome.RoundsToday,
 		"leveledUp":      outcome.LeveledUp,
 		"levelUpBonus":   outcome.LevelUpBonus,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1816,7 +1817,6 @@ func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request
 				"balance":        bal,
 				"xp":             xp,
 				"level":          lvl,
-				"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 			})
 			return
 		}
@@ -1886,7 +1886,6 @@ func (h *CasinoHandler) handleSettleCrash(w http.ResponseWriter, r *http.Request
 		"roundsToday":    outcome.RoundsToday,
 		"leveledUp":      outcome.LeveledUp,
 		"levelUpBonus":   outcome.LevelUpBonus,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -1937,7 +1936,6 @@ func (h *CasinoHandler) handleRefundActive(w http.ResponseWriter, r *http.Reques
 		"ok":             true,
 		"round":          ToPublicRound(outcome.Round),
 		"balance":        outcome.Balance,
-		"next_challenge": anticheat.GenerateBrowserChallenge(p.UserID, h.sessionSecret),
 	})
 }
 
@@ -2078,11 +2076,6 @@ func (h *CasinoHandler) HandleWSMessage(client *ws.Client, rawMsg []byte) {
 			httpReq.RemoteAddr = client.RemoteAddr
 		}
 		h.PostAction(rec, httpReq)
-
-	case "get_challenge":
-		challenge := anticheat.GenerateBrowserChallenge(player.UserID, h.sessionSecret)
-		client.SendResponse(req.ID, http.StatusOK, challenge)
-		return
 
 	default:
 		client.SendResponse(req.ID, http.StatusBadRequest, map[string]string{"error": fmt.Sprintf("Nieznany typ akcji: %s", req.Type)})

@@ -111,7 +111,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         setSessionCount((prev) => prev + 1);
         setSessionEarned((prev) => prev + (res.amount || 80));
         setSuccessAnim(true);
-        toast.success(`+${res.amount || 80} $FGT za rozwiązanie Captcha!`);
+        toast.success(`+${res.amount || 80} ₽ za rozwiązanie Captcha!`);
 
         setTimeout(() => setSuccessAnim(false), 1200);
         await fetchCaptcha(false);
@@ -199,7 +199,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         {successAnim && (
           <div className="captcha-status-msg success">
             <CheckCircle size={15} className="shrink-0" />
-            <span>+80 $FGT dodano do salda</span>
+            <span>+80 ₽ dodano do salda</span>
           </div>
         )}
 
@@ -216,7 +216,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           ) : (
             <>
               <Sparkles size={16} />
-              <span>Odbierz 80 $FGT</span>
+              <span>Odbierz 80 ₽</span>
             </>
           )}
         </button>

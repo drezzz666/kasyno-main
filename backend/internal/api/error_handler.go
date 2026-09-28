@@ -167,7 +167,6 @@ func (h *ErrorHandler) ReportClientError(w http.ResponseWriter, r *http.Request)
 	report.Message = sanitizeMentions(report.Message)
 	report.Stack = sanitizeMentions(report.Stack)
 	report.Context = sanitizeMentions(report.Context)
-	report.ComponentStack = sanitizeMentions(report.ComponentStack)
 	report.SourceFile = sanitizeMentions(report.SourceFile)
 
 	// 7. Asynchronous dispatch to Discord webhook (with deduplication & global throttling)

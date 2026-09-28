@@ -36,7 +36,7 @@ export function reportClientError({
       stack || (error && error.stack) || "";
     
     // Ignore routine client-side offline drops
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
       return;
     }
 

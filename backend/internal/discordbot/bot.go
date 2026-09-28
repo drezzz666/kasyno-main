@@ -338,19 +338,34 @@ func (b *Bot) announceDrop(ctx context.Context, res *scheduler.GrantExecutionRes
 		nextRunStr = time.UnixMilli(*res.Grant.NextRunAt).In(loc).Format("02.01.2006 15:04:05 (MST)")
 	}
 
+	isMusor := res.Grant.GrantType == "musordrop" || res.Grant.GrantType == "musor_box" || res.Grant.GrantType == "box"
+
+	var title string
+	var amountLabel string
+	var totalLabel string
+	if isMusor {
+		title = fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT SKRZYNEK: %s", res.Grant.Name)
+		amountLabel = fmt.Sprintf("**+%d skrzynek Lepszych** / gracz", res.Grant.Amount)
+		totalLabel = fmt.Sprintf("**%d skrzynek**", res.TotalTransferred)
+	} else {
+		title = fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT $FGT: %s", res.Grant.Name)
+		amountLabel = fmt.Sprintf("**+%s** / gracz", formatFGT(res.Grant.Amount))
+		totalLabel = fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred))
+	}
+
 	embed := &discordgo.MessageEmbed{
 		Color:       ColorGold,
-		Title:       fmt.Sprintf("🎁 AUTOMATYCZNY ZRZUT $FGT: %s", res.Grant.Name),
-		Description: fmt.Sprintf("Zrealizowano zaplanowane doładowanie środków dla graczy!\nZaloguj się i zagraj na [**%s**](%s)", b.appURL, b.appURL),
+		Title:       title,
+		Description: fmt.Sprintf("Zrealizowano zaplanowany zrzut dla graczy!\nZaloguj się i odbierz na [**%s**](%s)", b.appURL, b.appURL),
 		Fields: []*discordgo.MessageEmbedField{
 			{
-				Name:   "💰 Kwota zrzutu",
-				Value:  fmt.Sprintf("**+%s** / gracz", formatFGT(res.Grant.Amount)),
+				Name:   "🎁 Wartość zrzutu",
+				Value:  amountLabel,
 				Inline: true,
 			},
 			{
 				Name:   "💎 Łącznie rozdano",
-				Value:  fmt.Sprintf("**%s**", formatFGT(res.TotalTransferred)),
+				Value:  totalLabel,
 				Inline: true,
 			},
 			{
@@ -380,6 +395,56 @@ func (b *Bot) announceDrop(ctx context.Context, res *scheduler.GrantExecutionRes
 		log.Printf("⚠️ [Discord Bot] Błąd wysyłania powiadomienia o zrzucie na kanał %s: %v", channelID, err)
 	} else {
 		log.Printf("📢 [Discord Bot] Wysłano ogłoszenie o zrzucie '%s' (+%d $FGT) na kanał Discord %s.", res.Grant.Name, res.Grant.Amount, channelID)
+	}
+}
+
+// AnnounceMusorDropWin sends an announcement embed to Discord channel for Musor Drop wins
+func (b *Bot) AnnounceMusorDropWin(nick, boxType, prizeName string, prize int64, isJackpot bool) {
+	if b == nil || b.session == nil {
+		return
+	}
+	channelID := b.cfg.DiscordDropChannelID
+	if channelID == "" {
+		return
+	}
+
+	color := ColorEmerald
+	title := fmt.Sprintf("🎁 Wygrana w Musor Drop: %s", nick)
+	if isJackpot {
+		color = ColorGold
+		title = fmt.Sprintf("🔥 JACKPOT W MUSOR DROP: %s!", nick)
+	}
+
+	logoURL := b.appURL + "/musor-drop-hero.webp"
+
+	embed := &discordgo.MessageEmbed{
+		Color:       color,
+		Title:       title,
+		Description: fmt.Sprintf("Gracz **%s** otworzył skrzynkę **%s** i trafił **+%s** *(%s)*!\nZagraj w skrzynki na [**%s**](%s)", nick, strings.ToUpper(boxType), formatFGT(prize), prizeName, b.appURL, b.appURL),
+		Thumbnail: &discordgo.MessageEmbedThumbnail{
+			URL: logoURL,
+		},
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "💰 Wygrana kwota",
+				Value:  fmt.Sprintf("**+%s**", formatFGT(prize)),
+				Inline: true,
+			},
+			{
+				Name:   "📦 Typ skrzynki",
+				Value:  strings.ToUpper(boxType),
+				Inline: true,
+			},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Kasyno 2FGT • Musor Drop",
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	_, err := b.session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		log.Printf("⚠️ [Discord Bot] Błąd wysyłania powiadomienia o wygranej w Musor Drop: %v", err)
 	}
 }
 

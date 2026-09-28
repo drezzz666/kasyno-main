@@ -22,16 +22,10 @@ func TestReporter_ReportFrontendError(t *testing.T) {
 	rep := NewReporter(server.URL, "")
 
 	report := &FrontendErrorReport{
-		ErrorType:     "UNHANDLED_EXCEPTION",
-		Message:       "TypeError: Cannot read property 'crash_point'",
-		SourceFile:    "GameTableDialog.jsx:333",
-		Context:       "Crash: start round",
-		Game:          "crash",
-		ActionPayload: map[string]interface{}{"bet": 100, "target_multiplier": 2.0},
-		URL:           "https://kasyno.2fgt.pl/",
-		UserAgent:     "Mozilla/5.0 Chrome/120.0",
-		Screen:        "1920x1080",
-		Timestamp:     time.Now().Format(time.RFC3339),
+		ErrorType:  "UNHANDLED_EXCEPTION",
+		Message:    "TypeError: Cannot read property 'crash_point'",
+		SourceFile: "GameTableDialog.jsx:333",
+		Context:    "Crash: start round",
 	}
 
 	user := &auth.SessionUser{
@@ -185,7 +179,6 @@ func TestReporter_RateLimitRoutedToSecurityWebhook(t *testing.T) {
 		Message:    "Zbyt wiele akcji naraz. Zwolnij tempo.",
 		SourceFile: "api.js:124",
 		Context:    "POST /api/casino (HTTP 429)",
-		Game:       "mines",
 	}
 
 	user := &auth.SessionUser{

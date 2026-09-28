@@ -6,6 +6,22 @@ import (
 	"strings"
 )
 
+var (
+	_, mutedSubnet, _ = net.ParseCIDR("193.93.68.0/22")
+)
+
+// IsMutedSubnet checks if the given IP address is within the 193.93.68.0/22 range.
+func IsMutedSubnet(ipStr string) bool {
+	if ipStr == "" || mutedSubnet == nil {
+		return false
+	}
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return false
+	}
+	return mutedSubnet.Contains(ip)
+}
+
 // GetClientIP extracts the client's real IP address from headers, prioritizing
 // X-Remote-Ip, CF-Connecting-Ip, X-Forwarded-For, and X-Real-IP before falling back to RemoteAddr.
 func GetClientIP(r *http.Request) string {
@@ -50,14 +66,10 @@ func GetClientIP(r *http.Request) string {
 }
 
 func cleanIP(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	if host, _, err := net.SplitHostPort(raw); err == nil && host != "" {
+	if host, _, err := net.SplitHostPort(raw); err == nil {
 		return host
 	}
-	return raw
+	return strings.TrimSpace(raw)
 }
 
 // RealIPMiddleware overwrites r.RemoteAddr with the resolved client IP

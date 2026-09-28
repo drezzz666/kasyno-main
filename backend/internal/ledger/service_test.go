@@ -125,3 +125,30 @@ func TestGetActiveMissionsForWindow(t *testing.T) {
 		}
 	}
 }
+
+func TestCalculateXPGain(t *testing.T) {
+	tests := []struct {
+		bet      int64
+		expected int
+	}{
+		{bet: 0, expected: 0},
+		{bet: 1, expected: 0},
+		{bet: 5, expected: 0},
+		{bet: 9, expected: 0},
+		{bet: 10, expected: 1},
+		{bet: 15, expected: 1},
+		{bet: 16, expected: 1},
+		{bet: 64, expected: 2},
+		{bet: 100, expected: 2},
+		{bet: 1000, expected: 7},
+		{bet: 10000, expected: 15},
+		{bet: 50000, expected: 15}, // Max cap 15
+	}
+
+	for _, tt := range tests {
+		got := CalculateXPGain(tt.bet)
+		if got != tt.expected {
+			t.Errorf("bet %d: expected %d XP, got %d XP", tt.bet, tt.expected, got)
+		}
+	}
+}

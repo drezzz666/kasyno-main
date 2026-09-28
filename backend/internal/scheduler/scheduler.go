@@ -23,6 +23,7 @@ type ScheduledGrant struct {
 	Name          string `json:"name"`
 	TargetUsers   string `json:"target_users"`
 	Amount        int64  `json:"amount"`
+	GrantType     string `json:"grant_type"`
 	Reason        string `json:"reason"`
 	CronExpr      string `json:"cron_expr"`
 	HumanSchedule string `json:"human_schedule"`
@@ -181,11 +182,61 @@ type CreateGrantParams struct {
 	Name        string
 	TargetUsers string
 	Amount      int64
+	GrantType   string
 	Reason      string
 	DayOfWeek   string
 	TimeOfDay   string
 	CustomCron  string
 	CreatedBy   string
+}
+
+var dowMap = map[string]struct{ token, label string }{
+	"":             {"*", "Codziennie"},
+	"*":            {"*", "Codziennie"},
+	"all":          {"*", "Codziennie"},
+	"codziennie":   {"*", "Codziennie"},
+	"everyday":     {"*", "Codziennie"},
+	"daily":        {"*", "Codziennie"},
+	"poniedzialek": {"1", "W każdy Poniedziałek"},
+	"poniedziałek": {"1", "W każdy Poniedziałek"},
+	"pn":           {"1", "W każdy Poniedziałek"},
+	"mon":          {"1", "W każdy Poniedziałek"},
+	"monday":       {"1", "W każdy Poniedziałek"},
+	"1":            {"1", "W każdy Poniedziałek"},
+	"wtorek":       {"2", "W każdy Wtorek"},
+	"wt":           {"2", "W każdy Wtorek"},
+	"tue":          {"2", "W każdy Wtorek"},
+	"tuesday":      {"2", "W każdy Wtorek"},
+	"2":            {"2", "W każdy Wtorek"},
+	"sroda":        {"3", "W każdą Środę"},
+	"środa":        {"3", "W każdą Środę"},
+	"sr":           {"3", "W każdą Środę"},
+	"śr":           {"3", "W każdą Środę"},
+	"wed":          {"3", "W każdą Środę"},
+	"wednesday":    {"3", "W każdą Środę"},
+	"3":            {"3", "W każdą Środę"},
+	"czwartek":     {"4", "W każdy Czwartek"},
+	"czw":          {"4", "W każdy Czwartek"},
+	"thu":          {"4", "W każdy Czwartek"},
+	"thursday":     {"4", "W każdy Czwartek"},
+	"4":            {"4", "W każdy Czwartek"},
+	"piatek":       {"5", "W każdy Piątek"},
+	"piątek":       {"5", "W każdy Piątek"},
+	"pt":           {"5", "W każdy Piątek"},
+	"fri":          {"5", "W każdy Piątek"},
+	"friday":       {"5", "W każdy Piątek"},
+	"5":            {"5", "W każdy Piątek"},
+	"sobota":       {"6", "W każdą Sobotę"},
+	"sb":           {"6", "W każdą Sobotę"},
+	"sat":          {"6", "W każdą Sobotę"},
+	"saturday":     {"6", "W każdą Sobotę"},
+	"6":            {"6", "W każdą Sobotę"},
+	"niedziela":    {"0", "W każdą Niedzielę"},
+	"nd":           {"0", "W każdą Niedzielę"},
+	"sun":          {"0", "W każdą Niedzielę"},
+	"sunday":       {"0", "W każdą Niedzielę"},
+	"0":            {"0", "W każdą Niedzielę"},
+	"7":            {"0", "W każdą Niedzielę"},
 }
 
 // BuildSchedule synthesizes cron expression and human schedule string.
@@ -218,39 +269,13 @@ func BuildSchedule(dayOfWeek, timeOfDay, customCron, timezoneName string) (cronE
 		return customCron, humanSchedule, nil
 	}
 
-	// Parse day of week
 	dowNorm := strings.ToLower(strings.TrimSpace(dayOfWeek))
-	var dowToken string
-	var dowLabel string
-
-	switch dowNorm {
-	case "", "*", "all", "codziennie", "każdy dzień", "kazdy dzien", "everyday", "daily":
-		dowToken = "*"
-		dowLabel = "Codziennie"
-	case "poniedzialek", "poniedziałek", "pn", "mon", "monday", "1":
-		dowToken = "1"
-		dowLabel = "W każdy Poniedziałek"
-	case "wtorek", "wt", "tue", "tuesday", "2":
-		dowToken = "2"
-		dowLabel = "W każdy Wtorek"
-	case "sroda", "środa", "sr", "śr", "wed", "wednesday", "3":
-		dowToken = "3"
-		dowLabel = "W każdą Środę"
-	case "czwartek", "czw", "thu", "thursday", "4":
-		dowToken = "4"
-		dowLabel = "W każdy Czwartek"
-	case "piatek", "piątek", "pt", "fri", "friday", "5":
-		dowToken = "5"
-		dowLabel = "W każdy Piątek"
-	case "sobota", "sb", "sat", "saturday", "6":
-		dowToken = "6"
-		dowLabel = "W każdą Sobotę"
-	case "niedziela", "nd", "sun", "sunday", "0", "7":
-		dowToken = "0"
-		dowLabel = "W każdą Niedzielę"
-	default:
-		return "", "", fmt.Errorf("nieznany dzień tygodnia: '%s'. Wybierz np. Poniedziałek, Piątek, Codziennie lub użyj parametru cron", dayOfWeek)
+	dowInfo, ok := dowMap[dowNorm]
+	if !ok {
+		return "", "", fmt.Errorf("nieznany dzień tygodnia: '%s'", dayOfWeek)
 	}
+	dowToken := dowInfo.token
+	dowLabel := dowInfo.label
 
 	// Parse hour:minute
 	timeOfDay = strings.TrimSpace(timeOfDay)
@@ -284,13 +309,21 @@ func (s *Scheduler) AddScheduledGrant(ctx context.Context, params CreateGrantPar
 		return nil, fmt.Errorf("nazwa zadania nie może być pusta")
 	}
 	if params.Amount <= 0 {
-		return nil, fmt.Errorf("kwota musi być większa od zera")
+		return nil, fmt.Errorf("kwota/ilość musi być większa od zera")
 	}
 	if strings.TrimSpace(params.TargetUsers) == "" {
 		return nil, fmt.Errorf("musisz podać odbiorców (np. '*' lub 'gracz1, gracz2')")
 	}
 	if strings.TrimSpace(params.Reason) == "" {
-		params.Reason = "Automatyczny zrzut $FGT"
+		if params.GrantType == "musordrop" {
+			params.Reason = "Automatyczny zrzut skrzynek Musor Drop"
+		} else {
+			params.Reason = "Automatyczny zrzut $FGT"
+		}
+	}
+	grantType := strings.TrimSpace(params.GrantType)
+	if grantType == "" {
+		grantType = "money"
 	}
 
 	cronExpr, humanSched, err := BuildSchedule(params.DayOfWeek, params.TimeOfDay, params.CustomCron, s.location.String())
@@ -316,6 +349,7 @@ func (s *Scheduler) AddScheduledGrant(ctx context.Context, params CreateGrantPar
 		Name:          strings.TrimSpace(params.Name),
 		TargetUsers:   strings.TrimSpace(params.TargetUsers),
 		Amount:        params.Amount,
+		GrantType:     grantType,
 		Reason:        strings.TrimSpace(params.Reason),
 		CronExpr:      cronExpr,
 		HumanSchedule: humanSched,
@@ -326,10 +360,10 @@ func (s *Scheduler) AddScheduledGrant(ctx context.Context, params CreateGrantPar
 	}
 
 	query := `
-		INSERT INTO scheduled_grants (id, name, target_users, amount, reason, cron_expr, human_schedule, created_by, created_at, next_run_at, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO scheduled_grants (id, name, target_users, amount, grant_type, reason, cron_expr, human_schedule, created_by, created_at, next_run_at, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
-	_, err = s.db.Pool.Exec(ctx, query, g.ID, g.Name, g.TargetUsers, g.Amount, g.Reason, g.CronExpr, g.HumanSchedule, g.CreatedBy, g.CreatedAt, g.NextRunAt, g.Enabled)
+	_, err = s.db.Pool.Exec(ctx, query, g.ID, g.Name, g.TargetUsers, g.Amount, g.GrantType, g.Reason, g.CronExpr, g.HumanSchedule, g.CreatedBy, g.CreatedAt, g.NextRunAt, g.Enabled)
 	if err != nil {
 		return nil, fmt.Errorf("błąd zapisu do bazy danych: %w", err)
 	}
@@ -348,7 +382,7 @@ func (s *Scheduler) ListGrants(ctx context.Context) ([]ScheduledGrant, error) {
 
 func (s *Scheduler) listGrantsFromDB(ctx context.Context, onlyEnabled bool) ([]ScheduledGrant, error) {
 	query := `
-		SELECT id, name, target_users, amount, reason, cron_expr, human_schedule, created_by, created_at, last_run_at, next_run_at, enabled
+		SELECT id, name, target_users, amount, COALESCE(grant_type, 'money'), reason, cron_expr, human_schedule, created_by, created_at, last_run_at, next_run_at, enabled
 		FROM scheduled_grants
 	`
 	if onlyEnabled {
@@ -365,7 +399,7 @@ func (s *Scheduler) listGrantsFromDB(ctx context.Context, onlyEnabled bool) ([]S
 	var grants []ScheduledGrant
 	for rows.Next() {
 		var g ScheduledGrant
-		if err := rows.Scan(&g.ID, &g.Name, &g.TargetUsers, &g.Amount, &g.Reason, &g.CronExpr, &g.HumanSchedule, &g.CreatedBy, &g.CreatedAt, &g.LastRunAt, &g.NextRunAt, &g.Enabled); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.TargetUsers, &g.Amount, &g.GrantType, &g.Reason, &g.CronExpr, &g.HumanSchedule, &g.CreatedBy, &g.CreatedAt, &g.LastRunAt, &g.NextRunAt, &g.Enabled); err != nil {
 			return nil, err
 		}
 		grants = append(grants, g)
@@ -378,14 +412,14 @@ func (s *Scheduler) listGrantsFromDB(ctx context.Context, onlyEnabled bool) ([]S
 func (s *Scheduler) GetGrant(ctx context.Context, idOrName string) (*ScheduledGrant, error) {
 	var g ScheduledGrant
 	query := `
-		SELECT id, name, target_users, amount, reason, cron_expr, human_schedule, created_by, created_at, last_run_at, next_run_at, enabled
+		SELECT id, name, target_users, amount, COALESCE(grant_type, 'money'), reason, cron_expr, human_schedule, created_by, created_at, last_run_at, next_run_at, enabled
 		FROM scheduled_grants
 		WHERE id = $1 OR LOWER(name) = LOWER($1) OR id LIKE $2
 		LIMIT 1
 	`
 	prefix := idOrName + "%"
 	err := s.db.Pool.QueryRow(ctx, query, idOrName, prefix).Scan(
-		&g.ID, &g.Name, &g.TargetUsers, &g.Amount, &g.Reason, &g.CronExpr, &g.HumanSchedule, &g.CreatedBy, &g.CreatedAt, &g.LastRunAt, &g.NextRunAt, &g.Enabled,
+		&g.ID, &g.Name, &g.TargetUsers, &g.Amount, &g.GrantType, &g.Reason, &g.CronExpr, &g.HumanSchedule, &g.CreatedBy, &g.CreatedAt, &g.LastRunAt, &g.NextRunAt, &g.Enabled,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, fmt.Errorf("nie znaleziono harmonogramu o identyfikatorze: '%s'", idOrName)
@@ -461,42 +495,82 @@ func (s *Scheduler) ExecuteGrant(ctx context.Context, grantID string) (*GrantExe
 	target := strings.TrimSpace(g.TargetUsers)
 	isAll := target == "*" || strings.EqualFold(target, "all") || strings.EqualFold(target, "wszyscy") || strings.EqualFold(target, "@everyone")
 
-	if isAll {
-		count, total, err := s.ledger.GrantBalanceAllWithType(ctx, g.Amount, "scheduled_grant", g.Reason)
-		if err != nil {
-			return nil, fmt.Errorf("błąd masowego zrzutu dla wszystkich graczy: %w", err)
+	if g.GrantType == "musordrop" || g.GrantType == "musor_box" || g.GrantType == "box" {
+		if isAll {
+			count, total, err := s.ledger.GrantMusorBoxesAll(ctx, int(g.Amount), g.Reason)
+			if err != nil {
+				return nil, fmt.Errorf("błąd masowego zrzutu skrzynek dla wszystkich graczy: %w", err)
+			}
+			result.RecipientsCount = count
+			result.TotalTransferred = int64(total)
+			result.SuccessfulUsers = []string{"* (Wszyscy gracze)"}
+		} else {
+			rawUsers := strings.Split(target, ",")
+			var successful []string
+			var failed []string
+			var totalTransferred int64
+
+			for _, rawUser := range rawUsers {
+				u := strings.TrimSpace(rawUser)
+				if u == "" {
+					continue
+				}
+				nick, _, _, grantErr := s.ledger.GrantMusorBoxes(ctx, u, int(g.Amount), g.Reason)
+				if grantErr != nil {
+					failed = append(failed, fmt.Sprintf("%s (%v)", u, grantErr))
+				} else {
+					successful = append(successful, nick)
+					totalTransferred += g.Amount
+				}
+			}
+
+			result.RecipientsCount = len(successful)
+			result.TotalTransferred = totalTransferred
+			result.SuccessfulUsers = successful
+			result.FailedUsers = failed
+
+			if len(successful) == 0 && len(failed) > 0 {
+				return nil, fmt.Errorf("nie udało się nadać skrzynek żadnemu z podanych graczy: %s", strings.Join(failed, ", "))
+			}
 		}
-		result.RecipientsCount = count
-		result.TotalTransferred = total
-		result.SuccessfulUsers = []string{"* (Wszyscy gracze)"}
 	} else {
-		// Multi-user target: split comma-separated list of nicks/IDs
-		rawUsers := strings.Split(target, ",")
-		var successful []string
-		var failed []string
-		var totalTransferred int64
-
-		for _, rawUser := range rawUsers {
-			u := strings.TrimSpace(rawUser)
-			if u == "" {
-				continue
+		if isAll {
+			count, total, err := s.ledger.GrantBalanceAllWithType(ctx, g.Amount, "scheduled_grant", g.Reason)
+			if err != nil {
+				return nil, fmt.Errorf("błąd masowego zrzutu dla wszystkich graczy: %w", err)
 			}
-			nick, _, _, grantErr := s.ledger.GrantBalanceWithType(ctx, u, g.Amount, "scheduled_grant", g.Reason)
-			if grantErr != nil {
-				failed = append(failed, fmt.Sprintf("%s (%v)", u, grantErr))
-			} else {
-				successful = append(successful, nick)
-				totalTransferred += g.Amount
+			result.RecipientsCount = count
+			result.TotalTransferred = total
+			result.SuccessfulUsers = []string{"* (Wszyscy gracze)"}
+		} else {
+			// Multi-user target: split comma-separated list of nicks/IDs
+			rawUsers := strings.Split(target, ",")
+			var successful []string
+			var failed []string
+			var totalTransferred int64
+
+			for _, rawUser := range rawUsers {
+				u := strings.TrimSpace(rawUser)
+				if u == "" {
+					continue
+				}
+				nick, _, _, grantErr := s.ledger.GrantBalanceWithType(ctx, u, g.Amount, "scheduled_grant", g.Reason)
+				if grantErr != nil {
+					failed = append(failed, fmt.Sprintf("%s (%v)", u, grantErr))
+				} else {
+					successful = append(successful, nick)
+					totalTransferred += g.Amount
+				}
 			}
-		}
 
-		result.RecipientsCount = len(successful)
-		result.TotalTransferred = totalTransferred
-		result.SuccessfulUsers = successful
-		result.FailedUsers = failed
+			result.RecipientsCount = len(successful)
+			result.TotalTransferred = totalTransferred
+			result.SuccessfulUsers = successful
+			result.FailedUsers = failed
 
-		if len(successful) == 0 && len(failed) > 0 {
-			return nil, fmt.Errorf("nie udało się nadać środków żadnemu z podanych graczy: %s", strings.Join(failed, ", "))
+			if len(successful) == 0 && len(failed) > 0 {
+				return nil, fmt.Errorf("nie udało się nadać środków żadnemu z podanych graczy: %s", strings.Join(failed, ", "))
+			}
 		}
 	}
 

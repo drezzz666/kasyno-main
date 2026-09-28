@@ -63,11 +63,11 @@ func TestSlashCommandNames(t *testing.T) {
 		if cmd.Name == "" {
 			t.Error("slash command has empty name")
 		}
-		if strings.HasPrefix(cmd.Name, "casino-") {
-			t.Errorf("command %s still has legacy 'casino-' prefix", cmd.Name)
-		}
 		if cmd.Description == "" {
 			t.Errorf("command %s has empty description", cmd.Name)
+		}
+		if strings.Contains(cmd.Name, " ") {
+			t.Errorf("command %s cannot contain spaces", cmd.Name)
 		}
 	}
 }

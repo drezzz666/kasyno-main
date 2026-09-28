@@ -26,7 +26,7 @@ export function ProfileModal({
             </div>
             <div>
               <h3>Konto gracza</h3>
-              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 $FGT)</p>
+              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 ₽)</p>
             </div>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij">
@@ -82,7 +82,7 @@ export function ProfileModal({
               <div className="record-item">
                 <span className="record-label">Łączny obrót</span>
                 <span className="record-val text-slate-300">
-                  {stats?.totalWagered ? money(stats.totalWagered) : "0 $FGT"}
+                  {stats?.totalWagered ? money(stats.totalWagered) : "0 ₽"}
                 </span>
               </div>
             </div>

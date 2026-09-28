@@ -8,7 +8,6 @@ import {
   Trophy,
   Target,
   History,
-  User,
   ChevronRight,
   Sparkles,
   Zap,
@@ -29,7 +28,6 @@ import {
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format } from "./lib/formatters";
-import { FgtChip } from "./components/BetControls";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -61,7 +59,7 @@ export default function App() {
     return "games";
   }); // "games" | "minigames" | "missions" | "ranking" | "history" | "tos"
 
-  // ToS Consent State
+  // ToS Consent State (per account)
   const [tosAccepted, setTosAccepted] = useState(() => {
     try {
       return localStorage.getItem("kasyno_tos_accepted_v2") === "true";
@@ -70,24 +68,25 @@ export default function App() {
     }
   });
 
-  const [tosModalOpen, setTosModalOpen] = useState(() => {
-    try {
-      return localStorage.getItem("kasyno_tos_accepted_v2") !== "true";
-    } catch {
-      return true;
-    }
-  });
+  const [tosModalOpen, setTosModalOpen] = useState(false);
 
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
-  const handleAcceptTos = useCallback(() => {
+  const handleAcceptTos = useCallback(async () => {
+    const uid = data?.player?.user_id;
     try {
+      if (uid) localStorage.setItem(`kasyno_tos_accepted_${uid}`, "true");
       localStorage.setItem("kasyno_tos_accepted_v2", "true");
     } catch { }
     setTosAccepted(true);
     setTosModalOpen(false);
     toast.success("Regulamin zaakceptowany. Witamy w grze!");
-  }, []);
+
+    // Save permanently to the player account in backend DB
+    try {
+      await postCasinoAction({ action: "accept_tos" });
+    } catch { }
+  }, [data?.player?.user_id]);
 
   // Per-game bet memory with default 10 $FGT for every game
   const [gameBets, setGameBets] = useState(() => {
@@ -163,7 +162,8 @@ export default function App() {
   const [recentWins, setRecentWins] = useState([]);
 
   const isAnimatingRef = useRef(false);
-  const { muted, toggleMute } = useAudio();
+  const autoMuteNotifiedRef = useRef(false);
+  const { muted, toggleMute, setMuted } = useAudio();
 
   const syncBalance = useCallback((newBal) => {
     setData((prev) =>
@@ -194,11 +194,29 @@ export default function App() {
     onGlobalWin: handleGlobalWin,
   });
 
+  const hasConnectedOnce = useRef(false);
+  if (connected && !hasConnectedOnce.current) {
+    hasConnectedOnce.current = true;
+  }
+
   const load = useCallback(async (isPolling = false) => {
     if (isPolling && isAnimatingRef.current) return;
     try {
       const j = await fetchCasinoState();
       if (!j) return;
+
+      // Handle automatic mute for subnet 193.93.68.0/22 or test IP
+      if (j.autoMuted) {
+        setMuted(true);
+        if (!autoMuteNotifiedRef.current) {
+          autoMuteNotifiedRef.current = true;
+          toast.info("🔇 Wyciszono dźwięki", {
+            id: "subnet-auto-mute-toast",
+            description: j.autoMutedReason || "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
+            duration: 9000,
+          });
+        }
+      }
 
       if (j.recentWins && Array.isArray(j.recentWins)) {
         setRecentWins((prev) => {
@@ -233,6 +251,27 @@ export default function App() {
               : j.player,
         };
       });
+      if (j.player) {
+        const uid = j.player.user_id;
+        const acceptedInDb = Boolean(j.player.tos_accepted && Number(j.player.tos_accepted) > 0);
+        let acceptedLocal = false;
+        try {
+          acceptedLocal =
+            localStorage.getItem(`kasyno_tos_accepted_${uid}`) === "true" ||
+            localStorage.getItem("kasyno_tos_accepted_v2") === "true";
+        } catch { }
+        const isAccepted = acceptedInDb || acceptedLocal;
+        setTosAccepted(isAccepted);
+        if (isAccepted) {
+          setTosModalOpen(false);
+          try {
+            if (uid) localStorage.setItem(`kasyno_tos_accepted_${uid}`, "true");
+          } catch { }
+        } else {
+          setTosModalOpen(true);
+        }
+      }
+
       if (typeof j.hasMoreHistory === "boolean") {
         setHasMoreHistory(j.hasMoreHistory);
       }
@@ -274,13 +313,13 @@ export default function App() {
         setData((prev) =>
           prev
             ? {
-                ...prev,
-                active: null,
-                player: {
-                  ...prev.player,
-                  balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
-                },
-              }
+              ...prev,
+              active: null,
+              player: {
+                ...prev.player,
+                balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+              },
+            }
             : prev
         );
         void load();
@@ -481,90 +520,68 @@ export default function App() {
     {
       id: "chicken",
       name: "Chicken Cross",
-      badge: "RTP 98%",
-      mult: "Do ×181 060",
       desc: "Przeprowadź kurczaka przez ruchliwą trasę 10 pasów. 4 poziomy ryzyka.",
-      img: "/chicken-hero.webp",
+      img: "/chicken-hero-v7.webp",
     },
     {
       id: "crash",
       name: "Crash",
-      badge: "RTP 99%",
-      mult: "Do ×1000",
       desc: "Obserwuj rosnący mnożnik. Wypłać zanim nastąpi crash.",
-      img: "/crash-hero.webp",
+      img: "/crash-hero-v7.webp",
     },
     {
       id: "limbo",
       name: "Limbo",
-      badge: "RTP 99%",
-      mult: "Do ×10000",
       desc: "Ustaw docelowy mnożnik i obstaw wynik wyższy od celu.",
-      img: "/limbo-hero.webp",
+      img: "/limbo-hero-v7.webp",
     },
     {
       id: "plinko",
       name: "Plinko",
-      badge: "Do ×1000",
-      mult: "8–16 rzędów",
       desc: "Upuszczaj kule przez piramidę kołków. Trzy poziomy ryzyka.",
-      img: "/plinko-hero.webp",
+      img: "/plinko-hero-v7.webp",
     },
     {
       id: "mines",
       name: "Mines",
-      badge: "RTP 97%",
-      mult: "Do ×100",
       desc: "Odkrywaj diamenty na siatce 5×5. Wypłać kiedy chcesz.",
-      img: "/mines-hero.webp",
+      img: "/mines-hero-v7.webp",
     },
     {
       id: "coinflip",
       name: "Coinflip",
-      badge: "RTP 99%",
-      mult: "×1.98",
       desc: "Rzut monetą. Wybierz Orła lub Reszkę.",
-      img: "/coinflip-hero.webp",
+      img: "/coinflip-hero-v7.webp",
     },
     {
       id: "rps",
       name: "Kamień Papier Nożyce",
-      badge: "PvE",
-      mult: "×1.98",
       desc: "Klasyczny pojedynek z krupierem.",
-      img: "/rps-hero.webp",
+      img: "/rps-hero-v7.webp",
     },
     {
       id: "roulette",
       name: "Ruletka",
-      badge: "RTP 97.3%",
-      mult: "Do ×36",
       desc: "Europejska ruletka z pojedynczym zerem. Numery, kolory, tuziny.",
-      img: "/roulette-hero.webp",
+      img: "/roulette-hero-v7.webp",
     },
     {
       id: "blackjack",
       name: "Blackjack",
-      badge: "Wypłata 3:2",
-      mult: "×1.5",
       desc: "Graj przeciwko krupierowi. Dobieraj karty do 21.",
-      img: "/blackjack-hero.webp",
+      img: "/blackjack-hero-v7.webp",
     },
     {
       id: "slots",
       name: "Slots",
-      badge: "5 bębnów",
-      mult: "Do ×12",
       desc: "Klasyczny automat. Trafiaj linie 3, 4 lub 5 symboli.",
-      img: "/slot-hero.webp",
+      img: "/slot-hero-v7.webp",
     },
     {
       id: "upgrader",
       name: "Upgrader",
-      badge: "RTP 96%",
-      mult: "Do ×10000",
       desc: "Wpisz kwotę, wybierz mnożnik i zakręć kołem szansy na Upgrade!",
-      img: "/upgrader-hero.webp",
+      img: "/upgrader-hero-v7.webp",
     },
   ];
 
@@ -592,8 +609,8 @@ export default function App() {
           </button>
 
           <div className="balance-chip" title="Stan Twojego portfela">
-            <FgtChip small />
-            <span className="balance-val">{data ? money(data.player.balance) : "—"}</span>
+            <span className="balance-val">{data ? format(data.player.balance) : "—"}</span>
+            <span className="balance-unit">₽</span>
           </div>
 
           <button
@@ -701,7 +718,6 @@ export default function App() {
                       <div className="game-card-info">
                         <div className="game-card-title-row">
                           <h3 className="game-card-title">{g.name}</h3>
-                          <span className="game-card-mult">{g.mult}</span>
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
                         <span className="btn-play-game" aria-hidden="true">
@@ -747,7 +763,7 @@ export default function App() {
                       <div className="game-card-info">
                         <div className="game-card-title-row">
                           <h3 className="game-card-title">{g.name}</h3>
-                          <span className="game-card-mult text-emerald-400">{g.reward}</span>
+                        
                         </div>
                         <p className="game-card-desc">{g.desc}</p>
                         <span className="btn-play-game" aria-hidden="true">
@@ -777,7 +793,7 @@ export default function App() {
                       <h2 className="missions-hub-title">Misje Kasyna (Co 6h)</h2>
                     </div>
                     <p className="missions-hub-subtitle">
-                      Wykonuj zadania w grach (min. stawka 50 $FGT), zdobywaj żetony $FGT i punkty XP. Pula 4 misji odnawia się automatycznie co 6 godzin.
+                      Wykonuj zadania w grach (min. stawka 50 ₽), zdobywaj ruble i punkty XP. Pula 4 misji odnawia się automatycznie co 6 godzin.
                     </p>
                   </div>
                   <div className="missions-hub-stats">
@@ -813,7 +829,7 @@ export default function App() {
                           <div className="mission-card-main-info">
                             <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                               <span className="mission-category-pill">{m.category}</span>
-                              <span className="mission-reward-pill">+{format(m.reward)} $FGT</span>
+                              <span className="mission-reward-pill">+{format(m.reward)} ₽</span>
                               <span className="mission-xp-pill">+{m.xp_reward} XP</span>
                             </div>
                             <h3 className="mission-title">{m.title}</h3>
@@ -833,7 +849,7 @@ export default function App() {
                           <div className="mission-progress-text-row">
                             <span className="mission-progress-count">
                               {m.id === "daily_wager_1000"
-                                ? `${format(m.current)} / ${format(m.target)} $FGT`
+                                ? `${format(m.current)} / ${format(m.target)} ₽`
                                 : `${m.current} / ${m.target}`}
                             </span>
                             <span className="mission-progress-percent">{progressPercent}%</span>
@@ -860,7 +876,7 @@ export default function App() {
                               }}
                             >
                               <Sparkles size={14} />
-                              <span>Odbierz +{format(m.reward)} $FGT</span>
+                              <span>Odbierz +{format(m.reward)} ₽</span>
                             </button>
                           ) : (
                             <div className="mission-in-progress-row">
@@ -910,7 +926,7 @@ export default function App() {
                       onClick={() => setRankingType("balance")}
                     >
                       <Coins size={14} />
-                      <span>Bogactwo ($FGT)</span>
+                      <span>Bogactwo (₽)</span>
                     </button>
                     <button
                       className={`ranking-subtab-btn ${rankingType === "level" ? "active" : ""}`}
@@ -976,7 +992,7 @@ export default function App() {
                   <div className="ranking-divider">
                     <span className="ranking-divider-line" />
                     <span className="ranking-divider-text">
-                      {rankingType === "level" ? "NAJWYŻSZE POZIOMY (XP)" : "TOPKA KASYNA ($FGT)"}
+                      {rankingType === "level" ? "NAJWYŻSZE POZIOMY (XP)" : "TOPKA KASYNA (₽)"}
                     </span>
                     <span className="ranking-divider-line" />
                   </div>
@@ -1248,7 +1264,7 @@ export default function App() {
         currentBalance={data?.player?.balance}
       />
 
-      {/* Full-Screen Centered Reconnecting Blur Overlay */}
+      {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (
         <div className="reconnecting-overlay" role="alert" aria-live="assertive">
           <div className="reconnecting-card">
@@ -1256,9 +1272,13 @@ export default function App() {
               <div className="reconnecting-spinner" />
               <div className="reconnecting-pulse" />
             </div>
-            <h2 className="reconnecting-title">Łączenie ponownie...</h2>
+            <h2 className="reconnecting-title">
+              {hasConnectedOnce.current ? "Łączenie ponownie..." : "Ładowanie..."}
+            </h2>
             <p className="reconnecting-subtitle">
-              Utracono połączenie z serwerem kasyna. Trwa próba ponownego nawiązania sesji na żywo.
+              {hasConnectedOnce.current
+                ? "Utracono połączenie z serwerem kasyna. Trwa próba ponownego nawiązania sesji na żywo."
+                : "Otwieramy stoliki..."}
             </p>
           </div>
         </div>

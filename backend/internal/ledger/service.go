@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/db"
+	"github.com/drezzz666/kasyno/backend/internal/games/musordrop"
 	"github.com/drezzz666/kasyno/backend/internal/games/provablyfair"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -60,17 +61,26 @@ func DailyBonusAmount(streak int) int64 {
 	return int64(bonus)
 }
 
+// CalculateXPGain computes the XP gained from a bet: 0 XP for micro-bets (< 10 $FGT),
+// and 1-15 XP for qualifying bets based on floor(sqrt(bet)/4).
+func CalculateXPGain(bet int64) int {
+	if bet < 10 {
+		return 0
+	}
+	return min(15, max(1, int(math.Sqrt(float64(bet))/4)))
+}
+
 func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferredNick, avatar string, defaultBalance int64) (*Player, error) {
 	pool := s.db.Pool
 
 	var p Player
 	err := pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), COALESCE(p.musor_lepsza_boxes, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.musor_lepsza_boxes, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.MusorLepszaBoxes, &p.CreatedAt, &p.UpdatedAt)
 
 	if err == nil {
 		// Existing player: update avatar if newly provided
@@ -160,16 +170,26 @@ func (s *Service) GetOrCreatePlayer(ctx context.Context, userID, email, preferre
 func (s *Service) GetPlayer(ctx context.Context, userID string) (*Player, error) {
 	var p Player
 	err := s.db.Pool.QueryRow(ctx, `
-		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
+		SELECT p.user_id, p.email, p.nick, p.avatar, COALESCE(SUM(l.amount), 0), p.xp, p.level, p.streak, p.last_bonus_day, COALESCE(p.tos_accepted, 0), COALESCE(p.musor_lepsza_boxes, 0), p.created_at, p.updated_at
 		FROM players p
 		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
 		WHERE p.user_id = $1
-		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.created_at, p.updated_at
-	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.CreatedAt, &p.UpdatedAt)
+		GROUP BY p.user_id, p.email, p.nick, p.avatar, p.xp, p.level, p.streak, p.last_bonus_day, p.tos_accepted, p.musor_lepsza_boxes, p.created_at, p.updated_at
+	`, userID).Scan(&p.UserID, &p.Email, &p.Nick, &p.Avatar, &p.Balance, &p.XP, &p.Level, &p.Streak, &p.LastBonusDay, &p.TosAccepted, &p.MusorLepszaBoxes, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+func (s *Service) AcceptTos(ctx context.Context, userID string) error {
+	now := NowMs()
+	_, err := s.db.Pool.Exec(ctx, `
+		UPDATE players
+		SET tos_accepted = $1, updated_at = $1
+		WHERE user_id = $2
+	`, now, userID)
+	return err
 }
 
 func (s *Service) GetActiveRound(ctx context.Context, userID string) (*GameRound, error) {
@@ -529,7 +549,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_5",
 		Title:       "Rozgrzewka Kasynowa",
-		Description: "Rozegraj 5 dowolnych rund w kasynie (min. 10 $FGT)",
+		Description: "Rozegraj 5 dowolnych rund w kasynie (min. 10 ₽)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      5,
@@ -540,7 +560,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_15",
 		Title:       "Kasynowy Bywalec",
-		Description: "Rozegraj 15 rund w dowolnych grach (min. 10 $FGT)",
+		Description: "Rozegraj 15 rund w dowolnych grach (min. 10 ₽)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      15,
@@ -551,7 +571,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_30",
 		Title:       "Maraton Hazardowy",
-		Description: "Rozegraj 30 rund w dowolnych grach (min. 10 $FGT)",
+		Description: "Rozegraj 30 rund w dowolnych grach (min. 10 ₽)",
 		Category:    "Ogólne",
 		Icon:        "flame",
 		Target:      30,
@@ -562,7 +582,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "all_50",
 		Title:       "Władca Stołów",
-		Description: "Rozegraj 50 rund w tym 6-godzinnym cyklu (min. 10 $FGT)",
+		Description: "Rozegraj 50 rund w tym 6-godzinnym cyklu (min. 10 ₽)",
 		Category:    "Ogólne",
 		Icon:        "crown",
 		Target:      50,
@@ -573,7 +593,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_3",
 		Title:       "Trzy Sukcesy",
-		Description: "Wygraj 3 dowolne rundy w kasynie (min. 10 $FGT)",
+		Description: "Wygraj 3 dowolne rundy w kasynie (min. 10 ₽)",
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      3,
@@ -584,7 +604,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_10",
 		Title:       "Złota Seria",
-		Description: "Wygraj 10 rund w dowolnych grach (min. 10 $FGT)",
+		Description: "Wygraj 10 rund w dowolnych grach (min. 10 ₽)",
 		Category:    "Zwycięstwa",
 		Icon:        "sparkles",
 		Target:      10,
@@ -595,7 +615,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wins_25",
 		Title:       "Niezłomny Zwycięzca",
-		Description: "Wygraj 25 rund w kasynie (min. 10 $FGT)",
+		Description: "Wygraj 25 rund w kasynie (min. 10 ₽)",
 		Category:    "Zwycięstwa",
 		Icon:        "trophy",
 		Target:      25,
@@ -608,7 +628,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wager_500",
 		Title:       "Pierwsze Inwestycje",
-		Description: "Postaw łącznie co najmniej 500 $FGT",
+		Description: "Postaw łącznie co najmniej 500 ₽",
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      500,
@@ -619,7 +639,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wager_2500",
 		Title:       "Płynność Finansowa",
-		Description: "Postaw łącznie co najmniej 2,500 $FGT",
+		Description: "Postaw łącznie co najmniej 2,500 ₽",
 		Category:    "Obrót",
 		Icon:        "coins",
 		Target:      2500,
@@ -630,7 +650,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wager_10000",
 		Title:       "Kasynowy Magnat",
-		Description: "Postaw łącznie co najmniej 10,000 $FGT",
+		Description: "Postaw łącznie co najmniej 10,000 ₽",
 		Category:    "High Roller",
 		Icon:        "trophy",
 		Target:      10000,
@@ -641,7 +661,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "wager_50000",
 		Title:       "Wielki Wieloryb",
-		Description: "Postaw łącznie co najmniej 50,000 $FGT",
+		Description: "Postaw łącznie co najmniej 50,000 ₽",
 		Category:    "High Roller",
 		Icon:        "crown",
 		Target:      50000,
@@ -654,7 +674,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_3",
 		Title:       "Mistrz Koła",
-		Description: "Zakręć kołem Europejskiej Ruletki 3 razy (min. 10 $FGT)",
+		Description: "Zakręć kołem Europejskiej Ruletki 3 razy (min. 10 ₽)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
@@ -665,7 +685,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_8",
 		Title:       "Król Ruletki",
-		Description: "Rozegraj 8 rund w Europejską Ruletkę (min. 10 $FGT)",
+		Description: "Rozegraj 8 rund w Europejską Ruletkę (min. 10 ₽)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      8,
@@ -676,7 +696,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "roulette_win_3",
 		Title:       "Czysta Intuicja",
-		Description: "Traf wygraną w Ruletce 3 razy (min. 10 $FGT)",
+		Description: "Traf wygraną w Ruletce 3 razy (min. 10 ₽)",
 		Category:    "Ruletka",
 		Icon:        "roulette",
 		Target:      3,
@@ -689,7 +709,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_3",
 		Title:       "Poszukiwacz Diamentów",
-		Description: "Rozegraj 3 rundy w Sapera (min. 10 $FGT)",
+		Description: "Rozegraj 3 rundy w Sapera (min. 10 ₽)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
@@ -700,7 +720,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_8",
 		Title:       "Doświadczony Saper",
-		Description: "Rozegraj 8 rund w Sapera (min. 10 $FGT)",
+		Description: "Rozegraj 8 rund w Sapera (min. 10 ₽)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      8,
@@ -711,7 +731,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "mines_win_3",
 		Title:       "Diamentowa Ręka",
-		Description: "Wypłać wygraną z Sapera 3 razy (min. 10 $FGT)",
+		Description: "Wypłać wygraną z Sapera 3 razy (min. 10 ₽)",
 		Category:    "Saper",
 		Icon:        "pickaxe",
 		Target:      3,
@@ -724,7 +744,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_3",
 		Title:       "Karciany Strateg",
-		Description: "Rozegraj 3 rozdania w Blackjack 21 (min. 10 $FGT)",
+		Description: "Rozegraj 3 rozdania w Blackjack 21 (min. 10 ₽)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
@@ -735,7 +755,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_8",
 		Title:       "Mistrz Oczka",
-		Description: "Rozegraj 8 rozdań w Blackjack 21 (min. 10 $FGT)",
+		Description: "Rozegraj 8 rozdań w Blackjack 21 (min. 10 ₽)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      8,
@@ -746,7 +766,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "blackjack_win_3",
 		Title:       "Pogromca Krupiera",
-		Description: "Pokonaj krupiera w Blackjacku 3 razy (min. 10 $FGT)",
+		Description: "Pokonaj krupiera w Blackjacku 3 razy (min. 10 ₽)",
 		Category:    "Blackjack",
 		Icon:        "spade",
 		Target:      3,
@@ -759,7 +779,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_5",
 		Title:       "Nocny Szczęściarz",
-		Description: "Wykonaj 5 obrotów na automatach (min. 10 $FGT)",
+		Description: "Wykonaj 5 obrotów na automatach (min. 10 ₽)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      5,
@@ -770,7 +790,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_15",
 		Title:       "Gorące Bębny",
-		Description: "Wykonaj 15 obrotów na automatach (min. 10 $FGT)",
+		Description: "Wykonaj 15 obrotów na automatach (min. 10 ₽)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      15,
@@ -781,7 +801,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "slots_win_3",
 		Title:       "Trafienie w Linię",
-		Description: "Traf wygrywającą kombinację na slotach 3 razy (min. 10 $FGT)",
+		Description: "Traf wygrywającą kombinację na slotach 3 razy (min. 10 ₽)",
 		Category:    "Sloty",
 		Icon:        "zap",
 		Target:      3,
@@ -794,7 +814,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_5",
 		Title:       "Rzut Przeznaczenia",
-		Description: "Rzuć monetą 5 razy w Coin Flip (min. 10 $FGT)",
+		Description: "Rzuć monetą 5 razy w Coin Flip (min. 10 ₽)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      5,
@@ -805,7 +825,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_12",
 		Title:       "Podwójna Strona",
-		Description: "Rzuć monetą 12 razy w Coin Flip (min. 10 $FGT)",
+		Description: "Rzuć monetą 12 razy w Coin Flip (min. 10 ₽)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      12,
@@ -816,7 +836,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "coinflip_win_4",
 		Title:       "Złoty Orzeł",
-		Description: "Wygraj rzut monetą 4 razy (min. 10 $FGT)",
+		Description: "Wygraj rzut monetą 4 razy (min. 10 ₽)",
 		Category:    "Coin Flip",
 		Icon:        "coin",
 		Target:      4,
@@ -829,7 +849,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_5",
 		Title:       "Szybki Pojedynek",
-		Description: "Stocz 5 pojedynków w KPN (min. 10 $FGT)",
+		Description: "Stocz 5 pojedynków w KPN (min. 10 ₽)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      5,
@@ -840,7 +860,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_12",
 		Title:       "Mistrz Gestów",
-		Description: "Stocz 12 pojedynków w KPN (min. 10 $FGT)",
+		Description: "Stocz 12 pojedynków w KPN (min. 10 ₽)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      12,
@@ -851,7 +871,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "rps_win_4",
 		Title:       "Zwycięska Dłoń",
-		Description: "Wygraj pojedynek w KPN 4 razy (min. 10 $FGT)",
+		Description: "Wygraj pojedynek w KPN 4 razy (min. 10 ₽)",
 		Category:    "KPN",
 		Icon:        "rps",
 		Target:      4,
@@ -864,7 +884,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_10",
 		Title:       "Deszcz Kulek",
-		Description: "Upuść 10 kulek w Plinko (min. 10 $FGT)",
+		Description: "Upuść 10 kulek w Plinko (min. 10 ₽)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      10,
@@ -875,7 +895,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_25",
 		Title:       "Plinko Kaskada",
-		Description: "Upuść 25 kulek w Plinko (min. 10 $FGT)",
+		Description: "Upuść 25 kulek w Plinko (min. 10 ₽)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      25,
@@ -886,7 +906,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "plinko_win_5",
 		Title:       "Złoty Mnożnik",
-		Description: "Traf zyskowny koszyk (>1x) w Plinko 5 razy (min. 10 $FGT)",
+		Description: "Traf zyskowny koszyk (>1x) w Plinko 5 razy (min. 10 ₽)",
 		Category:    "Plinko",
 		Icon:        "plinko",
 		Target:      5,
@@ -899,7 +919,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "chicken_3",
 		Title:       "Przeprawa Kurczaka",
-		Description: "Rozegraj 3 rundy w Chicken Cross (min. 10 $FGT)",
+		Description: "Rozegraj 3 rundy w Chicken Cross (min. 10 ₽)",
 		Category:    "Chicken",
 		Icon:        "chicken",
 		Target:      3,
@@ -910,7 +930,7 @@ var DailyMissionDefs = []MissionDef{
 	{
 		ID:          "chicken_win_3",
 		Title:       "Mistrz Szosy",
-		Description: "Wypłać wygraną w Chicken Cross 3 razy (min. 10 $FGT)",
+		Description: "Wypłać wygraną w Chicken Cross 3 razy (min. 10 ₽)",
 		Category:    "Chicken",
 		Icon:        "chicken",
 		Target:      3,
@@ -1163,6 +1183,9 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	_ = tx.QueryRow(ctx, `SELECT COALESCE(SUM(amount), 0) FROM ledger_entries WHERE user_id = $1`, userID).Scan(&curBal)
 	newBal := curBal + reward
 
+	var prevLevel int
+	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
+
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
 		UPDATE players
@@ -1174,6 +1197,10 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	`, xpReward, t, userID).Scan(&newXP, &newLevel)
 	if err != nil {
 		return 0, 0, 0, 0, 0, err
+	}
+
+	if prevLevel > 0 && newLevel > prevLevel {
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -1370,8 +1397,8 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Scaled XP gain based on total bet size: 1-15 XP
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(totalBet))/4))))
+	// Scaled XP gain based on total bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(totalBet)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
@@ -1409,6 +1436,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1461,8 +1489,8 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 		return nil, err
 	}
 
-	// Scaled XP gain based on bet size: 1-15 XP (prevents micro-bet 1 $FGT XP farming)
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(betAmount))/4))))
+	// Scaled XP gain based on bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(betAmount)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
@@ -1504,6 +1532,7 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -1563,8 +1592,8 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Scaled XP gain based on bet size: 1-15 XP (prevents micro-bet 1 $FGT XP farming)
-	xpGain := int(math.Max(1, math.Min(15, math.Floor(math.Sqrt(float64(bet))/4))))
+	// Scaled XP gain based on bet size: 1-15 XP (0 for micro-bets < 10 $FGT)
+	xpGain := CalculateXPGain(bet)
 
 	var newXP, newLevel int
 	err = tx.QueryRow(ctx, `
@@ -1608,6 +1637,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at)
 			VALUES ($1, $2, 'level_up_bonus', $3, $4, $5)
 		`, uuid.NewString(), userID, levelUpBonus, newBal, t)
+		_, _ = tx.Exec(ctx, `UPDATE players SET musor_lepsza_boxes = musor_lepsza_boxes + $1 WHERE user_id = $2`, newLevel-prevLevel, userID)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -2185,6 +2215,181 @@ func (s *Service) RefundActiveRound(ctx context.Context, userID string, reason s
 		Balance: newBal,
 	}, nil
 }
+
+// GetMusorDropState retrieves current daily usage counts and inventory for Musor Drop
+func (s *Service) GetMusorDropState(ctx context.Context, userID string) (*MusorDropState, error) {
+	dayKey := TodayString()
+	var plebsUsed, arystokracjaUsed int
+
+	rows, err := s.db.Pool.Query(ctx, `
+		SELECT box_type, count FROM musor_drop_daily
+		WHERE user_id = $1 AND day_key = $2
+	`, userID, dayKey)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var bType string
+			var cnt int
+			if err := rows.Scan(&bType, &cnt); err == nil {
+				if bType == string(musordrop.BoxPlebs) {
+					plebsUsed = cnt
+				} else if bType == string(musordrop.BoxArystokracja) {
+					arystokracjaUsed = cnt
+				}
+			}
+		}
+	}
+
+	var lepszaBoxes int
+	_ = s.db.Pool.QueryRow(ctx, `SELECT COALESCE(musor_lepsza_boxes, 0) FROM players WHERE user_id = $1`, userID).Scan(&lepszaBoxes)
+
+	return &MusorDropState{
+		PlebsUsed:         plebsUsed,
+		PlebsLimit:        5,
+		ArystokracjaUsed:  arystokracjaUsed,
+		ArystokracjaLimit: 5,
+		ArystokracjaCost:  500,
+		LepszaBoxes:       lepszaBoxes,
+	}, nil
+}
+
+// OpenMusorBox atomically executes box opening with anti-race locks and ledger recording
+func (s *Service) OpenMusorBox(ctx context.Context, userID string, bType musordrop.BoxType) (*MusorDropOutcome, error) {
+	t := NowMs()
+	dayKey := TodayString()
+
+	tx, err := s.db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Advisory transaction lock to prevent race conditions
+	_, _ = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", userLockKey(userID))
+
+	// Get player current balance and lepsza boxes
+	var curBal int64
+	var lepszaBoxes int
+	err = tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(l.amount), 0), COALESCE(p.musor_lepsza_boxes, 0)
+		FROM players p
+		LEFT JOIN ledger_entries l ON p.user_id = l.user_id
+		WHERE p.user_id = $1
+		GROUP BY p.user_id, p.musor_lepsza_boxes
+	`, userID).Scan(&curBal, &lepszaBoxes)
+	if err != nil {
+		return nil, fmt.Errorf("błąd odczytu danych gracza: %w", err)
+	}
+
+	var plebsCount, arystokracjaCount int
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(count, 0) FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2 AND box_type = $3`,
+		userID, dayKey, string(musordrop.BoxPlebs)).Scan(&plebsCount)
+	_ = tx.QueryRow(ctx, `SELECT COALESCE(count, 0) FROM musor_drop_daily WHERE user_id = $1 AND day_key = $2 AND box_type = $3`,
+		userID, dayKey, string(musordrop.BoxArystokracja)).Scan(&arystokracjaCount)
+
+	switch bType {
+	case musordrop.BoxPlebs:
+		if plebsCount >= 5 {
+			return nil, fmt.Errorf("Osiągnięto dzienny limit (5/5) darmowych skrzynek Plebsowych")
+		}
+		_, err = tx.Exec(ctx, `
+			INSERT INTO musor_drop_daily (user_id, day_key, box_type, count)
+			VALUES ($1, $2, $3, 1)
+			ON CONFLICT (user_id, day_key, box_type)
+			DO UPDATE SET count = musor_drop_daily.count + 1
+		`, userID, dayKey, string(musordrop.BoxPlebs))
+		if err != nil {
+			return nil, fmt.Errorf("błąd aktualizacji limitu dziennego: %w", err)
+		}
+		plebsCount++
+
+	case musordrop.BoxArystokracja:
+		if arystokracjaCount >= 5 {
+			return nil, fmt.Errorf("Osiągnięto dzienny limit (5/5) zakupu skrzynek Arystokrackich")
+		}
+		const cost = int64(500)
+		if curBal < cost {
+			return nil, ErrInsufficientFunds
+		}
+		curBal -= cost
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, 'musor_drop_buy', $3, $4, $5, 'Zakup skrzynki Arystokrackiej')
+		`, uuid.NewString(), userID, -cost, curBal, t)
+		if err != nil {
+			return nil, fmt.Errorf("błąd zapisu opłaty za skrzynkę: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, `
+			INSERT INTO musor_drop_daily (user_id, day_key, box_type, count)
+			VALUES ($1, $2, $3, 1)
+			ON CONFLICT (user_id, day_key, box_type)
+			DO UPDATE SET count = musor_drop_daily.count + 1
+		`, userID, dayKey, string(musordrop.BoxArystokracja))
+		if err != nil {
+			return nil, fmt.Errorf("błąd aktualizacji limitu dziennego: %w", err)
+		}
+		arystokracjaCount++
+
+	case musordrop.BoxLepsza:
+		if lepszaBoxes < 1 {
+			return nil, fmt.Errorf("Brak skrzynek Lepszych. Zdobywaj kolejne poziomy konta, aby je otrzymać.")
+		}
+		lepszaBoxes--
+		_, err = tx.Exec(ctx, `
+			UPDATE players
+			SET musor_lepsza_boxes = musor_lepsza_boxes - 1, updated_at = $1
+			WHERE user_id = $2
+		`, t, userID)
+		if err != nil {
+			return nil, fmt.Errorf("błąd pobrania skrzynki z ekwipunku: %w", err)
+		}
+
+	default:
+		return nil, fmt.Errorf("Nieprawidłowy typ skrzynki: %s", bType)
+	}
+
+	// Roll prize
+	dropRes, err := musordrop.RollBox(bType)
+	if err != nil {
+		return nil, err
+	}
+
+	if dropRes.Prize > 0 {
+		curBal += dropRes.Prize
+		desc := fmt.Sprintf("Wygrana ze skrzynki (%s): %s", bType, dropRes.PrizeName)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO ledger_entries (id, user_id, type, amount, balance_after, created_at, description)
+			VALUES ($1, $2, 'musor_drop_win', $3, $4, $5, $6)
+		`, uuid.NewString(), userID, dropRes.Prize, curBal, t, desc)
+		if err != nil {
+			return nil, fmt.Errorf("błąd zapisu wygranej ze skrzynki: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("błąd zatwierdzania transakcji dropu: %w", err)
+	}
+
+	state := MusorDropState{
+		PlebsUsed:         plebsCount,
+		PlebsLimit:        5,
+		ArystokracjaUsed:  arystokracjaCount,
+		ArystokracjaLimit: 5,
+		ArystokracjaCost:  500,
+		LepszaBoxes:       lepszaBoxes,
+	}
+
+	return &MusorDropOutcome{
+		BoxType:   string(bType),
+		Prize:     dropRes.Prize,
+		PrizeName: dropRes.PrizeName,
+		IsJackpot: dropRes.IsJackpot,
+		Balance:   curBal,
+		State:     state,
+	}, nil
+}
+
 
 
 

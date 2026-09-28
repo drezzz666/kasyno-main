@@ -20,7 +20,7 @@ import {
   UpgraderTable,
 } from "../games";
 import { RoundOutcomeModal } from "./RoundOutcomeModal";
-import { FgtChip } from "./BetControls";
+
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";
 
@@ -608,7 +608,7 @@ export function GameTableDialog({
     if (loading) return "Rozliczanie…";
     if (game === "coinflip") return choice ? `Rzuć monetą (${choice === "heads" ? "Orzeł 🦅" : "Reszka 👑"})` : "Wybierz Orła lub Reszkę";
     if (game === "rps") return choice ? `Zagraj (${{ rock: "Kamień ✊", paper: "Papier ✋", scissors: "Nożyce ✌️" }[choice] || choice})` : "Wybierz swój gest";
-    if (game === "roulette") return rouletteTotalBet > 0 ? `Zakręć kołem (${rouletteTotalBet} $FGT)` : "Wybierz pole lub kolor";
+    if (game === "roulette") return rouletteTotalBet > 0 ? `Zakręć kołem (${rouletteTotalBet} ₽)` : "Wybierz pole lub kolor";
     if (game === "upgrader") return upgraderBusy ? "Ulepszanie…" : `UPGRADE (×${(Number(upgraderTarget) || 2.0).toFixed(2)})`;
     if (game === "limbo") return `ZAGRAJ (×${(Number(limboTarget) || 2.0).toFixed(2)})`;
     if (game === "slots") return "ZAKRĘĆ BĘBNAMI";
@@ -620,7 +620,7 @@ export function GameTableDialog({
     <div className="modal-backdrop game-modal-backdrop" role="presentation">
       <div
         ref={dialogRef}
-        className={`modal-dialog game-dialog-box is-upgrader-dialog ${game === "chicken" ? "is-chicken-dialog" : ""}`}
+        className="modal-dialog game-dialog-box is-chicken-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-dialog-title"
@@ -629,11 +629,10 @@ export function GameTableDialog({
         <div className="modal-header">
           <div>
             <h3 id="game-dialog-title">{gameNames[game] || "Gra"}</h3>
-            <p>Stolik klubowy $FGT</p>
+            <p>Stolik do gry</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="balance-chip" title="Stan Twojego portfela">
-              <FgtChip small />
               <span className="balance-val">{data?.player ? money(data.player.balance) : "—"}</span>
             </div>
             <span className="hidden sm:inline-block text-[10px] font-mono text-slate-500 bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.5 rounded">
@@ -651,10 +650,10 @@ export function GameTableDialog({
           </div>
         </div>
 
-        {game === "chicken" ? (
-          <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
-            {/* Full-size Game Arena taking all available space */}
-            <div className="flex-1 w-full min-h-0 relative flex items-stretch overflow-hidden bg-[#0c131e]">
+        <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
+          {/* Full-size Game Arena taking all available space */}
+          <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-[#0c131e]">
+            {game === "chicken" && (
               <ChickenTable
                 ref={chickenRef}
                 round={round}
@@ -666,240 +665,139 @@ export function GameTableDialog({
                 animatingRef={animatingRef}
                 onBusyChange={setChickenBusy}
               />
-            </div>
+            )}
 
-            {/* Docked Bottom Control Bar */}
-            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-4 sm:px-8 py-3.5 sm:py-4.5 z-20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-5 shadow-2xl flex-shrink-0">
-              {/* Bet controls */}
-              <div className="w-full sm:w-auto flex-1 flex items-center gap-2 sm:gap-4 max-w-2xl">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
-                </div>
-
-                <div className="relative flex-1 flex items-center min-w-[120px] max-w-[200px]">
-                  <input
-                    type="number"
-                    min="1"
-                    max={data?.player?.balance || 1000000}
-                    value={bet}
-                    disabled={loading || isBusy}
-                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
-                  />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
-                </div>
-
-                <div className="hidden md:flex items-center gap-1.5">
-                  {[10, 50, 100, 500].map((inc) => (
-                    <button
-                      key={inc}
-                      type="button"
-                      disabled={loading || isBusy}
-                      onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
-                    >
-                      +{inc}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Main Action Button */}
-              <div className="w-full sm:w-auto sm:min-w-[300px]">
-                {round ? (
-                  (() => {
-                    const currentLane = round.payload?.currentLane || 0;
-                    const currentMult = round.payload?.multiplier ?? 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
-                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
-
-                    return (
-                      <button
-                        type="button"
-                        disabled={isCashoutDisabled}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
-                          !isCashoutDisabled
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        }`}
-                      >
-                        <CheckCircle2 size={22} />
-                        <span>
-                          {currentLane === 0
-                            ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
-                        </span>
-                      </button>
-                    );
-                  })()
-                ) : (
-                  <button
-                    type="button"
-                    disabled={!tosAccepted || loading || isBusy}
-                    onClick={start}
-                    className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
-                      !tosAccepted || loading || isBusy
-                        ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
-                    }`}
-                  >
-                    {isBusy || loading ? (
-                      <>
-                        <RotateCw size={22} className="animate-spin" />
-                        <span>{getPlayButtonText()}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={22} className="fill-slate-950" />
-                        <span>{getPlayButtonText()}</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
-            {/* Full-size Game Arena taking all available space */}
-            <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-[#0c131e]">
-              <div className={`table-visual ${game} ${turbo ? "turbo" : ""} w-full h-full flex items-center justify-center relative z-10`}>
-                {game === "roulette" && (
-                  <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
-                    <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
-                      <RouletteWheelVisual
-                        mustStartSpinning={spinning}
-                        prizeNumber={prize}
-                        turbo={turbo}
-                        onStopSpinning={() => {
-                          setSpinning(false);
-                          if (pendingSpin) {
-                            setLast(pendingSpin.round);
-                            if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
-                            triggerOutcome(pendingSpin.round);
-                            setPendingSpin(null);
-                            void load();
-                          }
-                          if (animatingRef) animatingRef.current = false;
-                        }}
-                      />
-                      {hasSettledSpin && (
-                        <div className="roulette-result" aria-live="polite">
-                          <strong>{rawWinningNumber}</strong>
-                        </div>
-                      )}
-                    </div>
-                    <RouletteBets
-                      selectedBets={rouletteSelected}
-                      onToggleBet={handleRouletteToggle}
-                      onClearBets={handleRouletteClear}
-                      winningNumber={hasSettledSpin ? rawWinningNumber : null}
-                      disabled={spinning || rouletteWaiting}
-                    />
-                  </div>
-                )}
-
-                {game === "slots" && (
-                  <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />
-                )}
-
-                {game === "blackjack" && (
-                  <BlackjackTable round={blackjackPreview || round} last={last} />
-                )}
-
-                {game === "mines" && (
-                  <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />
-                )}
-
-                {game === "coinflip" && (
-                  <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />
-                )}
-
-                {game === "rps" && (
-                  <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />
-                )}
-
-                {game === "plinko" && (
-                  <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />
-                )}
-
-                {game === "limbo" && (
-                  <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
-                )}
-
-                {game === "crash" && (
-                  <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
-                )}
-
-                {game === "upgrader" && (
-                  <UpgraderTable
-                    arenaOnly
-                    bet={bet}
-                    setBet={setBet}
-                    maxBalance={data?.player?.balance ?? 0}
-                    target={upgraderTarget}
-                    setTarget={setUpgraderTarget}
-                    rollType={upgraderRollType}
-                    setRollType={setUpgraderRollType}
-                    last={last}
-                    loading={loading}
-                    animatingRef={animatingRef}
-                    onBusyChange={setUpgraderBusy}
-                    triggerOutcome={triggerOutcome}
+            {game === "roulette" && (
+              <div className="flex flex-col xl:flex-row items-center justify-center gap-4 sm:gap-6 w-full max-w-5xl py-2">
+                <div className={`roulette-live ${spinning ? "is-spinning" : ""} ${rouletteWaiting ? "waiting" : ""}`}>
+                  <RouletteWheelVisual
+                    mustStartSpinning={spinning}
+                    prizeNumber={prize}
                     turbo={turbo}
+                    onStopSpinning={() => {
+                      setSpinning(false);
+                      if (pendingSpin) {
+                        setLast(pendingSpin.round);
+                        if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                        triggerOutcome(pendingSpin.round);
+                        setPendingSpin(null);
+                        void load();
+                      }
+                      if (animatingRef) animatingRef.current = false;
+                    }}
                   />
-                )}
-              </div>
-            </div>
-
-            {/* Docked Bottom Control Bar */}
-            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 px-3 sm:px-6 md:px-8 py-3 sm:py-4 z-20 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 shadow-2xl flex-shrink-0">
-              {/* Left: Stawka & Quick Bets */}
-              <div className="w-full md:w-auto flex-1 flex flex-wrap items-center gap-2 sm:gap-3 max-w-2xl">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-300">Stawka</span>
-                  {game !== "chicken" && typeof turbo === "boolean" && (
-                    <button
-                      type="button"
-                      onClick={() => setTurbo(!turbo)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                        turbo
-                          ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                          : "bg-slate-800/60 text-slate-400 hover:text-slate-200 border border-slate-700/40"
-                      }`}
-                    >
-                      <Zap size={12} className={turbo ? "fill-amber-400" : ""} />
-                      <span>Turbo</span>
-                    </button>
+                  {hasSettledSpin && (
+                    <div className="roulette-result" aria-live="polite">
+                      <strong>{rawWinningNumber}</strong>
+                    </div>
                   )}
                 </div>
+                <RouletteBets
+                  selectedBets={rouletteSelected}
+                  onToggleBet={handleRouletteToggle}
+                  onClearBets={handleRouletteClear}
+                  winningNumber={hasSettledSpin ? rawWinningNumber : null}
+                  disabled={spinning || rouletteWaiting}
+                />
+              </div>
+            )}
 
-                <div className="relative flex-1 flex items-center min-w-[120px] max-w-[180px]">
-                  <input
-                    type="number"
-                    min="1"
-                    max={data?.player?.balance || 1000000}
-                    value={bet}
-                    disabled={loading || isBusy}
-                    onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-3.5 py-2 sm:py-2.5 rounded-xl bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm sm:text-base focus:outline-none focus:border-amber-500 shadow-inner"
-                  />
-                  <span className="absolute right-3 text-xs sm:text-sm font-black text-slate-400 pointer-events-none">$FGT</span>
+            {game === "slots" && (
+              <SlotsTable last={pendingSlotsRound || last} loading={loading} slotsSpinning={slotsSpinning} turbo={turbo} />
+            )}
+
+            {game === "blackjack" && (
+              <BlackjackTable round={blackjackPreview || round} last={last} />
+            )}
+
+            {game === "mines" && (
+              <MinesTable round={round} last={last} post={handlePostMines} loading={loading} pendingTiles={pendingTiles} onPending={handleTilePending} />
+            )}
+
+            {game === "coinflip" && (
+              <CoinflipTable choice={choice} setChoice={setChoice} last={last} loading={loading} isFlipping={isFlipping} targetOutcome={coinflipTarget} />
+            )}
+
+            {game === "rps" && (
+              <RPSTable choice={choice} setChoice={setChoice} last={last} loading={loading} isShooting={isShootingRPS} />
+            )}
+
+            {game === "plinko" && (
+              <PlinkoTable ref={plinkoRef} rows={plinkoRows} setRows={setPlinkoRows} risk={plinkoRisk} setRisk={setPlinkoRisk} onBallFinish={handlePlinkoBallFinish} loading={loading} turbo={turbo} />
+            )}
+
+            {game === "limbo" && (
+              <LimboTable target={limboTarget} last={last} animating={limboAnimating} displayMult={limboDisplayMult} />
+            )}
+
+            {game === "crash" && (
+              <CrashTable bet={bet} isPlaying={crashPlaying} currentMult={crashMult} isCrashed={crashCrashed} isCashedOut={crashCashedOut} graphPoints={crashGraphPoints} last={last} />
+            )}
+
+            {game === "upgrader" && (
+              <UpgraderTable
+                arenaOnly
+                bet={bet}
+                setBet={setBet}
+                maxBalance={data?.player?.balance ?? 0}
+                target={upgraderTarget}
+                setTarget={setUpgraderTarget}
+                rollType={upgraderRollType}
+                setRollType={setUpgraderRollType}
+                last={last}
+                loading={loading}
+                animatingRef={animatingRef}
+                onBusyChange={setUpgraderBusy}
+                triggerOutcome={triggerOutcome}
+                turbo={turbo}
+              />
+            )}
+          </div>
+
+            {/* Docked Bottom Control Bar */}
+            <div className="w-full bg-[#0c131f] border-t border-slate-800/90 p-3 sm:p-4 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-4 shadow-2xl flex-shrink-0">
+              {/* Left: Stawka & Quick Bets */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 max-w-2xl">
+                {/* Input & Turbo Row */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-300">Stawka</span>
+                    {game !== "chicken" && typeof turbo === "boolean" && (
+                      <button
+                        type="button"
+                        onClick={() => setTurbo(!turbo)}
+                        className={`h-11 sm:h-10 flex items-center gap-1 px-2.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
+                          turbo
+                            ? "bg-amber-500/20 text-amber-400 border-amber-500/50"
+                            : "bg-[#141b27] text-slate-400 hover:text-slate-200 border-slate-700/80 shadow-[0_2px_0_#090d15]"
+                        }`}
+                      >
+                        <Zap size={12} className={turbo ? "fill-amber-400" : ""} />
+                        <span>Turbo</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative flex-1 flex items-center">
+                    <input
+                      type="number"
+                      min="1"
+                      max={data?.player?.balance || 1000000}
+                      value={bet}
+                      disabled={loading || isBusy}
+                      onChange={(e) => setBet(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full h-11 sm:h-10 px-3.5 rounded-lg bg-[#131d2e] border border-slate-700/80 text-white font-mono font-black text-sm focus:outline-none focus:border-amber-500 shadow-inner"
+                    />
+                    <span className="absolute right-3 text-xs font-black text-slate-400 pointer-events-none">₽</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                {/* Quick Multipliers Grid: equal 4 columns on mobile */}
+                <div className="grid grid-cols-4 gap-1.5 sm:flex sm:items-center">
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Max</button>
                 </div>
 
                 <div className="hidden lg:flex items-center gap-1.5">
@@ -909,7 +807,7 @@ export function GameTableDialog({
                       type="button"
                       disabled={loading || isBusy}
                       onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
+                      className="h-10 px-2.5 rounded-md bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-300 border border-slate-700/60 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer"
                     >
                       +{inc}
                     </button>
@@ -918,21 +816,21 @@ export function GameTableDialog({
               </div>
 
               {/* Middle: Game-Specific Selectors */}
-              <div className="flex items-center justify-center gap-2 flex-wrap">
+              <div className="w-full md:w-auto flex items-center justify-center gap-2 flex-wrap">
                 {game === "mines" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
-                    <div className="flex items-center gap-1.5">
+                  <div className="w-full md:w-auto flex items-center gap-2">
+                    <span className="text-xs font-mono font-black uppercase tracking-wider text-slate-400 hidden xl:inline">Miny:</span>
+                    <div className="grid grid-cols-6 gap-1.5 w-full md:w-auto md:flex md:items-center">
                       {[2, 3, 5, 10, 15, 20].map((c) => (
                         <button
                           key={c}
                           type="button"
                           disabled={loading || round?.game === "mines"}
                           onClick={() => setMineCount(c)}
-                          className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                          className={`h-11 sm:h-10 px-2 sm:px-3 rounded-lg text-xs font-black font-mono transition-all cursor-pointer flex items-center justify-center ${
                             mineCount === c
-                              ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
-                              : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                              ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                              : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                           }`}
                         >
                           {c}
@@ -943,38 +841,38 @@ export function GameTableDialog({
                 )}
 
                 {game === "coinflip" && (
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 w-full md:w-auto md:flex md:items-center">
                     <button
                       type="button"
                       disabled={loading || isFlipping}
                       onClick={() => setChoice("heads")}
-                      className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                      className={`h-11 sm:h-10 px-4 rounded-lg flex items-center justify-center gap-2 font-mono font-black text-xs sm:text-sm tracking-wider uppercase transition-all cursor-pointer ${
                         choice === "heads"
-                          ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
-                          : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                          ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                          : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                       }`}
                     >
-                      <span className="text-base sm:text-lg">🦅</span>
-                      <span className="text-xs sm:text-sm font-bold">Orzeł</span>
+                      <span className="text-base">🦅</span>
+                      <span>Orzeł</span>
                     </button>
                     <button
                       type="button"
                       disabled={loading || isFlipping}
                       onClick={() => setChoice("tails")}
-                      className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                      className={`h-11 sm:h-10 px-4 rounded-lg flex items-center justify-center gap-2 font-mono font-black text-xs sm:text-sm tracking-wider uppercase transition-all cursor-pointer ${
                         choice === "tails"
-                          ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
-                          : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                          ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                          : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                       }`}
                     >
-                      <span className="text-base sm:text-lg">👑</span>
-                      <span className="text-xs sm:text-sm font-bold">Reszka</span>
+                      <span className="text-base">👑</span>
+                      <span>Reszka</span>
                     </button>
                   </div>
                 )}
 
                 {game === "rps" && (
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-3 gap-1.5 w-full md:w-auto md:flex md:items-center">
                     {[
                       { id: "rock", icon: "✊", name: "Kamień" },
                       { id: "paper", icon: "✋", name: "Papier" },
@@ -985,14 +883,14 @@ export function GameTableDialog({
                         type="button"
                         disabled={loading || isShootingRPS}
                         onClick={() => setChoice(item.id)}
-                        className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl flex items-center gap-2 font-black transition-all cursor-pointer ${
+                        className={`h-11 sm:h-10 px-2 rounded-lg flex items-center justify-center gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
                           choice === item.id
-                            ? "bg-amber-500 text-slate-950 shadow-lg border-2 border-amber-300"
-                            : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                            ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                            : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                         }`}
                       >
-                        <span className="text-base sm:text-lg">{item.icon}</span>
-                        <span className="text-xs sm:text-sm font-bold">{item.name}</span>
+                        <span className="text-base">{item.icon}</span>
+                        <span>{item.name}</span>
                       </button>
                     ))}
                   </div>
@@ -1189,7 +1087,7 @@ export function GameTableDialog({
                 {game === "roulette" && (
                   <div className="flex items-center gap-3">
                     <div className="text-xs sm:text-sm font-black text-slate-300">
-                      Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} $FGT</strong>
+                      Zakłady ({rouletteSelected.size}): <strong className="text-amber-400 font-mono">{rouletteTotalBet} ₽</strong>
                     </div>
                     {rouletteSelected.size > 0 && (
                       <button
@@ -1214,7 +1112,7 @@ export function GameTableDialog({
                       <div className="grid grid-cols-3 gap-2 w-full">
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-slate-200 border border-slate-600 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading}
                           onClick={() => showSettledBlackjack("stand")}
                         >
@@ -1222,7 +1120,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-amber-300 border border-amber-500/50 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading || round.payload?.cards?.length !== 2}
                           onClick={() => showSettledBlackjack("double")}
                         >
@@ -1230,7 +1128,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_3px_0_#b45309] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading}
                           onClick={() => showSettledBlackjack("hit")}
                         >
@@ -1244,10 +1142,10 @@ export function GameTableDialog({
                     return (
                       <button
                         type="button"
-                        className="w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40"
+                        className="w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
                         onClick={handleManualCrashCashout}
                       >
-                        <CheckCircle2 size={22} />
+                        <CheckCircle2 size={18} />
                         <span>WYPŁAĆ ({(Number(crashMult) || 1.0).toFixed(2)}×)</span>
                       </button>
                     );
@@ -1265,16 +1163,43 @@ export function GameTableDialog({
                         type="button"
                         disabled={!canCashout}
                         onClick={handleMinesCashout}
-                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                           canCashout
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
                         }`}
                       >
-                        <CheckCircle2 size={22} />
+                        <CheckCircle2 size={18} />
                         <span>
                           {revealed.length === 0
                             ? "Wybierz pole na planszy"
+                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  if (round?.game === "chicken") {
+                    const currentLane = round.payload?.currentLane || 0;
+                    const currentMult = round.payload?.multiplier ?? 1.00;
+                    const currentProfit = Math.floor(bet * currentMult);
+                    const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+
+                    return (
+                      <button
+                        type="button"
+                        disabled={isCashoutDisabled}
+                        onClick={handleChickenCashout}
+                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
+                          !isCashoutDisabled
+                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                        }`}
+                      >
+                        <CheckCircle2 size={18} />
+                        <span>
+                          {currentLane === 0
+                            ? "Kliknij na drogę, aby skoczyć"
                             : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
                       </button>
@@ -1296,20 +1221,20 @@ export function GameTableDialog({
                       type="button"
                       disabled={isButtonDisabled}
                       onClick={start}
-                      className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
+                      className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                         isButtonDisabled
-                          ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                          : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                          ? "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          : "bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_4px_0_#b45309,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#b45309] cursor-pointer"
                       }`}
                     >
                       {isBusy || loading ? (
                         <>
-                          <RotateCw size={22} className="animate-spin" />
+                          <RotateCw size={18} className="animate-spin" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       ) : (
                         <>
-                          <Zap size={22} className="fill-slate-950" />
+                          <Zap size={18} className="fill-slate-950" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       )}
@@ -1319,7 +1244,6 @@ export function GameTableDialog({
               </div>
             </div>
           </div>
-        )}
       </div>
 
       {outcomeData && <RoundOutcomeModal outcomeData={outcomeData} onClose={() => setOutcomeData(null)} />}

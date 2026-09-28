@@ -1,3 +1,0 @@
-module.exports=[33290,a=>{"use strict";var b=a.i(62441);a.s(["default",0,function({children:a}){return(0,b.jsx)("html",{lang:"pl",children:(0,b.jsx)("body",{className:"antialiased",children:a})})},"metadata",0,{title:"2fgt — Social Casino",description:"Prywatny klub gier na wirtualne żetony.",icons:{icon:"/favicon.svg",shortcut:"/favicon.svg"}}])},70864,a=>{a.n(a.i(33290))}];
-
-//# sourceMappingURL=app_layout_tsx_13yf0ls._.js.map
