@@ -886,14 +886,14 @@ export function GameTableDialog({
                         type="button"
                         disabled={loading || isShootingRPS}
                         onClick={() => setChoice(item.id)}
-                        className={`h-11 sm:h-10 px-2 rounded-lg flex items-center justify-center gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
+                        className={`h-12 sm:h-10 px-2 sm:px-3 rounded-lg flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 font-mono font-black text-xs tracking-wider uppercase transition-all cursor-pointer ${
                           choice === item.id
                             ? "bg-[#2563eb] text-white border border-[#1d4ed8] shadow-[0_2px_0_#1e40af]"
                             : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                         }`}
                       >
-                        <span className="text-base">{item.icon}</span>
-                        <span>{item.name}</span>
+                        <span className="text-lg sm:text-base leading-none">{item.icon}</span>
+                        <span className="text-[11px] sm:text-xs leading-none">{item.name}</span>
                       </button>
                     ))}
                   </div>
