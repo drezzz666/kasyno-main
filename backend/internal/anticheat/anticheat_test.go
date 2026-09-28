@@ -75,11 +75,20 @@ func TestValidateMines(t *testing.T) {
 	if err := ValidateMinesStart(5); err != nil {
 		t.Errorf("expected 5 mines to be valid: %v", err)
 	}
+	if err := ValidateMinesStart(10); err != nil {
+		t.Errorf("expected 10 mines to be valid: %v", err)
+	}
 	if err := ValidateMinesStart(15); err != nil {
 		t.Errorf("expected 15 mines to be valid: %v", err)
 	}
 	if err := ValidateMinesStart(1); err == nil {
 		t.Errorf("expected 1 mine to fail")
+	}
+	if err := ValidateMinesStart(3); err == nil {
+		t.Errorf("expected custom 3 mines to fail")
+	}
+	if err := ValidateMinesStart(7); err == nil {
+		t.Errorf("expected custom 7 mines to fail")
 	}
 	if err := ValidateMinesStart(16); err == nil {
 		t.Errorf("expected 16 mines to fail")
