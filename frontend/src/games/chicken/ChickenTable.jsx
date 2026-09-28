@@ -791,7 +791,7 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                   {/* Next Step GO Arrow Indicator (Click on board to jump!) */}
                   {isNext && !isCrashedLane && !hasChicken && (
                     <div className="absolute -top-8 z-20 flex flex-col items-center animate-bounce">
-                      <span className="text-[10px] font-bold text-amber-400 bg-amber-950/90 px-2.5 py-0.5 rounded border border-amber-500/50 shadow-md">
+                      <span className="text-[10px] font-bold text-blue-400 bg-blue-950/90 px-2.5 py-0.5 rounded border border-blue-500/50 shadow-md">
                         SKOCZ
                       </span>
                     </div>
@@ -821,11 +821,11 @@ export const ChickenTable = React.forwardRef(function ChickenTable(
                     isCrashedLane
                       ? "bg-rose-950/90 text-rose-300 border border-rose-500 shadow-rose-900/50 scale-105"
                       : isCurrent
-                      ? "bg-amber-400 text-slate-950 shadow-amber-400/40 scale-105 font-black"
+                      ? "bg-blue-600 text-white shadow-blue-500/40 scale-105 font-black border border-blue-400"
                       : isCompleted
                       ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/50"
                       : isNext
-                      ? "bg-slate-800 text-amber-300 border border-amber-400/60 animate-pulse"
+                      ? "bg-slate-800 text-blue-300 border border-blue-400/60 animate-pulse"
                       : "bg-[#141d28] text-slate-400 border border-slate-700/60"
                   }`}
                 >
