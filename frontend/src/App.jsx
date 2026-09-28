@@ -84,8 +84,8 @@ export default function App() {
     const endsAtMs = ev.ends_at
       ? new Date(ev.ends_at).getTime()
       : ev.endsAt
-      ? new Date(ev.endsAt).getTime()
-      : null;
+        ? new Date(ev.endsAt).getTime()
+        : null;
     if (endsAtMs && Date.now() >= endsAtMs) {
       setActiveEvent(null);
       return;
@@ -643,6 +643,15 @@ export default function App() {
         <button className="brand" onClick={() => { setActiveGame(null); setActiveTab("games"); }} aria-label="Strona główna">
           <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
+
+        {/* Live Event Indicator */}
+        {activeEvent && activeEvent.multiplier > 1.0 && (
+          <div className="topbar-event-pill">
+            <span className="event-pulse-dot" />
+            <span className="event-pill-text">CASH RAIN</span>
+            <span className="event-pill-mult">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+          </div>
+        )}
 
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">

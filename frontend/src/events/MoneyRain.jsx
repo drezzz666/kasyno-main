@@ -134,42 +134,42 @@ export function MoneyRain({
     };
   }, [startRain, stopRain]);
 
-  // Spawning loop for Fluttering 3D Banknotes (subtle, non-intrusive rate)
+  // Spawning loop for Fluttering 3D Banknotes (very sparse, non-intrusive rate)
   useEffect(() => {
     if (!running) return;
 
     spawnTimerRef.current = setInterval(() => {
       const id = nextIdRef.current++;
-      const left = Math.random() * 86 + 6; // 6% to 92% screen width
+      const left = Math.random() * 84 + 8; // 8% to 92% screen width
       
       // Depth layering: 0 = background, 1 = midground, 2 = foreground
       const depthTier = Math.random();
-      let scale = 0.85;
+      let scale = 0.8;
       let blur = "none";
       let zIndex = 9998;
-      let width = 72;
+      let width = 62;
 
-      if (depthTier < 0.35) {
+      if (depthTier < 0.4) {
         // Far background
-        width = 54;
-        scale = 0.72;
+        width = 48;
+        scale = 0.7;
         blur = "blur(0.8px)";
         zIndex = 9997;
       } else if (depthTier < 0.8) {
         // Midground
-        width = 68;
-        scale = 0.85;
+        width = 60;
+        scale = 0.8;
         zIndex = 9998;
       } else {
         // Foreground
-        width = 82;
-        scale = 0.95;
+        width = 72;
+        scale = 0.9;
         zIndex = 9999;
       }
 
       const height = (width * 310) / 540;
-      const fallDuration = Math.random() * 2.5 + 4.8; // 4.8s to 7.3s
-      const swayDuration = Math.random() * 1.5 + 2.0; // 2.0s to 3.5s
+      const fallDuration = Math.random() * 2.5 + 5.5; // 5.5s to 8.0s
+      const swayDuration = Math.random() * 1.5 + 2.2; // 2.2s to 3.7s
       const animVariant = FALL_ANIMATIONS[Math.floor(Math.random() * FALL_ANIMATIONS.length)];
       const swayVariant = SWAY_ANIMATIONS[Math.floor(Math.random() * SWAY_ANIMATIONS.length)];
       const startDelay = Math.random() * 0.2;
@@ -190,8 +190,8 @@ export function MoneyRain({
         bornAt: Date.now(),
       };
 
-      setBanknotes((prev) => [...prev.slice(-7), newNote]);
-    }, 1200);
+      setBanknotes((prev) => [...prev.slice(-2), newNote]); // max 3 notes total on screen
+    }, 2600);
 
     return () => clearInterval(spawnTimerRef.current);
   }, [running]);
@@ -203,8 +203,8 @@ export function MoneyRain({
     sparkleTimerRef.current = setInterval(() => {
       const id = nextIdRef.current++;
       const left = Math.random() * 96 + 2;
-      const fallDuration = Math.random() * 2 + 3.0;
-      const size = Math.random() * 3 + 2.5;
+      const fallDuration = Math.random() * 2 + 3.5;
+      const size = Math.random() * 3 + 2;
 
       const newSparkle = {
         id,
@@ -214,8 +214,8 @@ export function MoneyRain({
         bornAt: Date.now(),
       };
 
-      setSparkles((prev) => [...prev.slice(-8), newSparkle]);
-    }, 700);
+      setSparkles((prev) => [...prev.slice(-3), newSparkle]); // max 4 sparkles
+    }, 1500);
 
     return () => clearInterval(sparkleTimerRef.current);
   }, [running]);

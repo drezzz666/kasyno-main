@@ -80,6 +80,49 @@ body {
   }
 }
 
+/* Live Cash Rain Event Topbar Pill */
+.topbar-event-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 9999px;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
+  user-select: none;
+}
+
+.event-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: eventDotPulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes eventDotPulse {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.25); opacity: 1; }
+}
+
+.event-pill-text {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #f1f5f9;
+}
+
+.event-pill-mult {
+  font-size: 11px;
+  font-weight: 800;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .brand {
   display: flex;
   align-items: center;
