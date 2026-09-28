@@ -652,7 +652,7 @@ export function GameTableDialog({
 
         <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
           {/* Full-size Game Arena taking all available space */}
-          <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden p-2 sm:p-4 bg-[#0c131e]">
+          <div className={`flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden ${game === "chicken" ? "p-0" : "p-2 sm:p-4"} bg-[#0c131e]`}>
             {game === "chicken" && (
               <ChickenTable
                 ref={chickenRef}
@@ -1184,25 +1184,54 @@ export function GameTableDialog({
                     const currentMult = round.payload?.multiplier ?? 1.00;
                     const currentProfit = Math.floor(bet * currentMult);
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
+                    const isStepDisabled = loading || chickenBusy || currentLane >= 17;
+
+                    if (currentLane === 0) {
+                      return (
+                        <button
+                          type="button"
+                          disabled={isStepDisabled}
+                          onClick={handleChickenStep}
+                          className="w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_4px_0_#1e40af,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#1e40af] cursor-pointer transition-all"
+                        >
+                          <Zap size={18} className="fill-white text-white" />
+                          <span>SKOCZ NA DROGĘ (KROK 1)</span>
+                        </button>
+                      );
+                    }
 
                     return (
-                      <button
-                        type="button"
-                        disabled={isCashoutDisabled}
-                        onClick={handleChickenCashout}
-                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
-                          !isCashoutDisabled
-                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
-                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
-                        }`}
-                      >
-                        <CheckCircle2 size={18} />
-                        <span>
-                          {currentLane === 0
-                            ? "Kliknij na drogę, aby skoczyć"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
-                        </span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        <button
+                          type="button"
+                          disabled={isStepDisabled}
+                          onClick={handleChickenStep}
+                          className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-mono font-black text-xs sm:text-sm md:text-base tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all ${
+                            !isStepDisabled
+                              ? "bg-[#2563eb] hover:bg-[#3b82f6] text-white border border-[#1d4ed8] shadow-[0_4px_0_#1e40af,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#1e40af] cursor-pointer"
+                              : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          }`}
+                        >
+                          <Zap size={16} className="fill-white text-white" />
+                          <span>SKOCZ ({currentLane + 1}/17)</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isCashoutDisabled}
+                          onClick={handleChickenCashout}
+                          className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-mono font-black text-xs sm:text-sm md:text-base tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all ${
+                            !isCashoutDisabled
+                              ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                              : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          }`}
+                        >
+                          <CheckCircle2 size={16} />
+                          <span className="truncate">
+                            WYPŁAĆ {money(currentProfit)}
+                          </span>
+                        </button>
+                      </div>
                     );
                   }
 
