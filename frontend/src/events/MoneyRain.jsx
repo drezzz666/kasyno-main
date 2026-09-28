@@ -18,24 +18,21 @@ export function MoneyRain({
   const nextIdRef = useRef(1);
   const spawnTimerRef = useRef(null);
   const sparkleTimerRef = useRef(null);
-  const countdownTimerRef = useRef(null);
-  const hasAutoStartedRef = useRef(false);
 
   const stopRain = useCallback(() => {
     setRunning(false);
     clearInterval(spawnTimerRef.current);
     clearInterval(sparkleTimerRef.current);
-    clearTimeout(countdownTimerRef.current);
+    setBanknotes([]);
+    setSparkles([]);
     sounds.stopMoneyRainMusic();
     if (onClose) onClose();
   }, [onClose]);
 
-  const startRain = useCallback((sec) => {
+  const startRain = useCallback(() => {
     setRunning(true);
-    setBanknotes([]);
-    setSparkles([]);
 
-    // Start background music via sounds engine immediately
+    // Start event music via sounds engine immediately and loop continuously
     sounds.playMoneyRainMusic();
 
     // Golden celebratory burst at event onset
@@ -47,40 +44,25 @@ export function MoneyRain({
         colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
       });
     } catch {}
+  }, []);
 
-    // Auto-stop countdown for celebratory shower:
-    // Even if the live multiplier lasts for 24h, the intense visual animation
-    // runs for a generous celebration time (e.g. 60-90s) to keep CPU performant.
-    const showerDuration = Math.min(Math.max(Number(sec) || 60, 20), 120);
-
-    clearTimeout(countdownTimerRef.current);
-    countdownTimerRef.current = setTimeout(() => {
-      stopRain();
-    }, showerDuration * 1000);
-  }, [stopRain]);
-
-  // Auto-play music and rain immediately when activeEvent is present
+  // Continuous rain and music as long as activeEvent is active
   useEffect(() => {
     if (activeEvent && activeEvent.multiplier > 1.0) {
-      if (!hasAutoStartedRef.current) {
-        hasAutoStartedRef.current = true;
-        startRain(activeEvent.duration || 60);
-      }
+      startRain();
     } else {
-      hasAutoStartedRef.current = false;
       stopRain();
     }
   }, [activeEvent, startRain, stopRain]);
 
-  // Synchronize with window events (e.g. when triggered from topbar or WebSocket)
+  // Synchronize with window events (e.g. when triggered from WebSocket or devtools)
   useEffect(() => {
     const handleStartEvent = (e) => {
       if (e.detail?.action === "stop") {
         stopRain();
         return;
       }
-      const dur = e.detail?.duration || 60;
-      startRain(dur);
+      startRain();
     };
     const handleStopEvent = () => {
       stopRain();
@@ -91,7 +73,7 @@ export function MoneyRain({
     return () => {
       window.removeEventListener("casino:start_money_rain", handleStartEvent);
       window.removeEventListener("casino:stop_money_rain", handleStopEvent);
-      sounds.stopMoneyRainMusic();
+      stopRain();
     };
   }, [startRain, stopRain]);
 
@@ -202,18 +184,6 @@ export function MoneyRain({
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
-      {/* User Dismiss Button (allows closing the shower while bonus continues) */}
-      {running && (
-        <button
-          type="button"
-          className="money-rain-dismiss-btn"
-          onClick={stopRain}
-          style={{ pointerEvents: "auto" }}
-          title="Zamknij animację deszczu (bonus pozostaje aktywny)"
-        >
-          ✕ Zamknij deszcz
-        </button>
-      )}
 
       {/* Golden Sparkles */}
       {sparkles.map((sp) => (

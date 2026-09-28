@@ -168,31 +168,4 @@
   }
 }
 
-/* Floating Dismiss Button for Money Rain */
-.money-rain-dismiss-btn {
-  position: fixed;
-  top: 18px;
-  right: 20px;
-  z-index: 10001;
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  color: #fef08a;
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 12px rgba(245, 158, 11, 0.25);
-  transition: all 0.15s ease;
-  pointer-events: auto !important;
-}
-
-.money-rain-dismiss-btn:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: #fbbf24;
-  color: #ffffff;
-  transform: translateY(-1px);
-}
 
