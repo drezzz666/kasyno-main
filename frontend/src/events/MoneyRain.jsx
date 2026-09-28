@@ -241,17 +241,6 @@ export function MoneyRain({
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
-      {/* Floating Top Notify Pill */}
-      {running && (
-        <div className="money-rain-notify-pill">
-          <span className="money-rain-notify-pulse" />
-          <span className="money-rain-notify-label">Cash Rain aktywny</span>
-          <span className="money-rain-notify-mult">
-            ×{Number(activeEvent?.multiplier || 1.25).toFixed(2)}
-          </span>
-        </div>
-      )}
-
       {/* Golden Sparkles */}
       {sparkles.map((sp) => (
         <div
