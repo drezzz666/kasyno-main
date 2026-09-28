@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -97,6 +98,44 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	// Client Error Reporting endpoint
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
+
+	// Internal Event Dispatcher (for Discord Bot or external trigger)
+	r.Post("/api/internal/events", func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		expected := "Bearer " + cfg.SessionSecret
+		if cfg.SessionSecret == "" || authHeader != expected {
+			http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			Event     string `json:"event"`
+			Action    string `json:"action"`
+			Duration  int    `json:"duration"`
+			StartedBy string `json:"started_by"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"Invalid payload"}`, http.StatusBadRequest)
+			return
+		}
+
+		evType := ws.EventMoneyRain
+		if req.Action == "stop" {
+			evType = ws.EventStopMoneyRain
+		}
+
+		wsHub.Broadcast(ws.Event{
+			Type: evType,
+			Payload: map[string]interface{}{
+				"event":      req.Event,
+				"action":     req.Action,
+				"duration":   req.Duration,
+				"started_by": req.StartedBy,
+			},
+		})
+
+		JSON(w, http.StatusOK, map[string]string{"status": "ok", "event": req.Event, "action": req.Action})
+	})
 
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {

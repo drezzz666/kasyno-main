@@ -1,8 +1,11 @@
 package discordbot
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -1904,17 +1907,8 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				EndsAt:    endsAt,
 				StartedBy: m.Author.Username,
 			})
-			if b.wsHub != nil {
-				b.wsHub.Broadcast(ws.Event{
-					Type: ws.EventMoneyRain,
-					Payload: map[string]interface{}{
-						"event":      ev,
-						"action":     "start",
-						"duration":   int(dur.Seconds()),
-						"started_by": m.Author.Username,
-					},
-				})
-			}
+			// Broadcast to all casino players (in-memory + HTTP to AppURL)
+			b.dispatchLiveEventToCasino(ev, "start", int(dur.Seconds()), m.Author.Username)
 			time.AfterFunc(dur, func() {
 				curr := b.GetActiveEvent()
 				if curr != nil && curr.EndsAt.Equal(endsAt) {
@@ -1955,15 +1949,7 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				ev = args[1]
 			}
 			b.ClearActiveEvent()
-			if b.wsHub != nil {
-				b.wsHub.Broadcast(ws.Event{
-					Type: ws.EventStopMoneyRain,
-					Payload: map[string]interface{}{
-						"event":  ev,
-						"action": "stop",
-					},
-				})
-			}
+			b.dispatchLiveEventToCasino(ev, "stop", 0, "")
 			embed := &discordgo.MessageEmbed{
 				Title:       "⏹️ Wydarzenie Zatrzymane",
 				Description: fmt.Sprintf("Wydarzenie **%s** zostało natychmiast przerwane na platformie.", ev),
@@ -2061,18 +2047,8 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 			StartedBy: startedBy,
 		})
 
-		// Broadcast through WebSocket to all connected casino players
-		if b.wsHub != nil {
-			b.wsHub.Broadcast(ws.Event{
-				Type: ws.EventMoneyRain,
-				Payload: map[string]interface{}{
-					"event":      eventName,
-					"action":     "start",
-					"duration":   int(dur.Seconds()),
-					"started_by": startedBy,
-				},
-			})
-		}
+		// Broadcast through WebSocket to all connected casino players (in-memory + HTTP to AppURL)
+		b.dispatchLiveEventToCasino(eventName, "start", int(dur.Seconds()), startedBy)
 
 		time.AfterFunc(dur, func() {
 			current := b.GetActiveEvent()
@@ -2118,16 +2094,7 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 		}
 
 		b.ClearActiveEvent()
-
-		if b.wsHub != nil {
-			b.wsHub.Broadcast(ws.Event{
-				Type: ws.EventStopMoneyRain,
-				Payload: map[string]interface{}{
-					"event":  eventName,
-					"action": "stop",
-				},
-			})
-		}
+		b.dispatchLiveEventToCasino(eventName, "stop", 0, "")
 
 		embed := &discordgo.MessageEmbed{
 			Title:       "⏹️ Wydarzenie Zatrzymane",
@@ -2184,4 +2151,57 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 		b.respondInteractionError(s, i, "Nieznana podkomenda. Użyj: `/event start`, `/event stop` lub `/event status`.")
 	}
 }
+
+func (b *Bot) dispatchLiveEventToCasino(eventName, action string, durSeconds int, startedBy string) {
+	evType := ws.EventMoneyRain
+	if action == "stop" {
+		evType = ws.EventStopMoneyRain
+	}
+
+	// 1. Direct in-memory broadcast if wsHub is available in the current process
+	if b.wsHub != nil {
+		b.wsHub.Broadcast(ws.Event{
+			Type: evType,
+			Payload: map[string]interface{}{
+				"event":      eventName,
+				"action":     action,
+				"duration":   durSeconds,
+				"started_by": startedBy,
+			},
+		})
+	}
+
+	// 2. HTTP POST to casino web server (essential when bot runs on a separate machine or container)
+	go func() {
+		appURL := strings.TrimRight(b.appURL, "/")
+		if appURL == "" && b.cfg != nil {
+			appURL = strings.TrimRight(b.cfg.AppURL, "/")
+		}
+		if appURL == "" || b.cfg == nil || b.cfg.SessionSecret == "" {
+			return
+		}
+
+		targetURL := fmt.Sprintf("%s/api/internal/events", appURL)
+		payload, _ := json.Marshal(map[string]interface{}{
+			"event":      eventName,
+			"action":     action,
+			"duration":   durSeconds,
+			"started_by": startedBy,
+		})
+
+		req, err := http.NewRequest("POST", targetURL, bytes.NewBuffer(payload))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+b.cfg.SessionSecret)
+
+		client := &http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil && resp != nil {
+			_ = resp.Body.Close()
+		}
+	}()
+}
+
 
