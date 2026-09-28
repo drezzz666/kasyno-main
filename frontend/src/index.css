@@ -6,12 +6,12 @@
   --bg-card-hover: #151924;
   --bg-surface: #181d2a;
   --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-active: rgba(245, 158, 11, 0.6);
-  --gold: #f59e0b;
-  --gold-hover: #d97706;
+  --border-active: rgba(37, 99, 235, 0.6);
+  --gold: #3b82f6;
+  --gold-hover: #2563eb;
   --green: #10b981;
   --red: #f43f5e;
-  --accent: #f59e0b;
+  --accent: #2563eb;
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Space Grotesk', sans-serif;
@@ -1011,15 +1011,15 @@ body {
 }
 
 .game-card:hover .btn-play-game {
-  background: #f59e0b;
-  color: #05070a;
-  border-color: #d97706;
-  box-shadow: 0 3px 0 #b45309;
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+  box-shadow: 0 3px 0 #1e40af;
 }
 
 .game-card .btn-play-game:active {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 #b45309;
+  box-shadow: 0 1px 0 #1e40af;
 }
 
 /* Mobile Pill Switcher (Visible on small screens) */
@@ -2015,8 +2015,8 @@ body {
 }
 
 .mobile-tab-item.active {
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.12);
+  color: #60a5fa;
+  background: rgba(37, 99, 235, 0.15);
 }
 
 .mobile-tab-dot {
@@ -3762,22 +3762,22 @@ body {
 }
 
 .btn-play-action.primary {
-  background: #f59e0b;
-  color: #05070a;
-  border-color: #d97706;
-  box-shadow: 0 4px 0 #b45309, 0 6px 12px rgba(0, 0, 0, 0.4);
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 0 #1e40af, 0 6px 12px rgba(0, 0, 0, 0.4);
 }
 
 .btn-play-action.primary:hover:not(:disabled) {
-  background: #fbbf24;
-  border-color: #f59e0b;
+  background: #3b82f6;
+  border-color: #2563eb;
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 #b45309, 0 8px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 5px 0 #1e40af, 0 8px 16px rgba(0, 0, 0, 0.45);
 }
 
 .btn-play-action.primary:active:not(:disabled) {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #b45309, 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 0 #1e40af, 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .btn-play-action.primary:disabled {
