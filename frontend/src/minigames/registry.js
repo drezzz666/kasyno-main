@@ -29,7 +29,7 @@ export const MINIGAMES = [
     shortName: "Captcha",
     badge: "+80 ₽",
     reward: "+80 ₽",
-    desc: "Przepisz kod z obrazka i odbierz darmowe żetony.",
+    desc: "Kranik ratunkowy dla salda poniżej 2 000 ₽. Przepisz kod i odbierz darmowe żetony.",
     img: "/captcha-hero.webp",
     icon: ShieldCheck,
     iconColor: "text-amber-400",

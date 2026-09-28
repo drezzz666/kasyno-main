@@ -231,6 +231,17 @@ func (h *CasinoHandler) GetCaptcha(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.ledger != nil {
+		if freshPlayer, err := h.ledger.GetPlayer(r.Context(), p.UserID); err == nil && freshPlayer != nil {
+			p = freshPlayer
+		}
+	}
+
+	if p.Balance >= 2000 {
+		JSONError(w, http.StatusForbidden, "Kranik Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽")
+		return
+	}
+
 	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
 	if !h.rateLimiter.AllowStateRead(p.UserID) {
 		JSONError(w, http.StatusTooManyRequests, "Zbyt częste pobieranie captcha.")
@@ -433,6 +444,14 @@ func (h *CasinoHandler) handleGetCaptcha(w http.ResponseWriter, r *http.Request,
 }
 
 func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	if p.Balance >= 2000 {
+		JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"ok":    false,
+			"error": "Kranik Captcha jest dostępny tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽",
+		})
+		return
+	}
+
 	id, _ := body["id"].(string)
 	answer, _ := body["answer"].(string)
 	sig, _ := body["signature"].(string)

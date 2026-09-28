@@ -473,8 +473,13 @@ export default function App() {
 
   const userNick = data?.player?.nick || "Gracz";
   const bonusAvailable = Boolean(data && data.player.last_bonus_day !== data.today);
-  const xpCurrent = (data?.player?.xp || 0) % 500;
-  const xpProgress = Math.min(100, (xpCurrent / 500) * 100);
+  const userLevel = data?.player?.level || 1;
+  const xpTotal = data?.player?.xp || 0;
+  const xpForCurrent = (userLevel - 1) * (userLevel - 1) * 200;
+  const xpForNext = userLevel * userLevel * 200;
+  const xpCurrent = Math.max(0, xpTotal - xpForCurrent);
+  const xpNeeded = Math.max(1, xpForNext - xpForCurrent);
+  const xpProgress = Math.min(100, Math.max(0, (xpCurrent / xpNeeded) * 100));
 
   const missions = data?.missions || [];
   const readyMissionsCount = missions.filter((m) => m.ready).length;
@@ -702,7 +707,7 @@ export default function App() {
                     <div className="xp-meter">
                       <div className="xp-fill" style={{ width: `${xpProgress}%` }} />
                     </div>
-                    <span className="xp-text">{xpCurrent} / 500 XP</span>
+                    <span className="xp-text">{xpCurrent} / {xpNeeded} XP</span>
                   </div>
                 </div>
               </div>

@@ -140,26 +140,35 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
     }
   };
 
+  const isBalanceLocked = typeof currentBalance === "number" && currentBalance >= 2000;
+
   return (
     <div className="captcha-minigame-container">
+      {isBalanceLocked && (
+        <div className="p-3 mb-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-300 text-xs text-center">
+          Kranik Captcha jest kołem ratunkowym dostępnym tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽.
+          <div className="text-[11px] text-slate-400 mt-1">Twoje obecne saldo: {currentBalance.toLocaleString()} ₽</div>
+        </div>
+      )}
+
       {/* Server-Side Rendered Distorted PNG Image */}
       <div className="captcha-canvas-wrap">
-        {captchaData?.image ? (
+        {captchaData?.image && !isBalanceLocked ? (
           <img
             src={captchaData.image}
             alt="Captcha"
             className={`captcha-img ${successAnim ? "success-glow" : ""}`}
           />
         ) : (
-          <div className="h-[75px] w-[280px] flex items-center justify-center text-slate-500 text-xs font-mono">
-            {loading ? "Ładowanie..." : "Brak obrazu"}
+          <div className="h-[75px] w-[280px] flex items-center justify-center text-slate-500 text-xs font-mono text-center px-4">
+            {isBalanceLocked ? "Kranik zablokowany (saldo ≥ 2 000 ₽)" : loading ? "Ładowanie..." : "Brak obrazu"}
           </div>
         )}
 
         <button
           type="button"
           onClick={() => fetchCaptcha(false)}
-          disabled={loading}
+          disabled={loading || isBalanceLocked}
           className="captcha-refresh-btn"
           title="Odśwież kod"
           aria-label="Odśwież kod"
@@ -180,7 +189,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
             spellCheck="false"
             placeholder={captchaData?.type === "math" ? "Wynik działania" : "Wpisz kod"}
             value={inputVal}
-            disabled={loading}
+            disabled={loading || isBalanceLocked}
             onChange={(e) => {
               setInputVal(e.target.value.toUpperCase());
               if (errorMsg) setErrorMsg("");
@@ -205,7 +214,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
         <button
           type="submit"
-          disabled={loading || !inputVal.trim()}
+          disabled={loading || isBalanceLocked || !inputVal.trim()}
           className="captcha-submit-btn"
         >
           {loading ? (

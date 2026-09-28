@@ -1277,7 +1277,7 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1491,7 +1491,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1549,10 +1549,6 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 }
 
 func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string, payout int64, resultText string, finalPayloadJSON string) (*SettleOutcome, error) {
-	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
-		payout = int64(math.Round(float64(payout) * ev.Multiplier))
-	}
-
 	t := NowMs()
 	tx, err := s.db.Pool.Begin(ctx)
 	if err != nil {
@@ -1565,17 +1561,29 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Settle round and fetch bet amount
+	// Fetch active round bet amount
 	var betAmount int64
-	err = tx.QueryRow(ctx, `
-		UPDATE game_rounds
-		SET state = 'settled', payout = $1, result = $2, payload = $3, settled_at = $4
-		WHERE id = $5 AND user_id = $6 AND state = 'active'
-		RETURNING bet
-	`, payout, resultText, finalPayloadJSON, t, roundID, userID).Scan(&betAmount)
+	err = tx.QueryRow(ctx, `SELECT bet FROM game_rounds WHERE id = $1 AND user_id = $2 AND state = 'active'`, roundID, userID).Scan(&betAmount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRoundAlreadySettled
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply event multiplier strictly to net profit (prevents hedging and push exploits)
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > betAmount {
+		netProfit := payout - betAmount
+		eventBonus := int64(math.Round(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout += eventBonus
+	}
+
+	// Settle round in database
+	_, err = tx.Exec(ctx, `
+		UPDATE game_rounds
+		SET state = 'settled', payout = $1, result = $2, payload = $3, settled_at = $4
+		WHERE id = $5 AND user_id = $6 AND state = 'active'
+	`, payout, resultText, finalPayloadJSON, t, roundID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1587,7 +1595,7 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1654,8 +1662,10 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, ErrInvalidBet
 	}
 
-	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > 0 {
-		payout = int64(math.Round(float64(payout) * ev.Multiplier))
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > bet {
+		netProfit := payout - bet
+		eventBonus := int64(math.Round(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout += eventBonus
 	}
 
 	roundID := uuid.NewString()
@@ -1694,7 +1704,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level

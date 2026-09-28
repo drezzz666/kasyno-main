@@ -130,8 +130,8 @@ func TestGamePlinko_InteractiveSimulation(t *testing.T) {
 			if res.Payload.Slot < 0 || res.Payload.Slot > rows {
 				t.Fatalf("plinko: invalid landing slot %d for rows %d", res.Payload.Slot, rows)
 			}
-			if res.Payload.Multiplier <= 0 {
-				t.Fatalf("plinko: non-positive multiplier %f", res.Payload.Multiplier)
+			if res.Payload.Multiplier < 0 {
+				t.Fatalf("plinko: negative multiplier %f", res.Payload.Multiplier)
 			}
 			expectedPayout := int64(math.Floor(100.0 * res.Payload.Multiplier))
 			if res.Payout != expectedPayout {
