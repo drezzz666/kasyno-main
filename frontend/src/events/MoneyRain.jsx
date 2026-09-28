@@ -14,18 +14,14 @@ export function MoneyRain({
 }) {
   const [running, setRunning] = useState(false);
   const [banknotes, setBanknotes] = useState([]);
-  const [sparkles, setSparkles] = useState([]);
 
   const nextIdRef = useRef(1);
   const spawnTimerRef = useRef(null);
-  const sparkleTimerRef = useRef(null);
 
   const stopRain = useCallback(() => {
     setRunning(false);
     clearInterval(spawnTimerRef.current);
-    clearInterval(sparkleTimerRef.current);
     setBanknotes([]);
-    setSparkles([]);
     sounds.stopMoneyRainMusic();
     if (onClose) onClose();
   }, [onClose]);
@@ -196,31 +192,7 @@ export function MoneyRain({
     return () => clearInterval(spawnTimerRef.current);
   }, [running]);
 
-  // Spawning loop for subtle Golden Sparkles
-  useEffect(() => {
-    if (!running) return;
-
-    sparkleTimerRef.current = setInterval(() => {
-      const id = nextIdRef.current++;
-      const left = Math.random() * 96 + 2;
-      const fallDuration = Math.random() * 2 + 3.5;
-      const size = Math.random() * 3 + 2;
-
-      const newSparkle = {
-        id,
-        left,
-        size,
-        fallDuration,
-        bornAt: Date.now(),
-      };
-
-      setSparkles((prev) => [...prev.slice(-3), newSparkle]); // max 4 sparkles
-    }, 1500);
-
-    return () => clearInterval(sparkleTimerRef.current);
-  }, [running]);
-
-  // Periodically clean up fallen notes & sparkles
+  // Periodically clean up fallen notes
   useEffect(() => {
     if (!running) return;
     const cleaner = setInterval(() => {
@@ -228,33 +200,16 @@ export function MoneyRain({
       setBanknotes((prev) =>
         prev.filter((n) => now - n.bornAt < n.fallDuration * 1000 + 400)
       );
-      setSparkles((prev) =>
-        prev.filter((s) => now - s.bornAt < s.fallDuration * 1000 + 400)
-      );
     }, 1000);
     return () => clearInterval(cleaner);
   }, [running]);
 
-  if (!running && banknotes.length === 0 && sparkles.length === 0) {
+  if (!running && banknotes.length === 0) {
     return null;
   }
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
-      {/* Golden Sparkles */}
-      {sparkles.map((sp) => (
-        <div
-          key={sp.id}
-          className="money-rain-sparkle"
-          style={{
-            left: `${sp.left}%`,
-            width: `${sp.size}px`,
-            height: `${sp.size}px`,
-            animation: `sparkleFall ${sp.fallDuration}s linear forwards`,
-          }}
-        />
-      ))}
-
       {/* 3D Banknotes with Realistic Flutter Physics */}
       {banknotes.map((note) => (
         <div
