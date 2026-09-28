@@ -647,7 +647,6 @@ export default function App() {
         {/* Live Event Indicator */}
         {activeEvent && activeEvent.multiplier > 1.0 && (
           <div className="topbar-event-pill">
-            <span className="event-pulse-dot" />
             <span className="event-pill-text">CASH RAIN</span>
             <span className="event-pill-mult">×{Number(activeEvent.multiplier).toFixed(2)}</span>
           </div>

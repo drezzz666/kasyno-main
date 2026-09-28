@@ -88,7 +88,7 @@ body {
   padding: 4px 12px;
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.35);
-  border-radius: 9999px;
+  border-radius: 20px;
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
   user-select: none;
 }
@@ -103,8 +103,15 @@ body {
 }
 
 @keyframes eventDotPulse {
-  0% { transform: scale(0.85); opacity: 0.6; }
-  100% { transform: scale(1.25); opacity: 1; }
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
 }
 
 .event-pill-text {
@@ -1923,23 +1930,27 @@ body {
   font-family: var(--font-mono);
   font-weight: 800;
   font-size: 0.85rem;
-  color: #ffffff; /* reszta biała */
+  color: #ffffff;
+  /* reszta biała */
   width: 30px;
   flex-shrink: 0;
 }
 
 .rank-place.place-1 {
-  color: #fbbf24; /* złote */
+  color: #fbbf24;
+  /* złote */
   text-shadow: 0 0 10px rgba(251, 191, 36, 0.55), 0 0 20px rgba(245, 158, 11, 0.3);
 }
 
 .rank-place.place-2 {
-  color: #e2e8f0; /* silver */
+  color: #e2e8f0;
+  /* silver */
   text-shadow: 0 0 8px rgba(226, 232, 240, 0.5), 0 0 16px rgba(148, 163, 184, 0.3);
 }
 
 .rank-place.place-3 {
-  color: #cd7f32; /* bronze */
+  color: #cd7f32;
+  /* bronze */
   text-shadow: 0 0 8px rgba(205, 127, 50, 0.5), 0 0 16px rgba(180, 83, 9, 0.3);
 }
 
@@ -7088,6 +7099,7 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -7329,10 +7341,13 @@ body {
 }
 
 @keyframes eventPillPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     border-color: rgba(245, 158, 11, 0.3);
     box-shadow: 0 0 8px rgba(245, 158, 11, 0.1);
   }
+
   50% {
     border-color: rgba(245, 158, 11, 0.6);
     box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
