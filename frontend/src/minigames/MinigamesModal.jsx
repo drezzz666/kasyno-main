@@ -52,7 +52,7 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
               <img
                 src="/musor-logo.webp"
                 alt="Musor Drop"
-                className="h-9 sm:h-10 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                className="h-8 sm:h-10 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
               />
             ) : (
               <>
