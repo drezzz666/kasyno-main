@@ -689,10 +689,10 @@ export function GameTableDialog({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">Max</button>
                 </div>
 
                 <div className="hidden md:flex items-center gap-1.5">
@@ -702,7 +702,7 @@ export function GameTableDialog({
                       type="button"
                       disabled={loading || isBusy}
                       onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
+                      className="py-1 px-2 rounded-md bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-300 border border-slate-700/60 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer"
                     >
                       +{inc}
                     </button>
@@ -711,7 +711,7 @@ export function GameTableDialog({
               </div>
 
               {/* Main Action Button */}
-              <div className="w-full sm:w-auto sm:min-w-[300px]">
+              <div className="w-full sm:w-auto sm:min-w-[280px]">
                 {round ? (
                   (() => {
                     const currentLane = round.payload?.currentLane || 0;
@@ -724,13 +724,13 @@ export function GameTableDialog({
                         type="button"
                         disabled={isCashoutDisabled}
                         onClick={handleChickenCashout}
-                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                           !isCashoutDisabled
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 shadow-emerald-500/40 border-2 border-emerald-300 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
                         }`}
                       >
-                        <CheckCircle2 size={22} />
+                        <CheckCircle2 size={18} />
                         <span>
                           {currentLane === 0
                             ? "Kliknij na drogę, aby skoczyć"
@@ -744,10 +744,10 @@ export function GameTableDialog({
                     type="button"
                     disabled={!tosAccepted || loading || isBusy}
                     onClick={start}
-                    className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
+                    className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                       !tosAccepted || loading || isBusy
-                        ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                        : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                        ? "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                        : "bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_4px_0_#b45309,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#b45309] cursor-pointer"
                     }`}
                   >
                     {isBusy || loading ? (
@@ -895,10 +895,10 @@ export function GameTableDialog({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-200 cursor-pointer active:scale-95 shadow-sm">Max</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer">Max</button>
                 </div>
 
                 <div className="hidden lg:flex items-center gap-1.5">
@@ -908,7 +908,7 @@ export function GameTableDialog({
                       type="button"
                       disabled={loading || isBusy}
                       onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, b + inc))}
-                      className="py-1.5 px-2.5 rounded-lg bg-[#172336]/80 hover:bg-slate-700 text-xs font-mono font-bold text-slate-300 border border-slate-700/50 cursor-pointer active:scale-95 shadow-sm"
+                      className="py-1 px-2 rounded-md bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-300 border border-slate-700/60 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer"
                     >
                       +{inc}
                     </button>
@@ -928,10 +928,10 @@ export function GameTableDialog({
                           type="button"
                           disabled={loading || round?.game === "mines"}
                           onClick={() => setMineCount(c)}
-                          className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg text-xs sm:text-sm font-black font-mono transition-all cursor-pointer ${
                             mineCount === c
-                              ? "bg-amber-500 text-slate-950 shadow-md border-2 border-amber-300"
-                              : "bg-[#172336] hover:bg-slate-700 text-slate-300 border border-slate-700/60"
+                              ? "bg-[#f59e0b] text-slate-950 border border-[#d97706] shadow-[0_2px_0_#b45309]"
+                              : "bg-[#141b27] hover:bg-[#1e293b] text-slate-300 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none"
                           }`}
                         >
                           {c}
@@ -1213,7 +1213,7 @@ export function GameTableDialog({
                       <div className="grid grid-cols-3 gap-2 w-full">
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-slate-200 border border-slate-600 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading}
                           onClick={() => showSettledBlackjack("stand")}
                         >
@@ -1221,7 +1221,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer active:scale-95 shadow-md"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#1e293b] hover:bg-[#334155] text-amber-300 border border-amber-500/50 shadow-[0_3px_0_#0f172a] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading || round.payload?.cards?.length !== 2}
                           onClick={() => showSettledBlackjack("double")}
                         >
@@ -1229,7 +1229,7 @@ export function GameTableDialog({
                         </button>
                         <button
                           type="button"
-                          className="py-3 sm:py-3.5 px-3 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 border-2 border-amber-300 cursor-pointer active:scale-95 shadow-lg shadow-amber-500/30"
+                          className="py-2.5 sm:py-3 px-2 sm:px-3 rounded-lg font-mono font-black text-xs sm:text-sm uppercase tracking-wider bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_3px_0_#b45309] active:translate-y-0.5 active:shadow-none cursor-pointer transition-all"
                           disabled={loading}
                           onClick={() => showSettledBlackjack("hit")}
                         >
@@ -1243,10 +1243,10 @@ export function GameTableDialog({
                     return (
                       <button
                         type="button"
-                        className="w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40"
+                        className="w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
                         onClick={handleManualCrashCashout}
                       >
-                        <CheckCircle2 size={22} />
+                        <CheckCircle2 size={18} />
                         <span>WYPŁAĆ ({(Number(crashMult) || 1.0).toFixed(2)}×)</span>
                       </button>
                     );
@@ -1264,13 +1264,13 @@ export function GameTableDialog({
                         type="button"
                         disabled={!canCashout}
                         onClick={handleMinesCashout}
-                        className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl transition-all ${
+                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                           canCashout
-                            ? "bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 hover:from-emerald-400 text-slate-950 border-2 border-emerald-300 shadow-emerald-500/40 cursor-pointer active:scale-98"
-                            : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                            ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
+                            : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
                         }`}
                       >
-                        <CheckCircle2 size={22} />
+                        <CheckCircle2 size={18} />
                         <span>
                           {revealed.length === 0
                             ? "Wybierz pole na planszy"
@@ -1295,20 +1295,20 @@ export function GameTableDialog({
                       type="button"
                       disabled={isButtonDisabled}
                       onClick={start}
-                      className={`w-full py-3 sm:py-3.5 px-6 sm:px-8 rounded-xl sm:rounded-2xl font-black text-base sm:text-lg flex items-center justify-center gap-2 sm:gap-3 shadow-2xl cursor-pointer active:scale-98 ${
+                      className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                         isButtonDisabled
-                          ? "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
-                          : "bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:from-amber-400 text-slate-950 shadow-amber-500/40 border-2 border-amber-300"
+                          ? "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
+                          : "bg-[#f59e0b] hover:bg-[#fbbf24] text-slate-950 border border-[#d97706] shadow-[0_4px_0_#b45309,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#b45309] cursor-pointer"
                       }`}
                     >
                       {isBusy || loading ? (
                         <>
-                          <RotateCw size={22} className="animate-spin" />
+                          <RotateCw size={18} className="animate-spin" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       ) : (
                         <>
-                          <Zap size={22} className="fill-slate-950" />
+                          <Zap size={18} className="fill-slate-950" />
                           <span>{getPlayButtonText()}</span>
                         </>
                       )}

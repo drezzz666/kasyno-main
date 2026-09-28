@@ -43,7 +43,7 @@ export async function fetchCasinoState() {
     const duration = (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime;
     recordActionLatency("GET /api/casino", duration);
     if (e.message && !e.message.includes("401")) {
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
       const msg = (e.message || "").toLowerCase();
       const isNetworkBlip =
         isOffline ||
