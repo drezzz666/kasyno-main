@@ -57,6 +57,9 @@ class CasinoSoundEngine {
     try {
       localStorage.setItem("fgt_muted", String(this.muted));
     } catch {}
+    if (this.moneyRainAudio) {
+      this.moneyRainAudio.volume = this.muted ? 0 : 0.75;
+    }
     if (this.muted) {
       this.pauseBgm();
     } else {
@@ -178,6 +181,46 @@ class CasinoSoundEngine {
     this.bgmIsPlaying = false;
     this.pauseBgm();
     this.bgmPausedAt = 0;
+  }
+
+  playMoneyRainMusic() {
+    this.moneyRainActive = true;
+    this.pauseBgm();
+
+    if (!this.moneyRainAudio) {
+      this.moneyRainAudio = new Audio("/audio/money.m4a");
+      this.moneyRainAudio.loop = true;
+    }
+
+    this.moneyRainAudio.volume = this.muted ? 0 : 0.75;
+    this.moneyRainAudio.currentTime = 0;
+
+    const promise = this.moneyRainAudio.play();
+    if (promise !== undefined) {
+      promise.catch(() => {
+        // If browser autoplay policy blocked, auto-play on next interaction
+        const unlock = () => {
+          if (this.moneyRainActive && this.moneyRainAudio) {
+            this.moneyRainAudio.play().catch(() => {});
+          }
+        };
+        const events = ["click", "keydown", "touchstart", "pointerdown"];
+        events.forEach((evt) => window.addEventListener(evt, unlock, { once: true }));
+      });
+    }
+  }
+
+  stopMoneyRainMusic() {
+    this.moneyRainActive = false;
+    if (this.moneyRainAudio) {
+      try {
+        this.moneyRainAudio.pause();
+        this.moneyRainAudio.currentTime = 0;
+      } catch {}
+    }
+    if (!this.muted && this.bgmIsPlaying) {
+      this.resumeBgm();
+    }
   }
 
   playWin(multiplier = 2) {

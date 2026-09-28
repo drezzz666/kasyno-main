@@ -1,147 +1,46 @@
-/* Money Rain Event Styles */
+/* Money Rain Event Styles - Luxury Casino Aesthetics */
 
 .money-rain-overlay {
   position: fixed;
   inset: 0;
-  pointer-events: none;
+  pointer-events: none !important;
   z-index: 9999;
   overflow: hidden;
-  perspective: 1000px;
+  perspective: 1200px;
 }
 
-/* Event Top Banner HUD */
-.money-rain-hud {
-  position: fixed;
-  top: 68px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10000;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 24px;
-  background: rgba(13, 22, 16, 0.88);
-  border: 1px solid rgba(114, 198, 58, 0.45);
-  border-radius: 9999px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(114, 198, 58, 0.25);
-  animation: hudSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Subtle ambient emerald-gold aurora breathing at the top of the screen */
+.money-rain-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45vh;
+  background: radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.18) 0%, rgba(234, 179, 8, 0.08) 40%, transparent 75%);
+  pointer-events: none;
+  animation: auroraBreathe 4s ease-in-out infinite alternate;
 }
 
-@keyframes hudSlideDown {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -20px);
+@keyframes auroraBreathe {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.98);
   }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
+  100% {
+    opacity: 0.85;
+    transform: scale(1.03);
   }
 }
 
-.money-rain-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, rgba(114, 198, 58, 0.2), rgba(34, 197, 94, 0.1));
-  border: 1px solid rgba(114, 198, 58, 0.4);
-  padding: 6px 14px;
-  border-radius: 9999px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #a3e635;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  animation: rainPulse 2s infinite ease-in-out;
-}
-
-@keyframes rainPulse {
-  0%, 100% {
-    box-shadow: 0 0 10px rgba(163, 230, 53, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(163, 230, 53, 0.5);
-  }
-}
-
-.money-rain-stats {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.money-rain-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.money-rain-stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.money-rain-stat-value {
-  font-size: 16px;
-  font-weight: 800;
-  font-family: var(--font-mono, monospace);
-  color: #f8fafc;
-}
-
-.money-rain-stat-value.highlight {
-  color: #4ade80;
-  text-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
-}
-
-.money-rain-timer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #f87171;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: var(--font-mono, monospace);
-}
-
-.money-rain-close-btn {
-  background: transparent;
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.money-rain-close-btn:hover {
-  color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-/* Individual Falling Banknote Container - strictly click-through */
+/* Base Falling Banknote */
 .falling-banknote {
   position: absolute;
-  top: -120px;
+  top: -150px;
   pointer-events: none !important;
   user-select: none;
   will-change: transform;
   transform-style: preserve-3d;
-}
-
-.falling-banknote:hover {
-  filter: brightness(1.25) drop-shadow(0 0 14px #a3e635) !important;
 }
 
 .falling-banknote-inner {
@@ -151,59 +50,120 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: none !important;
 }
 
-/* Floating click score bubble */
-.cash-pickup-bubble {
-  position: absolute;
-  pointer-events: none;
-  z-index: 10001;
-  font-size: 20px;
-  font-weight: 900;
-  font-family: var(--font-display, sans-serif);
-  color: #4ade80;
-  text-shadow: 0 0 16px rgba(74, 222, 128, 0.8), 0 2px 4px rgba(0, 0, 0, 0.8);
-  animation: floatUpAndFade 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  transform-origin: center center;
-}
-
-@keyframes floatUpAndFade {
+/* Realistic 3D Paper Flutter Keyframes */
+@keyframes flutterFallA {
   0% {
+    top: -160px;
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
+    transform: translate3d(0, 0, 0) rotateX(15deg) rotateY(0deg) rotateZ(0deg);
   }
-  20% {
+  8% {
     opacity: 1;
-    transform: translate(-50%, -70%) scale(1.3);
+  }
+  88% {
+    opacity: 1;
   }
   100% {
+    top: 105vh;
     opacity: 0;
-    transform: translate(-50%, -140%) scale(1);
+    transform: translate3d(40px, 0, 0) rotateX(65deg) rotateY(360deg) rotateZ(45deg);
   }
 }
 
-/* Money Rain Trigger Button in Menu/Header */
-.money-rain-trigger-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(163, 230, 53, 0.25));
-  border: 1px solid rgba(163, 230, 53, 0.4);
-  color: #a3e635;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+@keyframes flutterFallB {
+  0% {
+    top: -160px;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotateX(-20deg) rotateY(0deg) rotateZ(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    opacity: 0;
+    transform: translate3d(-50px, 0, 0) rotateX(-50deg) rotateY(-360deg) rotateZ(-35deg);
+  }
 }
 
-.money-rain-trigger-btn:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(163, 230, 53, 0.45));
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(163, 230, 53, 0.3);
+@keyframes flutterFallC {
+  0% {
+    top: -160px;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotateZ(-15deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    opacity: 0;
+    transform: translate3d(25px, 0, 0) rotateX(180deg) rotateZ(180deg);
+  }
 }
 
-.money-rain-trigger-btn:active {
-  transform: scale(0.96);
+@keyframes swayPhysicsA {
+  0% {
+    transform: rotateY(-35deg) rotateZ(-20deg) translateX(-25px);
+  }
+  50% {
+    transform: rotateY(0deg) rotateZ(0deg) translateX(0px);
+  }
+  100% {
+    transform: rotateY(35deg) rotateZ(20deg) translateX(25px);
+  }
+}
+
+@keyframes swayPhysicsB {
+  0% {
+    transform: rotateX(-30deg) rotateZ(15deg) translateX(20px);
+  }
+  50% {
+    transform: rotateX(0deg) rotateZ(0deg) translateX(0px);
+  }
+  100% {
+    transform: rotateX(30deg) rotateZ(-15deg) translateX(-20px);
+  }
+}
+
+/* Floating Golden Sparkle Particles */
+.money-rain-sparkle {
+  position: absolute;
+  top: -20px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fef08a 0%, #ca8a04 100%);
+  box-shadow: 0 0 10px #fef08a, 0 0 20px #eab308;
+  pointer-events: none !important;
+  opacity: 0.85;
+}
+
+@keyframes sparkleFall {
+  0% {
+    top: -20px;
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  15% {
+    opacity: 0.9;
+    transform: scale(1.3);
+  }
+  85% {
+    opacity: 0.8;
+  }
+  100% {
+    top: 102vh;
+    opacity: 0;
+    transform: scale(0.4);
+  }
 }
