@@ -1,6 +1,7 @@
 import React from "react";
 import { History, LogOut, X, Trophy } from "lucide-react";
 import { format, money } from "../lib/formatters";
+import { calcPlayerLevel } from "../utils";
 
 export function ProfileModal({
   open,
@@ -12,10 +13,7 @@ export function ProfileModal({
 }) {
   if (!open) return null;
 
-  const xpTotal = player?.xp || 0;
-  const calculatedLevel = Math.max(1, 1 + Math.floor(Math.sqrt(xpTotal / 200)));
-  const storedLevel = player?.level || 1;
-  const level = (storedLevel - 1) * (storedLevel - 1) * 200 <= xpTotal ? storedLevel : calculatedLevel;
+  const level = calcPlayerLevel(player);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

@@ -3,6 +3,7 @@ import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } fr
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
+import { calcEventPayout } from "../utils";
 import {
   BlackjackTable,
   ChickenTable,
@@ -1128,11 +1129,7 @@ export function GameTableDialog({
 
                   if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
                     const currentMultiplier = Number(crashMult) || 1.0;
-                    const eventMult = currentEvent?.multiplier || 1.0;
-                    const basePayout = Math.floor(bet * currentMultiplier);
-                    const finalPayout = Math.floor(basePayout * eventMult);
-                    const profit = finalPayout - bet;
-                    const eventBonus = finalPayout - basePayout;
+                    const { finalPayout } = calcEventPayout(bet, currentMultiplier, currentEvent?.multiplier);
 
                     return (
                       <button
@@ -1150,11 +1147,7 @@ export function GameTableDialog({
                     const p = round.payload || {};
                     const revealed = p.revealed || [];
                     const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
-                    const eventMult = currentEvent?.multiplier || 1.0;
-                    const basePayout = Math.floor(bet * currentMult);
-                    const finalPayout = Math.floor(basePayout * eventMult);
-                    const profit = finalPayout - bet;
-                    const eventBonus = finalPayout - basePayout;
+                    const { finalPayout } = calcEventPayout(bet, currentMult, currentEvent?.multiplier);
                     const canCashout = revealed.length > 0 && !loading;
 
                     return (
@@ -1181,11 +1174,7 @@ export function GameTableDialog({
                   if (round?.game === "chicken") {
                     const currentLane = round.payload?.currentLane || 0;
                     const currentMult = round.payload?.multiplier ?? 1.00;
-                    const eventMult = currentEvent?.multiplier || 1.0;
-                    const basePayout = Math.floor(bet * currentMult);
-                    const finalPayout = Math.floor(basePayout * eventMult);
-                    const profit = finalPayout - bet;
-                    const eventBonus = finalPayout - basePayout;
+                    const { finalPayout } = calcEventPayout(bet, currentMult, currentEvent?.multiplier);
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
                     const isStepDisabled = loading || chickenBusy || currentLane >= 17;
 

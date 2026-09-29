@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { BanknoteSvg } from "./BanknoteSvg";
 import { sounds } from "../lib/sounds";
+import { getEventEndsAt } from "../utils";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import "./MoneyRain.css";
@@ -79,11 +80,7 @@ export function MoneyRain({
       return;
     }
 
-    const endsAtMs = activeEvent.ends_at
-      ? new Date(activeEvent.ends_at).getTime()
-      : activeEvent.endsAt
-      ? new Date(activeEvent.endsAt).getTime()
-      : null;
+    const endsAtMs = getEventEndsAt(activeEvent);
 
     if (endsAtMs && Date.now() >= endsAtMs) {
       if (running) stopRain();
@@ -119,11 +116,7 @@ export function MoneyRain({
         stopRain();
         return;
       }
-      const endsAtMs = activeEvent.ends_at
-        ? new Date(activeEvent.ends_at).getTime()
-        : activeEvent.endsAt
-        ? new Date(activeEvent.endsAt).getTime()
-        : null;
+      const endsAtMs = getEventEndsAt(activeEvent);
       if (endsAtMs && Date.now() >= endsAtMs) {
         stopRain();
       }

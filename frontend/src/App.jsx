@@ -29,6 +29,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format, truncateNick } from "./lib/formatters";
+import { getEventEndsAt, getEventRemainingMs, calcPlayerLevelProgress } from "./utils";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -43,22 +44,10 @@ import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
 
 function EventCountdown({ activeEvent, onExpire }) {
-  const [timeLeft, setTimeLeft] = useState(() => {
-    const endsAtMs = activeEvent?.ends_at
-      ? new Date(activeEvent.ends_at).getTime()
-      : activeEvent?.endsAt
-      ? new Date(activeEvent.endsAt).getTime()
-      : null;
-    return endsAtMs ? Math.max(0, endsAtMs - Date.now()) : null;
-  });
+  const [timeLeft, setTimeLeft] = useState(() => getEventRemainingMs(activeEvent));
 
   useEffect(() => {
-    const endsAtMs = activeEvent?.ends_at
-      ? new Date(activeEvent.ends_at).getTime()
-      : activeEvent?.endsAt
-      ? new Date(activeEvent.endsAt).getTime()
-      : null;
-
+    const endsAtMs = getEventEndsAt(activeEvent);
     if (!endsAtMs) {
       setTimeLeft(null);
       return;
@@ -139,11 +128,7 @@ export default function App() {
       setActiveEvent(null);
       return;
     }
-    const endsAtMs = ev.ends_at
-      ? new Date(ev.ends_at).getTime()
-      : ev.endsAt
-        ? new Date(ev.endsAt).getTime()
-        : null;
+    const endsAtMs = getEventEndsAt(ev);
     if (endsAtMs && Date.now() >= endsAtMs) {
       setActiveEvent(null);
       return;
@@ -547,15 +532,7 @@ export default function App() {
 
   const userNick = data?.player?.nick || "Gracz";
   const bonusAvailable = Boolean(data && data.player.last_bonus_day !== data.today);
-  const xpTotal = data?.player?.xp || 0;
-  const calculatedLevel = Math.max(1, 1 + Math.floor(Math.sqrt(xpTotal / 200)));
-  const storedLevel = data?.player?.level || 1;
-  const userLevel = (storedLevel - 1) * (storedLevel - 1) * 200 <= xpTotal ? storedLevel : calculatedLevel;
-  const xpForCurrent = (userLevel - 1) * (userLevel - 1) * 200;
-  const xpForNext = userLevel * userLevel * 200;
-  const xpCurrent = Math.max(0, xpTotal - xpForCurrent);
-  const xpNeeded = Math.max(1, xpForNext - xpForCurrent);
-  const xpProgress = Math.min(100, Math.max(0, (xpCurrent / xpNeeded) * 100));
+  const { userLevel, xpTotal, xpCurrent, xpNeeded, xpProgress } = calcPlayerLevelProgress(data?.player);
 
   const missions = data?.missions || [];
   const readyMissionsCount = missions.filter((m) => m.ready).length;
