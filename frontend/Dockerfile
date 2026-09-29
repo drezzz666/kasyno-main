@@ -22,6 +22,8 @@ RUN pnpm run build
 # -------------------------------------------------------------
 FROM nginx:alpine AS runner
 
+RUN sed -i 's/worker_connections.*/worker_connections 8192;/' /etc/nginx/nginx.conf
+
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
