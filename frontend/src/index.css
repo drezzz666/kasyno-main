@@ -88,7 +88,7 @@ body {
   padding: 4px 12px;
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.35);
-  border-radius: 20px;
+  border-radius: 10px;
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
   user-select: none;
 }
@@ -105,7 +105,6 @@ body {
   font-size: 11px;
   font-weight: 800;
   color: #34d399;
-  background: rgba(16, 185, 129, 0.2);
   padding: 1px 6px;
   border-radius: 4px;
 }
