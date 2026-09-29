@@ -982,6 +982,10 @@ body {
   padding: 0;
   width: 100%;
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 260px;
+  contain: layout paint style;
+  transform: translateZ(0);
 }
 
 .game-card:hover {
@@ -1300,6 +1304,9 @@ body {
   gap: 0.85rem;
   position: relative;
   transition: all 0.15s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 120px;
+  contain: layout paint;
 }
 
 .mission-card:hover {
@@ -1930,6 +1937,9 @@ body {
   border: 1px solid var(--border-subtle);
   font-size: 0.825rem;
   transition: all 0.15s;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 48px;
+  contain: layout paint;
 }
 
 .ranking-row:hover {
@@ -2063,6 +2073,9 @@ body {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-subtle);
+  content-visibility: auto;
+  contain-intrinsic-size: 0 48px;
+  contain: layout paint;
 }
 
 .history-stream-info {
