@@ -9,6 +9,18 @@ import "./MoneyRain.css";
 const FALL_ANIMATIONS = ["flutterFallA", "flutterFallB", "flutterFallC"];
 const SWAY_ANIMATIONS = ["swayPhysicsA", "swayPhysicsB"];
 
+// Detect low-end device: small screen width or few CPU cores
+const isLowEndDevice = () => {
+  try {
+    const smallScreen = window.screen.width <= 480 || window.screen.height <= 700;
+    const fewCores = navigator.hardwareConcurrency != null && navigator.hardwareConcurrency <= 4;
+    return smallScreen || fewCores;
+  } catch {
+    return false;
+  }
+};
+const LOW_END = isLowEndDevice();
+
 export function MoneyRain({
   activeEvent,
   onClose,
@@ -47,7 +59,7 @@ export function MoneyRain({
 
     try {
       confetti({
-        particleCount: 35,
+        particleCount: LOW_END ? 15 : 35,
         spread: 80,
         origin: { y: 0.1 },
         colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
@@ -145,15 +157,19 @@ export function MoneyRain({
     };
   }, [startRain, stopRain]);
 
-  // Spawning loop for Fluttering 3D Banknotes (very sparse, non-intrusive rate)
+  // Spawning loop for Fluttering Banknotes
   useEffect(() => {
     if (!running) return;
+
+    // Low-end: spawn half as often, keep max 2 notes on screen
+    const interval = LOW_END ? 5200 : 2600;
+    const maxNotes = LOW_END ? 2 : 3;
 
     spawnTimerRef.current = setInterval(() => {
       const id = nextIdRef.current++;
       const left = Math.random() * 84 + 8; // 8% to 92% screen width
-      
-      // Depth layering: 0 = background, 1 = midground, 2 = foreground
+
+      // Depth layering — skip CSS blur on low-end
       const depthTier = Math.random();
       let scale = 0.8;
       let blur = "none";
@@ -164,7 +180,7 @@ export function MoneyRain({
         // Far background
         width = 48;
         scale = 0.7;
-        blur = "blur(0.8px)";
+        blur = LOW_END ? "none" : "blur(0.8px)";
         zIndex = 9997;
       } else if (depthTier < 0.8) {
         // Midground
@@ -181,8 +197,14 @@ export function MoneyRain({
       const height = (width * 310) / 540;
       const fallDuration = Math.random() * 2.5 + 5.5; // 5.5s to 8.0s
       const swayDuration = Math.random() * 1.5 + 2.2; // 2.2s to 3.7s
-      const animVariant = FALL_ANIMATIONS[Math.floor(Math.random() * FALL_ANIMATIONS.length)];
-      const swayVariant = SWAY_ANIMATIONS[Math.floor(Math.random() * SWAY_ANIMATIONS.length)];
+
+      // On low-end: use simplest variant (no 3D rotateY/rotateX), no sway layer
+      const animVariant = LOW_END
+        ? "flutterFallC"
+        : FALL_ANIMATIONS[Math.floor(Math.random() * FALL_ANIMATIONS.length)];
+      const swayVariant = LOW_END
+        ? null
+        : SWAY_ANIMATIONS[Math.floor(Math.random() * SWAY_ANIMATIONS.length)];
       const startDelay = Math.random() * 0.2;
 
       const newNote = {
@@ -201,8 +223,8 @@ export function MoneyRain({
         bornAt: Date.now(),
       };
 
-      setBanknotes((prev) => [...prev.slice(-2), newNote]); // max 3 notes total on screen
-    }, 2600);
+      setBanknotes((prev) => [...prev.slice(-(maxNotes - 1)), newNote]);
+    }, interval);
 
     return () => clearInterval(spawnTimerRef.current);
   }, [running]);
@@ -225,7 +247,7 @@ export function MoneyRain({
 
   return (
     <div className="money-rain-overlay" style={{ pointerEvents: "none" }}>
-      {/* 3D Banknotes with Realistic Flutter Physics */}
+      {/* Banknotes with Flutter Physics */}
       {banknotes.map((note) => (
         <div
           key={note.id}
@@ -242,9 +264,11 @@ export function MoneyRain({
         >
           <div
             className="falling-banknote-inner"
-            style={{
-              animation: `${note.swayVariant} ${note.swayDuration}s ease-in-out infinite alternate`,
-            }}
+            style={
+              note.swayVariant
+                ? { animation: `${note.swayVariant} ${note.swayDuration}s ease-in-out infinite alternate` }
+                : undefined
+            }
           >
             <BanknoteSvg />
           </div>

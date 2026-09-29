@@ -73,19 +73,17 @@ const PADDING_X = 36;
 const PADDING_TOP = 42;
 const PADDING_BOTTOM = 46;
 
-// Fast Cubic Bezier calculation
-function cubicBezier(t, p0, p1, p2, p3) {
-  const u = 1 - t;
-  const tt = t * t;
-  const uu = u * u;
-  const uuu = uu * u;
-  const ttt = tt * t;
-
-  return {
-    x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
-    y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y,
-  };
-}
+// Detect low-end device: small screen or few CPU cores
+const isLowEndDevice = () => {
+  try {
+    const smallScreen = window.screen.width <= 480 || window.screen.height <= 700;
+    const fewCores = navigator.hardwareConcurrency != null && navigator.hardwareConcurrency <= 4;
+    return smallScreen || fewCores;
+  } catch {
+    return false;
+  }
+};
+const LOW_END = isLowEndDevice();
 
 // Compute pin coordinates on the board
 const getPinPos = (r, c, totalRows) => {
@@ -104,13 +102,14 @@ const getBallRadius = (r) => Math.max(6.4, 9.2 - r * 0.16);
 // Render 3D solid sphere ball with shadow, glow, trail and lighting
 function drawBall(ctx, b) {
   ctx.save();
-  ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
+  const alpha = b.alpha !== undefined ? b.alpha : 1;
+  ctx.globalAlpha = alpha;
 
-  // 1. Motion Trail (fading ghost trail of past positions)
-  if (b.trail && b.trail.length > 1) {
+  // 1. Motion Trail – skip on low-end devices
+  if (!LOW_END && b.trail && b.trail.length > 1) {
     for (let i = 0; i < b.trail.length; i++) {
       const pt = b.trail[i];
-      const trailAlpha = ((i + 1) / b.trail.length) * 0.28 * (b.alpha !== undefined ? b.alpha : 1);
+      const trailAlpha = ((i + 1) / b.trail.length) * 0.28 * alpha;
       const trailRadius = b.radius * (0.6 + 0.4 * ((i + 1) / b.trail.length));
       ctx.fillStyle = b.color;
       ctx.globalAlpha = trailAlpha;
@@ -118,31 +117,31 @@ function drawBall(ctx, b) {
       ctx.arc(pt.x, pt.y, trailRadius, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = alpha;
   }
 
-  ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
-
-  // 2. Drop shadow beneath the ball on the backboard
+  // 2. Drop shadow
   ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
   ctx.beginPath();
   ctx.ellipse(b.x, b.y + b.radius * 0.95, b.radius * 0.85, b.radius * 0.32, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3. Ambient ball outer glow
-  const glowGrad = ctx.createRadialGradient(b.x, b.y, b.radius * 0.6, b.x, b.y, b.radius * 1.5);
-  glowGrad.addColorStop(0, b.color);
-  glowGrad.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = glowGrad;
-  ctx.globalAlpha = (b.alpha !== undefined ? b.alpha : 1) * 0.35;
-  ctx.beginPath();
-  ctx.arc(b.x, b.y, b.radius * 1.5, 0, Math.PI * 2);
-  ctx.fill();
+  // 3. Ambient glow – skip on low-end devices
+  if (!LOW_END) {
+    const glowGrad = ctx.createRadialGradient(b.x, b.y, b.radius * 0.6, b.x, b.y, b.radius * 1.5);
+    glowGrad.addColorStop(0, b.color);
+    glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glowGrad;
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.radius * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+  }
 
-  ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
-
-  // 4. Ball body with rich 3D sphere gradient
+  // 4. Ball body
   ctx.translate(b.x, b.y);
-  if (b.squashX && b.squashY) {
+  if (!LOW_END && b.squashX && b.squashY) {
     ctx.scale(b.squashX, b.squashY);
   }
 
@@ -164,18 +163,20 @@ function drawBall(ctx, b) {
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // 5. Crisp outer rim
+  // 5. Outer rim
   ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 6. Specular gloss highlight
-  ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
-  ctx.beginPath();
-  ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.28, 0, Math.PI * 2);
-  ctx.fill();
+  // 6. Specular gloss highlight – skip on low-end devices
+  if (!LOW_END) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+    ctx.beginPath();
+    ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   ctx.restore();
 }
@@ -453,22 +454,29 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
             color: b.color,
           });
 
-          // Spawn realistic physical spark particles bursting outward from collision point
-          const pin = getPinPos(seg.hitPin.r, seg.hitPin.c, rows);
-          const strikeDir = seg.dir || 1;
-          for (let k = 0; k < 6; k++) {
-            const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9 + strikeDir * 0.35;
-            const speed = 1.4 + Math.random() * 2.6;
-            particlesRef.current.push({
-              x: pin.x,
-              y: pin.y - pinRadius * 0.7,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed,
-              size: 2.0 + Math.random() * 1.5,
-              color: b.color,
-              life: 1.0,
-              maxLife: 220 + Math.random() * 100,
-            });
+          // Spawn spark particles – fewer on low-end devices
+          if (!LOW_END || particlesRef.current.length < 20) {
+            const pin = getPinPos(seg.hitPin.r, seg.hitPin.c, rows);
+            const strikeDir = seg.dir || 1;
+            const sparkCount = LOW_END ? 3 : 6;
+            for (let k = 0; k < sparkCount; k++) {
+              const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9 + strikeDir * 0.35;
+              const speed = 1.4 + Math.random() * 2.6;
+              particlesRef.current.push({
+                x: pin.x,
+                y: pin.y - pinRadius * 0.7,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2.0 + Math.random() * 1.5,
+                color: b.color,
+                life: 1.0,
+                maxLife: 220 + Math.random() * 100,
+              });
+            }
+            // Hard cap on total particles
+            if (particlesRef.current.length > 40) {
+              particlesRef.current = particlesRef.current.slice(-40);
+            }
           }
         }
 
@@ -482,7 +490,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
           if (finalMultiplier >= 10) {
             confetti({
-              particleCount: finalMultiplier >= 50 ? 60 : 30,
+              particleCount: LOW_END ? 15 : (finalMultiplier >= 50 ? 60 : 30),
               spread: 60,
               origin: { y: 0.8 },
               colors: ["#f59e0b", "#10b981", "#38bdf8", "#ec4899", "#fbbf24"],
@@ -561,20 +569,24 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         b.y = posY;
         b.alpha = 1;
 
-        // Subtle elastic squash/stretch right after impact
-        if (u < 0.18) {
-          const factor = 1 - u / 0.18;
-          b.squashX = 1 + factor * 0.18;
-          b.squashY = 1 - factor * 0.18;
-        } else {
-          b.squashX = 1;
-          b.squashY = 1;
+        // Subtle elastic squash/stretch right after impact (skipped on low-end)
+        if (!LOW_END) {
+          if (u < 0.18) {
+            const factor = 1 - u / 0.18;
+            b.squashX = 1 + factor * 0.18;
+            b.squashY = 1 - factor * 0.18;
+          } else {
+            b.squashX = 1;
+            b.squashY = 1;
+          }
         }
 
-        // Maintain short smooth trail buffer
-        if (!b.trail) b.trail = [];
-        b.trail.push({ x: posX, y: posY });
-        if (b.trail.length > 4) b.trail.shift();
+        // Maintain short smooth trail buffer (skip on low-end – not rendered)
+        if (!LOW_END) {
+          if (!b.trail) b.trail = [];
+          b.trail.push({ x: posX, y: posY });
+          if (b.trail.length > 3) b.trail.shift();
+        }
 
         aliveBalls.push(b);
         drawBall(ctx, b);

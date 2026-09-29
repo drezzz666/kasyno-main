@@ -1,4 +1,4 @@
-/* Money Rain Event Styles - Luxury Casino Aesthetics */
+/* Money Rain Event Styles */
 
 .money-rain-overlay {
   position: fixed;
@@ -6,10 +6,11 @@
   pointer-events: none !important;
   z-index: 9999;
   overflow: hidden;
+  /* perspective only matters when 3D rotations are used; skip on narrow screens */
   perspective: 1200px;
 }
 
-/* Subtle ambient emerald-gold aurora breathing at the top of the screen */
+/* Subtle ambient aurora breathing – hidden on very small screens to save paint */
 .money-rain-overlay::before {
   content: "";
   position: absolute;
@@ -20,6 +21,15 @@
   background: radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.18) 0%, rgba(234, 179, 8, 0.08) 40%, transparent 75%);
   pointer-events: none;
   animation: auroraBreathe 4s ease-in-out infinite alternate;
+}
+
+@media (max-width: 480px), (max-height: 700px) {
+  .money-rain-overlay {
+    perspective: none;
+  }
+  .money-rain-overlay::before {
+    display: none;
+  }
 }
 
 @keyframes auroraBreathe {
@@ -39,8 +49,14 @@
   top: -150px;
   pointer-events: none !important;
   user-select: none;
-  will-change: transform;
+  will-change: transform, top;
   transform-style: preserve-3d;
+}
+
+@media (max-width: 480px), (max-height: 700px) {
+  .falling-banknote {
+    transform-style: flat;
+  }
 }
 
 .falling-banknote-inner {
@@ -53,7 +69,7 @@
   pointer-events: none !important;
 }
 
-/* Realistic 3D Paper Flutter Keyframes */
+/* Realistic 3D Paper Flutter Keyframes (full devices) */
 @keyframes flutterFallA {
   0% {
     top: -160px;
@@ -92,11 +108,12 @@
   }
 }
 
+/* Simplest variant – only 2D rotation, used on low-end devices */
 @keyframes flutterFallC {
   0% {
     top: -160px;
     opacity: 0;
-    transform: translate3d(0, 0, 0) rotateZ(-15deg);
+    transform: translateX(0) rotateZ(-15deg);
   }
   8% {
     opacity: 1;
@@ -107,7 +124,7 @@
   100% {
     top: 105vh;
     opacity: 0;
-    transform: translate3d(25px, 0, 0) rotateX(180deg) rotateZ(180deg);
+    transform: translateX(25px) rotateZ(180deg);
   }
 }
 
@@ -134,6 +151,3 @@
     transform: rotateX(30deg) rotateZ(-15deg) translateX(-20px);
   }
 }
-
-
-

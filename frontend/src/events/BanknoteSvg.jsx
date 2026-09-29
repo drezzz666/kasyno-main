@@ -9,21 +9,11 @@ export function BanknoteSvg({ className = "", style = {} }) {
       height="100%"
       className={className}
       style={{
-        filter: "drop-shadow(0 14px 28px rgba(0, 0, 0, 0.55)) drop-shadow(0 2px 6px rgba(16, 185, 129, 0.3))",
+        filter: "drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5))",
         ...style,
       }}
     >
       <defs>
-        {/* Subtle Banknote Engraving Pattern (Guilloche) */}
-        <pattern id="guilloche-waves" width="24" height="24" patternUnits="userSpaceOnUse">
-          <path
-            d="M 0 12 Q 6 4, 12 12 T 24 12 M 0 6 Q 6 14, 12 6 T 24 6 M 0 18 Q 6 26, 12 18 T 24 18"
-            fill="none"
-            stroke="#a3e635"
-            strokeWidth="0.65"
-            opacity="0.16"
-          />
-        </pattern>
 
         {/* Outer Banknote Gradient */}
         <linearGradient id="bill-base-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -74,17 +64,6 @@ export function BanknoteSvg({ className = "", style = {} }) {
         fill="url(#bill-base-grad)"
         stroke="url(#gold-foil)"
         strokeWidth="2.5"
-      />
-
-      {/* 2. Guilloche Security Engraving Texture */}
-      <rect
-        x="16"
-        y="16"
-        width="508"
-        height="278"
-        rx="14"
-        ry="14"
-        fill="url(#guilloche-waves)"
       />
 
       {/* 3. Ornamental Filigree Border */}
@@ -152,28 +131,24 @@ export function BanknoteSvg({ className = "", style = {} }) {
         opacity="0.8"
       />
 
-      {/* Big Center Golden Currency Symbol ($) */}
-      <g filter="drop-shadow(0 2px 8px rgba(0, 0, 0, 0.7))">
-        {/* Vertical Bars */}
-        <rect x="264" y="92" width="12" height="126" rx="6" fill="url(#shiny-gold)" />
-        {/* S Path */}
-        <path
-          d="
-            M 302 126
-            C 302 108 288 98 270 98
-            C 250 98 236 109 236 127
-            C 236 148 252 156 278 162
-            C 300 167 312 176 312 192
-            C 312 211 294 222 270 222
-            C 246 222 230 209 228 190
-          "
-          fill="none"
-          stroke="url(#shiny-gold)"
-          strokeWidth="18"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
+      {/* Big Center Golden Currency Symbol ($) – no inner filter */}
+      <rect x="264" y="92" width="12" height="126" rx="6" fill="url(#shiny-gold)" />
+      <path
+        d="
+          M 302 126
+          C 302 108 288 98 270 98
+          C 250 98 236 109 236 127
+          C 236 148 252 156 278 162
+          C 300 167 312 176 312 192
+          C 312 211 294 222 270 222
+          C 246 222 230 209 228 190
+        "
+        fill="none"
+        stroke="url(#shiny-gold)"
+        strokeWidth="18"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
 
       {/* Top Banknote Header Text */}
       <text
