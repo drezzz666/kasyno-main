@@ -1265,12 +1265,12 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 		var mult float64
 		if activeRound.Bet > 0 {
-			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+			mult = float64(outcome.Round.Payout) / float64(activeRound.Bet)
 		}
-		h.recordGameRound("mines", "cashout", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+		h.recordGameRound("mines", "cashout", activeRound.Bet, outcome.Round.Payout, outcome.Round.Result, mult, 0, p)
 
-		if settleRes.Payout > 0 {
-			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+		if outcome.Round.Payout > 0 {
+			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, outcome.Round.Payout, activeRound.Bet, outcome.Round.Result)
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
@@ -1326,12 +1326,12 @@ func (h *CasinoHandler) handleActMines(w http.ResponseWriter, r *http.Request, p
 
 		var mult float64
 		if activeRound.Bet > 0 {
-			mult = float64(settleRes.Payout) / float64(activeRound.Bet)
+			mult = float64(outcome.Round.Payout) / float64(activeRound.Bet)
 		}
-		h.recordGameRound("mines", "reveal", activeRound.Bet, settleRes.Payout, settleRes.ResultText, mult, 0, p)
+		h.recordGameRound("mines", "reveal", activeRound.Bet, outcome.Round.Payout, outcome.Round.Result, mult, 0, p)
 
-		if settleRes.Payout > 0 {
-			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, settleRes.Payout, activeRound.Bet, settleRes.ResultText)
+		if outcome.Round.Payout > 0 {
+			h.broadcastWin(outcome.Round.ID, p.Nick, "mines", p.Avatar, outcome.Round.Payout, activeRound.Bet, outcome.Round.Result)
 		}
 
 		JSON(w, http.StatusOK, map[string]interface{}{
