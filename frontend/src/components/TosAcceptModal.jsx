@@ -31,15 +31,12 @@ export function TosAcceptModal({ open, onAccept, onReadMore }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="tos-header">
-          <div className="tos-badge-pill">
-            <Scale size={14} className="text-amber-400" />
-            <span>Regulamin i Warunki Serwisu</span>
-          </div>
-          <h2 id="tos-modal-title" className="tos-title">
+          <h2 id="tos-modal-title" className="tos-title flex items-center justify-center gap-2">
+            <Scale size={20} className="text-amber-400" />
             Witaj w Kasynie 2FGT
           </h2>
           <p className="tos-subtitle">
-            Przed rozpoczęciem gry prosimy o zapoznanie się z kluczowymi zasadami platformy rozrywkowej.
+            Regulamin i Warunki Serwisu. Przed rozpoczęciem gry prosimy o zapoznanie się z kluczowymi zasadami platformy rozrywkowej.
           </p>
         </div>
 

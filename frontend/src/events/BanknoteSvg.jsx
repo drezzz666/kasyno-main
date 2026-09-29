@@ -103,7 +103,7 @@ export function BanknoteSvg({ className = "", style = {} }) {
       />
 
       {/* Corner Rosettes ($ Symbols & Geometric Emblems) */}
-      <g fill="url(#shiny-gold)" fontFamily="'Space Grotesk', system-ui, sans-serif" fontWeight="900" fontSize="24">
+      <g fill="url(#shiny-gold)" fontFamily="'Inter', system-ui, sans-serif" fontWeight="900" fontSize="24">
         {/* Top-Left */}
         <text x="48" y="62" textAnchor="middle">$</text>
         <circle cx="48" cy="54" r="18" fill="none" stroke="url(#gold-foil)" strokeWidth="1.5" opacity="0.6" />

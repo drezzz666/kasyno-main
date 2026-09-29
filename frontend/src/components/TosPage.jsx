@@ -31,20 +31,18 @@ export function TosPage({ onBack, onAccept, accepted }) {
           <span>Wróć do kasyna</span>
         </button>
         <div className="tos-page-meta">
-          <span className="tos-status-pill">
-            Wersja 2.1 · Obowiązujący
-          </span>
+          <span className="tos-version-text text-emerald-400 font-semibold text-xs">Wersja 2.1 · Obowiązujący</span>
+          <span className="text-slate-600">·</span>
           <span className="tos-date-text">Aktualizacja: 22.09.2026</span>
         </div>
       </div>
 
       {/* Hero Header */}
       <header className="tos-hero-banner">
-        <div className="tos-hero-badge">
-          <Scale size={16} className="text-amber-400" />
-          <span>DOKUMENTACJA PRAWNA & REGULAMIN</span>
-        </div>
-        <h1 className="tos-hero-title">Regulamin Kasyna Klubowego 2FGT</h1>
+        <h1 className="tos-hero-title flex items-center gap-2">
+          <Scale size={24} className="text-amber-400 flex-shrink-0" />
+          Regulamin Kasyna Klubowego 2FGT
+        </h1>
         <p className="tos-hero-desc">
           Zasady korzystania z platformy rozrywkowej, mechanizmy Provably Fair, polityka antybotowa
           oraz warunki posługiwania się wirtualnymi rublami (₽).

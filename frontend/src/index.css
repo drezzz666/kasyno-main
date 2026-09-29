@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Inter', monospace;
+  --font-display: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
 :root {
   --bg-dark: #07090e;
   --bg-card: #0f121a;
@@ -12,9 +18,9 @@
   --green: #10b981;
   --red: #f43f5e;
   --accent: #2563eb;
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Inter', monospace;
+  --font-display: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 * {
@@ -80,44 +86,41 @@ body {
   }
 }
 
-/* Live Cash Rain Event Topbar Pill */
-.topbar-event-pill {
+/* Live Cash Rain Event Topbar Indicator (Clean, non-AI) */
+.topbar-event-bar {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 12px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  border-radius: 10px;
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 6px;
   user-select: none;
+  font-size: 0.75rem;
 }
 
+.event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 6px #34d399;
+  animation: pulseDot 2s infinite;
+}
 
-.event-pill-text {
-  font-size: 11px;
+.event-label {
   font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #f1f5f9;
-}
-
-.event-pill-mult {
-  font-size: 11px;
-  font-weight: 800;
   color: #34d399;
-  padding: 1px 6px;
-  border-radius: 4px;
+  letter-spacing: 0.02em;
 }
 
-.event-pill-time {
-  font-size: 11px;
-  font-weight: 800;
-  font-family: var(--font-mono, monospace);
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.18);
-  padding: 1px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.02em;
+.event-divider {
+  color: #475569;
+}
+
+.event-time {
+  font-weight: 600;
+  color: #cbd5e1;
 }
 
 .brand {
@@ -743,17 +746,11 @@ body {
   color: #fff;
 }
 
+.player-level-text,
 .level-pill {
-  font-size: 0.65rem;
-  font-weight: 800;
-  background: rgba(56, 189, 248, 0.1);
-  color: #38bdf8;
-  padding: 1px 6px;
-  border-radius: 5px;
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #94a3b8;
 }
 
 .xp-wrap {
@@ -1249,37 +1246,40 @@ body {
   flex: 1;
 }
 
-.mission-category-pill {
-  font-size: 0.625rem;
-  font-weight: 800;
+.mission-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.72rem;
+  flex-wrap: wrap;
+}
+
+.mission-category {
+  font-weight: 700;
   text-transform: uppercase;
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: #64748b;
+  letter-spacing: 0.04em;
 }
 
-.mission-reward-pill {
-  font-size: 0.65rem;
+.meta-sep {
+  color: #334155;
+}
+
+.mission-reward {
   font-weight: 700;
-  font-family: var(--font-mono);
   color: #60a5fa;
-  background: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.25);
-  padding: 2px 6px;
-  border-radius: 4px;
 }
 
-.mission-xp-pill {
-  font-size: 0.65rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
+.mission-xp {
+  font-weight: 600;
   color: #38bdf8;
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  padding: 2px 6px;
-  border-radius: 4px;
 }
+
+/* Fallback aliases if referenced elsewhere */
+.mission-category-pill { color: #64748b; font-weight: 700; }
+.mission-reward-pill { color: #60a5fa; font-weight: 700; }
+.mission-xp-pill { color: #38bdf8; font-weight: 600; }
 
 .mission-title {
   font-family: var(--font-display);
@@ -1684,23 +1684,18 @@ body {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+.rank-level-val,
 .rank-level-badge {
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 0.8rem;
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.825rem;
+  color: #94a3b8;
 }
 
+.rank-level-val.pinned,
 .rank-level-badge.pinned {
   font-size: 0.9rem;
-  color: #93c5fd;
-  background: rgba(59, 130, 246, 0.25);
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  padding: 3px 10px;
+  font-weight: 800;
+  color: #60a5fa;
 }
 
 .ranking-pinned-user {
@@ -1772,25 +1767,12 @@ body {
   display: block;
 }
 
-.rank-you-badge {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  background: rgba(37, 99, 235, 0.25);
-  color: #60a5fa;
-  border: 1px solid rgba(37, 99, 235, 0.4);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
+.rank-you-tag,
+.rank-you-badge,
 .rank-you-pill {
-  font-size: 0.6rem;
-  font-weight: 800;
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  padding: 1px 5px;
-  border-radius: 4px;
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: #38bdf8;
 }
 
 /* Ranking Divider (Przedziałka) */
@@ -4825,13 +4807,9 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 20px;
   margin-top: 0.35rem;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .limbo-target-label {
@@ -6021,15 +5999,13 @@ body {
   letter-spacing: 0.08em;
 }
 
+.win-multiplier-text,
 .win-multiplier-pill {
   font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #60a5fa;
-  background: rgba(37, 99, 235, 0.12);
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  padding: 3px 12px;
-  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
 }
 
 .win-amount-counter {
@@ -6554,17 +6530,15 @@ body {
   gap: 0.85rem;
 }
 
+.tos-version-text,
 .tos-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 0.75rem;
+  font-weight: 600;
   color: #34d399;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 20px;
+}
+
+.tos-sep {
+  color: #475569;
 }
 
 .tos-date-text {
@@ -6582,17 +6556,6 @@ body {
   flex-direction: column;
   gap: 0.6rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-}
-
-.tos-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #60a5fa;
-  font-size: 0.675rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .tos-hero-title {
@@ -7301,55 +7264,4 @@ body {
   justify-content: space-between;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 0.65rem;
-}
-
-/* Topbar Compact Event Pill (Minimal, sleek, no AI slop) */
-.event-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #fbbf24;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.15);
-  user-select: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  animation: eventPillPulse 2.5s ease-in-out infinite;
-}
-
-.event-pill:hover {
-  background: rgba(245, 158, 11, 0.22);
-  border-color: #fbbf24;
-  transform: translateY(-1px);
-}
-
-@keyframes eventPillPulse {
-
-  0%,
-  100% {
-    border-color: rgba(245, 158, 11, 0.3);
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.1);
-  }
-
-  50% {
-    border-color: rgba(245, 158, 11, 0.6);
-    box-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
-  }
-}
-
-.event-pill-icon {
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.event-pill-text {
-  font-weight: 900;
-  color: #fef08a;
 }

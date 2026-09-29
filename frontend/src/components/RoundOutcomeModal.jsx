@@ -141,8 +141,8 @@ export function RoundOutcomeModal({
           </span>
         </div>
 
-        {/* Multiplier Tag */}
-        <div className="win-multiplier-pill">
+        {/* Multiplier Label */}
+        <div className="win-multiplier-text">
           <span>
             {isWin
               ? `MNOŻNIK ×${(Number(multiplier) || 1.0).toFixed(2)}`

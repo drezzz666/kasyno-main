@@ -92,7 +92,7 @@ function EventCountdown({ activeEvent, onExpire }) {
     formatted = `${s}s`;
   }
 
-  return <span className="event-pill-time">{formatted}</span>;
+  return <span className="event-time font-mono">{formatted}</span>;
 }
 
 export default function App() {
@@ -700,9 +700,10 @@ export default function App() {
 
         {/* Live Event Indicator */}
         {activeEvent && activeEvent.multiplier > 1.0 && (
-          <div className="topbar-event-pill">
-            <span className="event-pill-text">CASH RAIN</span>
-            <span className="event-pill-mult">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+          <div className="topbar-event-bar" title="Aktywny mnożnik Cash Rain">
+            <span className="event-dot" />
+            <span className="event-label">CASH RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+            <span className="event-divider">•</span>
             <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
           </div>
         )}
@@ -764,7 +765,7 @@ export default function App() {
                 <div className="flex flex-col">
                   <div className="player-nick-row">
                     <span className="player-name">{userNick}</span>
-                    <span className="level-pill">POZIOM {data?.player?.level || 1}</span>
+                    <span className="player-level-text">· Poziom {data?.player?.level || 1}</span>
                   </div>
                   <div className="xp-wrap">
                     <div className="xp-meter">
@@ -926,10 +927,12 @@ export default function App() {
                             {getMissionIcon(m.icon)}
                           </div>
                           <div className="mission-card-main-info">
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <span className="mission-category-pill">{m.category}</span>
-                              <span className="mission-reward-pill">+{format(m.reward)} ₽</span>
-                              <span className="mission-xp-pill">+{m.xp_reward} XP</span>
+                            <div className="mission-meta-row">
+                              <span className="mission-category">{m.category}</span>
+                              <span className="meta-sep">·</span>
+                              <span className="mission-reward">+{format(m.reward)} ₽</span>
+                              <span className="meta-sep">·</span>
+                              <span className="mission-xp">+{m.xp_reward} XP</span>
                             </div>
                             <h3 className="mission-title">{m.title}</h3>
                             <p className="mission-desc">{m.description}</p>
@@ -1061,7 +1064,7 @@ export default function App() {
                             <span className="rank-name font-bold text-slate-100 truncate" title={userNick}>
                               {truncateNick(userNick, 20)}
                             </span>
-                            <span className="rank-you-badge flex-shrink-0">Ty</span>
+                            <span className="rank-you-tag flex-shrink-0">(Ty)</span>
                           </div>
                           <span className="text-[11px] text-slate-400 font-mono truncate">
                             {rankingType === "level"
@@ -1073,7 +1076,7 @@ export default function App() {
                       <div className="ranking-right">
                         {rankingType === "level" ? (
                           <div className="flex flex-col items-end">
-                            <span className="rank-level-badge pinned">
+                            <span className="rank-level-val pinned">
                               LVL {data.player.level || 1}
                             </span>
                             <span className="text-[11px] text-slate-400 font-mono font-bold mt-0.5">
@@ -1129,7 +1132,7 @@ export default function App() {
                                   <span className="rank-name truncate" title={l.nick}>
                                     {truncateNick(l.nick || "Gracz", 20)}
                                   </span>
-                                  {isMe && <span className="rank-you-pill flex-shrink-0">Ty</span>}
+                                  {isMe && <span className="rank-you-tag flex-shrink-0">(Ty)</span>}
                                 </div>
                                 <span className="text-[10px] text-slate-500 font-mono truncate">
                                   {rankingType === "level"
@@ -1140,7 +1143,7 @@ export default function App() {
                             </div>
                             {rankingType === "level" ? (
                               <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                                <span className="rank-level-badge">LVL {l.level || 1}</span>
+                                <span className="rank-level-val">LVL {l.level || 1}</span>
                                 <span className="text-[10px] text-slate-400 font-mono">
                                   {l.xp || 0} XP
                                 </span>
