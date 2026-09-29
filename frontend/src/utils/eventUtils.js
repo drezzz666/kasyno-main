@@ -10,10 +10,11 @@ export function getEventRemainingMs(ev) {
 }
 
 export function calcEventPayout(bet, multiplier, eventMult = 1.0) {
-  const mult = Number(multiplier) || 1.0;
+  const mult = Number(multiplier) || 0;
   const evMult = Number(eventMult) || 1.0;
   const basePayout = Math.floor(bet * mult);
-  const finalPayout = Math.floor(basePayout * evMult);
+  // Event bonus only applies to winning multipliers (> 1.0x)
+  const finalPayout = (mult > 1.0 && evMult > 1.0) ? Math.floor(basePayout * evMult) : basePayout;
   const profit = finalPayout - bet;
   const eventBonus = finalPayout - basePayout;
   return { basePayout, finalPayout, profit, eventBonus };

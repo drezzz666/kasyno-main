@@ -12,12 +12,26 @@ describe("eventUtils", () => {
     expect(getEventEndsAt(null)).toBeNull();
   });
 
-  it("calculates payout with event multiplier correctly", () => {
+  it("calculates payout with event multiplier correctly for wins", () => {
     const res = calcEventPayout(100, 2.0, 1.5);
     expect(res.basePayout).toBe(200);
     expect(res.finalPayout).toBe(300);
     expect(res.profit).toBe(200);
     expect(res.eventBonus).toBe(100);
+  });
+
+  it("does not apply event bonus on 1.0x push or < 1.0x losses", () => {
+    const pushRes = calcEventPayout(100, 1.0, 2.0);
+    expect(pushRes.basePayout).toBe(100);
+    expect(pushRes.finalPayout).toBe(100);
+    expect(pushRes.profit).toBe(0);
+    expect(pushRes.eventBonus).toBe(0);
+
+    const lossRes = calcEventPayout(100, 0.5, 2.0);
+    expect(lossRes.basePayout).toBe(50);
+    expect(lossRes.finalPayout).toBe(50);
+    expect(lossRes.profit).toBe(-50);
+    expect(lossRes.eventBonus).toBe(0);
   });
 });
 
