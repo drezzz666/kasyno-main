@@ -41,6 +41,51 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
 
+function EventCountdown({ activeEvent, onExpire }) {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    const endsAtMs = activeEvent?.ends_at
+      ? new Date(activeEvent.ends_at).getTime()
+      : activeEvent?.endsAt
+      ? new Date(activeEvent.endsAt).getTime()
+      : null;
+    return endsAtMs ? Math.max(0, endsAtMs - Date.now()) : null;
+  });
+
+  useEffect(() => {
+    const endsAtMs = activeEvent?.ends_at
+      ? new Date(activeEvent.ends_at).getTime()
+      : activeEvent?.endsAt
+      ? new Date(activeEvent.endsAt).getTime()
+      : null;
+
+    if (!endsAtMs) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const update = () => {
+      const remaining = Math.max(0, endsAtMs - Date.now());
+      setTimeLeft(remaining);
+      if (remaining <= 0 && onExpire) {
+        onExpire();
+      }
+    };
+
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [activeEvent?.ends_at, activeEvent?.endsAt, onExpire]);
+
+  if (timeLeft === null) return null;
+
+  const totalSec = Math.ceil(timeLeft / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  const formatted = `${m}:${s < 10 ? "0" : ""}${s}`;
+
+  return <span className="event-pill-time">{formatted}</span>;
+}
+
 export default function App() {
 
   const [data, setData] = useState(null);
@@ -649,6 +694,7 @@ export default function App() {
           <div className="topbar-event-pill">
             <span className="event-pill-text">CASH RAIN</span>
             <span className="event-pill-mult">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+            <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
           </div>
         )}
 

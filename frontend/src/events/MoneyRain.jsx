@@ -18,46 +18,59 @@ export function MoneyRain({
   const nextIdRef = useRef(1);
   const spawnTimerRef = useRef(null);
   const notifiedEventKeyRef = useRef(null);
+  const activeEventRef = useRef(activeEvent);
+  activeEventRef.current = activeEvent;
+
+  const notifyRainOnce = useCallback((ev) => {
+    const eventKey = ev?.id || ev?.ends_at || ev?.endsAt || (ev ? `${ev.multiplier}-${ev.ends_at || ev.endsAt}` : null);
+    if (!eventKey) return;
+
+    try {
+      if (sessionStorage.getItem("cash_rain_notified_key") === String(eventKey)) {
+        return;
+      }
+      sessionStorage.setItem("cash_rain_notified_key", String(eventKey));
+    } catch {}
+
+    if (notifiedEventKeyRef.current === eventKey) {
+      return;
+    }
+    notifiedEventKeyRef.current = eventKey;
+
+    const mult = ev?.multiplier || 1.25;
+    toast.success("🌧️ Cash Rain jest aktywny!", {
+      id: "cash-rain-active-toast",
+      description: `Mnożnik wygranych ×${Number(mult).toFixed(2)} jest teraz włączony!`,
+      duration: 2000,
+    });
+
+    try {
+      confetti({
+        particleCount: 35,
+        spread: 80,
+        origin: { y: 0.1 },
+        colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
+      });
+    } catch {}
+  }, []);
 
   const stopRain = useCallback(() => {
     setRunning(false);
     clearInterval(spawnTimerRef.current);
     setBanknotes([]);
     sounds.stopMoneyRainMusic();
-    notifiedEventKeyRef.current = null;
     if (onClose) onClose();
   }, [onClose]);
 
   const startRain = useCallback((event) => {
     setRunning(true);
-
-    // Start event music via sounds engine immediately and loop continuously
     sounds.playMoneyRainMusic();
 
-    const ev = event || activeEvent;
-    const mult = ev?.multiplier || 1.25;
-    const eventKey = ev?.id || ev?.ends_at || ev?.endsAt || (ev ? `${ev.multiplier}-${ev.ends_at || ev.endsAt}` : "rain");
-
-    // Only notify once per event
-    if (notifiedEventKeyRef.current !== eventKey) {
-      notifiedEventKeyRef.current = eventKey;
-      toast.success("🌧️ Cash Rain jest aktywny!", {
-        id: "cash-rain-active-toast",
-        description: `Mnożnik wygranych ×${Number(mult).toFixed(2)} jest teraz włączony!`,
-        duration: 2000,
-      });
-
-      // Golden celebratory burst at event onset
-      try {
-        confetti({
-          particleCount: 35,
-          spread: 80,
-          origin: { y: 0.1 },
-          colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
-        });
-      } catch {}
+    const ev = event || activeEventRef.current;
+    if (ev) {
+      notifyRainOnce(ev);
     }
-  }, [activeEvent]);
+  }, [notifyRainOnce]);
 
   // Continuous rain and music as long as activeEvent is active and not expired
   useEffect(() => {
@@ -125,7 +138,7 @@ export function MoneyRain({
         stopRain();
         return;
       }
-      startRain();
+      startRain(e.detail);
     };
     const handleStopEvent = () => {
       stopRain();
@@ -136,7 +149,6 @@ export function MoneyRain({
     return () => {
       window.removeEventListener("casino:start_money_rain", handleStartEvent);
       window.removeEventListener("casino:stop_money_rain", handleStopEvent);
-      stopRain();
     };
   }, [startRain, stopRain]);
 
