@@ -276,7 +276,7 @@ export default function App() {
     });
   }, []);
 
-  const { connected } = useWebSocket({
+  const { connected, reconnect } = useWebSocket({
     onBalanceUpdate: (payload) => {
       if (typeof payload.balance === "number" || typeof payload.xp === "number") {
         syncBalance(payload.balance, payload.xp, payload.level);

@@ -34,5 +34,8 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
     };
   }, []);
 
-  return { connected };
+  return {
+    connected,
+    reconnect: () => wsClient.reconnectNow(),
+  };
 }
