@@ -185,7 +185,7 @@ export function GameTableDialog({
           setLast(d.round);
           triggerOutcome(d.round);
         }
-        if (typeof d.balance === "number") syncBalance(d.balance);
+        if (typeof d.balance === "number") syncBalance(d.balance, d.xp, d.level);
         if (animatingRef) animatingRef.current = false;
         void load();
       }
@@ -231,7 +231,7 @@ export function GameTableDialog({
       const apply = () => {
         setBlackjackPreview(null);
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
@@ -261,7 +261,7 @@ export function GameTableDialog({
           setCrashMult(j.round.payload?.crash_point || targetMult);
         }
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
@@ -292,7 +292,7 @@ export function GameTableDialog({
       const res = await post({ action: "mines", roundId: round.id, move: "cashout" });
       if (res?.round) {
         setLast(res.round);
-        if (typeof res.balance === "number") syncBalance(res.balance);
+        if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
         triggerOutcome(res.round);
         void load();
       }
@@ -310,7 +310,9 @@ export function GameTableDialog({
       setTimeout(() => {
         if (animatingRef) animatingRef.current = false;
         setChickenBusy(false);
+        if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
         triggerOutcome(res.round, 0);
+        void load();
       }, turbo ? 100 : 500);
     }
   };
@@ -322,7 +324,7 @@ export function GameTableDialog({
   };
 
   const handlePlinkoBallFinish = (ball) => {
-    if (typeof ball.balance === "number") syncBalance(ball.balance);
+    if (typeof ball.balance === "number") syncBalance(ball.balance, ball.xp, ball.level);
     setLast(ball.round);
   };
 
@@ -356,6 +358,8 @@ export function GameTableDialog({
           payout: j.round.payout,
           round: j.round,
           balance: j.balance,
+          xp: j.xp,
+          level: j.level,
         });
       }
       return;
@@ -371,7 +375,7 @@ export function GameTableDialog({
           setLimboDisplayMult(finalMult);
           setLimboAnimating(false);
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
@@ -406,7 +410,7 @@ export function GameTableDialog({
       const j = await post({ game: "upgrader", bet, target_multiplier: upgraderTarget, roll_type: upgraderRollType }, { deferBalance: true, deferRefresh: true, deductBet: bet });
       if (j?.round) {
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         void load();
       } else {
         setUpgraderBusy(false);
@@ -438,7 +442,7 @@ export function GameTableDialog({
                 const res = await post({ game: "crash", action: "cashout_crash", mult: targetCashout }, { deferBalance: true, deferRefresh: true });
                 if (res?.round) {
                   setLast(res.round);
-                  if (typeof res.balance === "number") syncBalance(res.balance);
+                  if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
                   const won = Boolean(res.round.payload?.won);
                   if (won) {
                     setCrashCashedOut(true);
@@ -485,7 +489,7 @@ export function GameTableDialog({
         }
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setSlotsSpinning(false);
           setPendingSlotsRound(null);
           if (animatingRef) animatingRef.current = false;
@@ -511,7 +515,7 @@ export function GameTableDialog({
         setCoinflipTarget(j.round.payload?.outcome || "heads");
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setIsFlipping(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
@@ -536,7 +540,7 @@ export function GameTableDialog({
       if (j) {
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setIsShootingRPS(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
@@ -557,7 +561,7 @@ export function GameTableDialog({
         const finalize = () => {
           setBlackjackPreview(null);
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           triggerOutcome(j.round);
           void load();
         };
@@ -581,7 +585,7 @@ export function GameTableDialog({
       const j = await post({ game, bet: rouletteTotalBet, bets: betsMap }, { deferBalance: true, deferRefresh: true, deductBet: rouletteTotalBet });
       if (j) {
         setSpinResult(j.round);
-        setPendingSpin({ round: j.round, balance: j.balance });
+        setPendingSpin({ round: j.round, balance: j.balance, xp: j.xp, level: j.level });
         setRouletteWaiting(false);
         setSpinning(true);
       } else {
@@ -681,7 +685,7 @@ export function GameTableDialog({
                       setSpinning(false);
                       if (pendingSpin) {
                         setLast(pendingSpin.round);
-                        if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                        if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance, pendingSpin.xp, pendingSpin.level);
                         triggerOutcome(pendingSpin.round);
                         setPendingSpin(null);
                         void load();

@@ -263,15 +263,19 @@ export default function App() {
   const autoMuteNotifiedRef = useRef(false);
   const { muted, toggleMute, setMuted } = useAudio();
 
-  const syncBalance = useCallback((newBal) => {
-    setData((prev) =>
-      prev
-        ? {
-          ...prev,
-          player: { ...prev.player, balance: newBal },
-        }
-        : prev
-    );
+  const syncBalance = useCallback((newBal, newXP, newLevel) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        player: {
+          ...prev.player,
+          balance: typeof newBal === "number" ? newBal : prev.player.balance,
+          xp: typeof newXP === "number" ? newXP : prev.player.xp,
+          level: typeof newLevel === "number" ? newLevel : prev.player.level,
+        },
+      };
+    });
   }, []);
 
   const handleGlobalWin = useCallback((winEvent) => {
@@ -285,8 +289,8 @@ export default function App() {
 
   const { connected } = useWebSocket({
     onBalanceUpdate: (payload) => {
-      if (typeof payload.balance === "number") {
-        syncBalance(payload.balance);
+      if (typeof payload.balance === "number" || typeof payload.xp === "number") {
+        syncBalance(payload.balance, payload.xp, payload.level);
       }
     },
     onGlobalWin: handleGlobalWin,
@@ -406,7 +410,7 @@ export default function App() {
       const detail = e.detail;
       if (detail) {
         if (typeof detail.balance === "number") {
-          syncBalance(detail.balance);
+          syncBalance(detail.balance, detail.xp, detail.level);
         }
         setData((prev) =>
           prev
@@ -416,6 +420,8 @@ export default function App() {
               player: {
                 ...prev.player,
                 balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+                xp: typeof detail.xp === "number" ? detail.xp : prev.player.xp,
+                level: typeof detail.level === "number" ? detail.level : prev.player.level,
               },
             }
             : prev
@@ -485,6 +491,16 @@ export default function App() {
                   : typeof j.balance === "number"
                     ? j.balance
                     : prev.player.balance,
+                xp: opts?.deferBalance
+                  ? prev.player.xp
+                  : typeof j.xp === "number"
+                    ? j.xp
+                    : prev.player.xp,
+                level: opts?.deferBalance
+                  ? prev.player.level
+                  : typeof j.level === "number"
+                    ? j.level
+                    : prev.player.level,
               },
               roundsToday:
                 typeof j.roundsToday === "number"
@@ -783,7 +799,10 @@ export default function App() {
                   className={`streak-bonus-btn ${bonusAvailable ? "ready" : "done"}`}
                   onClick={async () => {
                     const j = await post({ action: "bonus" });
-                    if (j?.amount) toast.success(`Odebrano +${money(j.amount)} do salda!`);
+                    if (j?.amount) {
+                      if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
+                      toast.success(`Odebrano +${money(j.amount)} do salda!`);
+                    }
                   }}
                 >
                   <Flame size={14} className={bonusAvailable ? "text-amber-400" : "text-slate-500"} />
@@ -973,7 +992,8 @@ export default function App() {
                               onClick={async () => {
                                 const j = await post({ action: "claim_mission", mission_id: m.id });
                                 if (j?.ok) {
-                                  toast.success(`Odebrano nagrodę +${money(j.amount)} & +${j.xp} XP!`);
+                                  if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
+                                  toast.success(`Odebrano nagrodę +${money(j.amount)} & +${j.xp_reward || j.xp} XP!`);
                                 }
                               }}
                             >

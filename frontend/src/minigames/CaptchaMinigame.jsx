@@ -109,7 +109,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         });
 
         if (typeof res.balance === "number" && syncBalance) {
-          syncBalance(res.balance);
+          syncBalance(res.balance, res.xp, res.level);
         }
 
         setSessionCount((prev) => prev + 1);

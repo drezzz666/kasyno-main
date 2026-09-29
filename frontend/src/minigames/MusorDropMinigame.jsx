@@ -180,7 +180,7 @@ export function MusorDropMinigame({ syncBalance, currentBalance, onClose, setMod
       setState(out.state);
     }
     if (out && typeof out.balance === "number" && syncBalance) {
-      syncBalance(out.balance);
+      syncBalance(out.balance, out.xp, out.level);
     }
   };
 

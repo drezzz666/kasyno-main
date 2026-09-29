@@ -166,6 +166,10 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if freshPlayer, err := h.ledger.GetPlayer(r.Context(), p.UserID); err == nil && freshPlayer != nil {
+		p = freshPlayer
+	}
+
 	// Anti-bot: register identity and check state-read rate
 	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
 	if !h.rateLimiter.AllowStateRead(p.UserID) {
@@ -436,6 +440,8 @@ func (h *CasinoHandler) handleMusorDropOpen(w http.ResponseWriter, r *http.Reque
 		"success":   true,
 		"outcome":   outcome,
 		"balance":   outcome.Balance,
+		"xp":        p.XP,
+		"level":     p.Level,
 	})
 }
 
@@ -498,6 +504,8 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		"ok":             true,
 		"amount":         rewardAmount,
 		"balance":        newBal,
+		"xp":             p.XP,
+		"level":          p.Level,
 	})
 }
 
@@ -526,6 +534,8 @@ func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *l
 		"amount":         amount,
 		"balance":        newBal,
 		"streak":         streak,
+		"xp":             p.XP,
+		"level":          p.Level,
 	})
 }
 
@@ -564,7 +574,8 @@ func (h *CasinoHandler) handleMission(w http.ResponseWriter, r *http.Request, p 
 		"ok":               true,
 		"mission_id":       missionID,
 		"amount":           reward,
-		"xp":               xpReward,
+		"xp_reward":        xpReward,
+		"xp":               newXP,
 		"balance":          newBal,
 		"level":            newLevel,
 		"missions":         missions,
