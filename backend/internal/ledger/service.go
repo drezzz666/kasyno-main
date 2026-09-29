@@ -1571,9 +1571,11 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 		return nil, err
 	}
 
-	// Apply event multiplier to winning rounds
+	// Apply event multiplier to net profit on winning rounds
 	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > betAmount {
-		payout = int64(math.Floor(float64(payout) * ev.Multiplier))
+		netProfit := payout - betAmount
+		eventBonus := int64(math.Floor(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout = payout + eventBonus
 	}
 
 	// Settle round in database
@@ -1660,8 +1662,11 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, ErrInvalidBet
 	}
 
+	// Apply event multiplier to net profit on winning rounds
 	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > bet {
-		payout = int64(math.Floor(float64(payout) * ev.Multiplier))
+		netProfit := payout - bet
+		eventBonus := int64(math.Floor(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout = payout + eventBonus
 	}
 
 	roundID := uuid.NewString()

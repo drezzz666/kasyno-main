@@ -120,7 +120,10 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 		mult := req.Multiplier
 		if mult <= 1.0 {
-			mult = 1.25 // Default +25% bonus (1.25x) during Money Rain
+			mult = 1.20 // Balanced default +20% bonus on net profit
+		}
+		if mult > 1.50 {
+			mult = 1.50 // Safe maximum +50% bonus
 		}
 
 		evType := ws.EventMoneyRain

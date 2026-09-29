@@ -13,11 +13,13 @@ describe("eventUtils", () => {
   });
 
   it("calculates payout with event multiplier correctly for wins", () => {
+    // Bet: 100, Game Mult: 2.0x -> Base Payout: 200, Net Profit: 100
+    // Event: 1.50x (+50% bonus on profit) -> Event Bonus: 50, Final Payout: 250, Total Profit: 150
     const res = calcEventPayout(100, 2.0, 1.5);
     expect(res.basePayout).toBe(200);
-    expect(res.finalPayout).toBe(300);
-    expect(res.profit).toBe(200);
-    expect(res.eventBonus).toBe(100);
+    expect(res.finalPayout).toBe(250);
+    expect(res.profit).toBe(150);
+    expect(res.eventBonus).toBe(50);
   });
 
   it("does not apply event bonus on 1.0x push or < 1.0x losses", () => {

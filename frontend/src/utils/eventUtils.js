@@ -13,9 +13,16 @@ export function calcEventPayout(bet, multiplier, eventMult = 1.0) {
   const mult = Number(multiplier) || 0;
   const evMult = Number(eventMult) || 1.0;
   const basePayout = Math.floor(bet * mult);
-  // Event bonus only applies to winning multipliers (> 1.0x)
-  const finalPayout = (mult > 1.0 && evMult > 1.0) ? Math.floor(basePayout * evMult) : basePayout;
-  const profit = finalPayout - bet;
-  const eventBonus = finalPayout - basePayout;
-  return { basePayout, finalPayout, profit, eventBonus };
+
+  // Event bonus applies proportionally to net profit on winning outcomes (> 1.0x)
+  if (mult > 1.0 && evMult > 1.0) {
+    const netProfit = basePayout - bet;
+    const eventBonus = Math.floor(netProfit * (evMult - 1.0));
+    const finalPayout = basePayout + eventBonus;
+    const profit = finalPayout - bet;
+    return { basePayout, finalPayout, profit, eventBonus };
+  }
+
+  const profit = basePayout - bet;
+  return { basePayout, finalPayout: basePayout, profit, eventBonus: 0 };
 }
