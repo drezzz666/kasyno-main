@@ -78,10 +78,19 @@ function EventCountdown({ activeEvent, onExpire }) {
 
   if (timeLeft === null) return null;
 
-  const totalSec = Math.ceil(timeLeft / 1000);
-  const m = Math.floor(totalSec / 60);
+  const totalSec = Math.max(0, Math.ceil(timeLeft / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const formatted = `${m}:${s < 10 ? "0" : ""}${s}`;
+
+  let formatted = "";
+  if (h > 0) {
+    formatted = `${h}h ${m}m ${s}s`;
+  } else if (m > 0) {
+    formatted = `${m}m ${s}s`;
+  } else {
+    formatted = `${s}s`;
+  }
 
   return <span className="event-pill-time">{formatted}</span>;
 }
