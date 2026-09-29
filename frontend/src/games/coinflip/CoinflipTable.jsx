@@ -57,10 +57,14 @@ export function CoinflipTable({
             {/* Front Face: Awers (Orzeł RP) */}
             <div className="coin-face-polish coin-front">
               <img
-                src="/images/coin_1zl_awers.png"
+                src="/images/coin_1zl_awers.webp"
                 alt="1 ZŁ Awers - Orzeł"
                 className="w-full h-full object-cover select-none pointer-events-none rounded-full"
                 draggable={false}
+                loading="lazy"
+                decoding="async"
+                width="256"
+                height="256"
               />
               <div className="coin-metallic-sheen" />
             </div>
@@ -74,10 +78,14 @@ export function CoinflipTable({
             {/* Back Face: Rewers (1 ZŁOTY) */}
             <div className="coin-face-polish coin-back">
               <img
-                src="/images/coin_1zl_rewers.png"
+                src="/images/coin_1zl_rewers.webp"
                 alt="1 ZŁ Rewers - 1 Złoty"
                 className="w-full h-full object-cover select-none pointer-events-none rounded-full"
                 draggable={false}
+                loading="lazy"
+                decoding="async"
+                width="256"
+                height="256"
               />
               <div className="coin-metallic-sheen" />
             </div>

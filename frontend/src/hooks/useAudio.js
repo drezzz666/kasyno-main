@@ -15,9 +15,6 @@ export function useAudio() {
     sounds.setMuted(muted);
     sounds.cleanupMediaSession();
 
-    // Preload BGM buffer early
-    sounds.loadBgm().catch(() => {});
-
     const startAudio = () => {
       sounds.getContext();
       sounds.cleanupMediaSession();

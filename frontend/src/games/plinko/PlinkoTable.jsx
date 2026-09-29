@@ -97,9 +97,9 @@ const getPinPos = (r, c, totalRows) => {
   return { x: colX, y: rowY };
 };
 
-// Physical sizing helpers (larger, bold balls that are clearly visible across the entire board)
-const getPinRadius = (r) => Math.max(3.8, 5.2 - r * 0.08);
-const getBallRadius = (r) => Math.max(10.5, 14.8 - r * 0.22);
+// Physical sizing helpers (proportional radius to ensure realistic spacing and clear clearance between pins)
+const getPinRadius = (r) => Math.max(3.2, 4.8 - r * 0.08);
+const getBallRadius = (r) => Math.max(6.4, 9.2 - r * 0.16);
 
 // Render 3D solid sphere ball with shadow, glow, trail and lighting
 function drawBall(ctx, b) {
@@ -142,6 +142,9 @@ function drawBall(ctx, b) {
 
   // 4. Ball body with rich 3D sphere gradient
   ctx.translate(b.x, b.y);
+  if (b.squashX && b.squashY) {
+    ctx.scale(b.squashX, b.squashY);
+  }
 
   const grad = ctx.createRadialGradient(
     -b.radius * 0.35,
@@ -450,20 +453,21 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
             color: b.color,
           });
 
-          // Spawn 5 physical spark particles
+          // Spawn realistic physical spark particles bursting outward from collision point
           const pin = getPinPos(seg.hitPin.r, seg.hitPin.c, rows);
-          for (let k = 0; k < 5; k++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 1.2 + Math.random() * 2.5;
+          const strikeDir = seg.dir || 1;
+          for (let k = 0; k < 6; k++) {
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9 + strikeDir * 0.35;
+            const speed = 1.4 + Math.random() * 2.6;
             particlesRef.current.push({
               x: pin.x,
-              y: pin.y,
+              y: pin.y - pinRadius * 0.7,
               vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed - 1.0,
+              vy: Math.sin(angle) * speed,
               size: 2.0 + Math.random() * 1.5,
               color: b.color,
               life: 1.0,
-              maxLife: 200 + Math.random() * 100,
+              maxLife: 220 + Math.random() * 100,
             });
           }
         }
@@ -501,26 +505,75 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           // Enter smooth container settle
           b.settling = true;
           b.settleProgress = 0;
-          b.finalY = seg.p3.y;
+          b.finalY = seg.pEnd ? seg.pEnd.y : HEIGHT - PADDING_BOTTOM + 20;
           aliveBalls.push(b);
           continue;
         }
       }
 
-      // Compute smooth cubic bezier position with gravitational arc
       const curSeg = b.segments[b.curSegIndex];
       if (curSeg) {
-        const t = Math.min(1, Math.max(0, b.segProgress));
-        // Physics time-warping (lingers slightly at apex, accelerates into peg)
-        const tWarp = t < 0.4 ? t * 0.95 : 0.4 * 0.95 + (t - 0.4) * (1 - 0.4 * 0.95) / 0.6;
-        const pos = cubicBezier(tWarp, curSeg.p0, curSeg.p1, curSeg.p2, curSeg.p3);
-        b.x = pos.x;
-        b.y = pos.y;
+        const u = Math.min(1, Math.max(0, b.segProgress));
+
+        let posX, posY;
+        if (curSeg.type === "chute") {
+          // Free fall gravity drop from top chute
+          const tWarp = u * u; // Acceleration under gravity
+          posX = curSeg.pStart.x;
+          posY = curSeg.pStart.y + (curSeg.pEnd.y - curSeg.pStart.y) * tWarp;
+        } else {
+          // True ballistic parabola: lifts upwards off the peg upon rebound, arcs in the air, accelerates downwards under gravity
+          const uWarped = u < 0.35
+            ? u * 0.88
+            : 0.35 * 0.88 + (u - 0.35) * (1 - 0.35 * 0.88) / 0.65;
+
+          const dx = curSeg.pEnd.x - curSeg.pStart.x;
+          const dy = curSeg.pEnd.y - curSeg.pStart.y;
+          const apexH = curSeg.bounceHeight || 10;
+
+          posX = curSeg.pStart.x + dx * uWarped;
+          // Ballistic trajectory: y(u) = y0 + dy*u - 4*H*u*(1-u)
+          posY = curSeg.pStart.y + dy * uWarped - 4 * apexH * uWarped * (1 - uWarped);
+        }
+
+        // Hard Anti-Clipping Hitbox Protection:
+        // Strictly prevent ball from penetrating inside Pin A or Pin B
+        if (curSeg.pinA && curSeg.collRadius) {
+          const dxa = posX - curSeg.pinA.x;
+          const dya = posY - curSeg.pinA.y;
+          const distA = Math.sqrt(dxa * dxa + dya * dya);
+          if (distA < curSeg.collRadius && distA > 0.001) {
+            posX = curSeg.pinA.x + (dxa / distA) * curSeg.collRadius;
+            posY = curSeg.pinA.y + (dya / distA) * curSeg.collRadius;
+          }
+        }
+        if (curSeg.pinB && curSeg.collRadius) {
+          const dxb = posX - curSeg.pinB.x;
+          const dyb = posY - curSeg.pinB.y;
+          const distB = Math.sqrt(dxb * dxb + dyb * dyb);
+          if (distB < curSeg.collRadius && distB > 0.001) {
+            posX = curSeg.pinB.x + (dxb / distB) * curSeg.collRadius;
+            posY = curSeg.pinB.y + (dyb / distB) * curSeg.collRadius;
+          }
+        }
+
+        b.x = posX;
+        b.y = posY;
         b.alpha = 1;
+
+        // Subtle elastic squash/stretch right after impact
+        if (u < 0.18) {
+          const factor = 1 - u / 0.18;
+          b.squashX = 1 + factor * 0.18;
+          b.squashY = 1 - factor * 0.18;
+        } else {
+          b.squashX = 1;
+          b.squashY = 1;
+        }
 
         // Maintain short smooth trail buffer
         if (!b.trail) b.trail = [];
-        b.trail.push({ x: pos.x, y: pos.y });
+        b.trail.push({ x: posX, y: posY });
         if (b.trail.length > 4) b.trail.shift();
 
         aliveBalls.push(b);
@@ -599,109 +652,82 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       // 1. Initial chute drop segment onto apex pin (0, 1)
       const apexPin = getPinPos(0, 1, numRows);
       const startX = apexPin.x;
-      const startY = 2;
-      const firstStep = path[0];
-      const firstDir = firstStep === 1 ? 1 : -1;
-
-      // Offset contact point slightly toward deflection direction
-      const contactAngle0 = -firstDir * 0.38;
-      const contact0 = {
-        x: apexPin.x + Math.sin(contactAngle0) * collRadius,
-        y: apexPin.y - Math.cos(contactAngle0) * collRadius,
+      const startY = 4;
+      const apexContact = {
+        x: apexPin.x,
+        y: apexPin.y - collRadius,
       };
 
       segments.push({
-        p0: { x: startX, y: startY },
-        p1: { x: startX, y: startY + (contact0.y - startY) * 0.4 },
-        p2: { x: contact0.x, y: contact0.y - (contact0.y - startY) * 0.25 },
-        p3: contact0,
-        duration: turbo ? 80 : 200,
+        type: "chute",
+        pStart: { x: startX, y: startY },
+        pEnd: apexContact,
+        duration: turbo ? 75 : 180,
         hitPin: { r: 0, c: 1 },
+        pinA: null,
+        pinB: apexPin,
+        collRadius,
       });
 
-      // 2. Peg-to-peg parabolic bounces with Newtonian gravity arc
+      // 2. Continuous peg-to-peg ballistic trajectory with physics bounce & gravitational acceleration
       let curCol = 1;
+      let prevContactPoint = apexContact;
 
       for (let r = 0; r < numRows - 1; r++) {
         const step = path[r];
         const dir = step === 1 ? 1 : -1;
         const nextCol = curCol + (step === 1 ? 1 : 0);
 
-        const currentPin = getPinPos(r, curCol, numRows);
-        const nextPin = getPinPos(r + 1, nextCol, numRows);
+        const pinA = getPinPos(r, curCol, numRows);
+        const pinB = getPinPos(r + 1, nextCol, numRows);
 
-        // Contact point on current pin shoulder (launching off)
-        const launchAngle = dir * 0.38;
-        const launchPoint = {
-          x: currentPin.x + Math.sin(launchAngle) * collRadius,
-          y: currentPin.y - Math.cos(launchAngle) * collRadius,
+        // Landing contact point on pinB's upper incoming shoulder
+        const strikeAngle = -dir * 0.52;
+        const nextContact = {
+          x: pinB.x + Math.sin(strikeAngle) * collRadius,
+          y: pinB.y - Math.cos(strikeAngle) * collRadius,
         };
 
-        // Contact point on next pin shoulder (incoming strike)
-        const strikeAngle = -dir * 0.48;
-        const strikePoint = {
-          x: nextPin.x + Math.sin(strikeAngle) * collRadius,
-          y: nextPin.y - Math.cos(strikeAngle) * collRadius,
-        };
-
-        // Parabolic arc with apex hang time and downward acceleration
-        const apexHeight = Math.max(7.0, rowHeight * 0.32);
-        const p1 = {
-          x: launchPoint.x + dir * (pinDistX * 0.28),
-          y: launchPoint.y - apexHeight,
-        };
-        const p2 = {
-          x: strikePoint.x - dir * (pinDistX * 0.06),
-          y: strikePoint.y - rowHeight * 0.42,
-        };
-
-        // Depth-dependent duration: natural pacing
-        const rowProgress = r / (numRows - 1);
-        const duration = turbo ? (65 + (1 - rowProgress) * 18) : (165 + (1 - rowProgress) * 55);
+        // Realistic bounce apex height
+        const bounceHeight = Math.max(9.0, rowHeight * 0.38);
+        const duration = turbo ? (65 + (1 - r / numRows) * 15) : (160 + (1 - r / numRows) * 45);
 
         segments.push({
-          p0: launchPoint,
-          p1,
-          p2,
-          p3: strikePoint,
+          type: "bounce",
+          pStart: prevContactPoint,
+          pEnd: nextContact,
+          bounceHeight,
           duration,
+          dir,
+          pinA,
+          pinB,
+          collRadius,
           hitPin: { r: r + 1, c: nextCol },
         });
 
         curCol = nextCol;
+        prevContactPoint = nextContact;
       }
 
-      // 3. Final drop segment into multiplier container (lands dead-center)
+      // 3. Final drop from last pin into multiplier container (lands dead-center)
       const finalStep = path[numRows - 1];
       const finalDir = finalStep === 1 ? 1 : -1;
       const lastPin = getPinPos(numRows - 1, curCol, numRows);
 
-      const launchAngle = finalDir * 0.38;
-      const launchPoint = {
-        x: lastPin.x + Math.sin(launchAngle) * collRadius,
-        y: lastPin.y - Math.cos(launchAngle) * collRadius,
-      };
-
-      // Exact center of the container box
       const binCenterX = PADDING_X + (targetSlot + 0.5) * pinDistX;
-      const binCenterY = HEIGHT - PADDING_BOTTOM + 21;
-
-      const exitApexHeight = Math.max(6.0, rowHeight * 0.28);
-      const exitApex = {
-        x: launchPoint.x + finalDir * (pinDistX * 0.25),
-        y: launchPoint.y - exitApexHeight,
-      };
-      const binEntry = {
-        x: binCenterX,
-        y: binCenterY - 16,
-      };
+      const binCenterY = HEIGHT - PADDING_BOTTOM + 20;
+      const finalBounceHeight = Math.max(7.5, rowHeight * 0.32);
 
       segments.push({
-        p0: launchPoint,
-        p1: exitApex,
-        p2: binEntry,
-        p3: { x: binCenterX, y: binCenterY },
-        duration: turbo ? 75 : 190,
+        type: "final",
+        pStart: prevContactPoint,
+        pEnd: { x: binCenterX, y: binCenterY },
+        bounceHeight: finalBounceHeight,
+        duration: turbo ? 70 : 180,
+        dir: finalDir,
+        pinA: lastPin,
+        pinB: null,
+        collRadius,
         isFinal: true,
       });
 

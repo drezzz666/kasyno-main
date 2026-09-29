@@ -1,29 +1,26 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } from "lucide-react";
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
 import { calcEventPayout, adjustBet } from "../utils";
-import {
-  BlackjackTable,
-  ChickenTable,
-  CHICKEN_MULTIPLIERS,
-  CoinflipTable,
-  CrashTable,
-  LimboTable,
-  MinesTable,
-  PlinkoTable,
-  RouletteWheelVisual,
-  RouletteBets,
-  wheelOrder,
-  RPSTable,
-  SlotsTable,
-  UpgraderTable,
-} from "../games";
-import { RoundOutcomeModal } from "./RoundOutcomeModal";
-
+import { wheelOrder } from "../games/roulette/constants.js";
 import { reportClientError } from "../lib/reporter";
 import { addBreadcrumb } from "../lib/telemetry.js";
+
+const BlackjackTable = lazy(() => import("../games/blackjack/BlackjackTable").then((m) => ({ default: m.BlackjackTable })));
+const ChickenTable = lazy(() => import("../games/chicken/ChickenTable").then((m) => ({ default: m.ChickenTable })));
+const CoinflipTable = lazy(() => import("../games/coinflip/CoinflipTable").then((m) => ({ default: m.CoinflipTable })));
+const CrashTable = lazy(() => import("../games/crash/CrashTable").then((m) => ({ default: m.CrashTable })));
+const LimboTable = lazy(() => import("../games/limbo/LimboTable").then((m) => ({ default: m.LimboTable })));
+const MinesTable = lazy(() => import("../games/mines/MinesTable").then((m) => ({ default: m.MinesTable })));
+const PlinkoTable = lazy(() => import("../games/plinko/PlinkoTable").then((m) => ({ default: m.PlinkoTable })));
+const RouletteWheelVisual = lazy(() => import("../games/roulette/RouletteTable").then((m) => ({ default: m.RouletteWheelVisual })));
+const RouletteBets = lazy(() => import("../games/roulette/RouletteTable").then((m) => ({ default: m.RouletteBets })));
+const RPSTable = lazy(() => import("../games/rps/RPSTable").then((m) => ({ default: m.RPSTable })));
+const SlotsTable = lazy(() => import("../games/slots/SlotsTable").then((m) => ({ default: m.SlotsTable })));
+const UpgraderTable = lazy(() => import("../games/upgrader/UpgraderTable").then((m) => ({ default: m.UpgraderTable })));
+const RoundOutcomeModal = lazy(() => import("./RoundOutcomeModal").then((m) => ({ default: m.RoundOutcomeModal })));
 
 export function GameTableDialog({
   game,
@@ -661,6 +658,14 @@ export function GameTableDialog({
         <div className="flex flex-col w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0a0f18] select-none">
           {/* Full-size Game Arena taking all available space */}
           <div className={`flex-1 w-full min-h-0 relative flex items-center justify-center overflow-y-auto overflow-x-hidden ${game === "chicken" ? "p-0" : "p-2 sm:p-4"} bg-[#0c131e]`}>
+            <Suspense
+              fallback={
+                <div className="flex flex-col items-center justify-center p-8 gap-3 text-slate-400">
+                  <div className="spinner" />
+                  <span className="text-xs font-semibold">Ładowanie gry...</span>
+                </div>
+              }
+            >
             {game === "chicken" && (
               <ChickenTable
                 ref={chickenRef}
@@ -779,6 +784,7 @@ export function GameTableDialog({
                 turbo={turbo}
               />
             )}
+            </Suspense>
           </div>
 
             {/* Docked Bottom Control Bar */}
@@ -1267,7 +1273,11 @@ export function GameTableDialog({
           </div>
       </div>
 
-      {outcomeData && <RoundOutcomeModal outcomeData={outcomeData} onClose={() => setOutcomeData(null)} />}
+      {outcomeData && (
+        <Suspense fallback={null}>
+          <RoundOutcomeModal outcomeData={outcomeData} onClose={() => setOutcomeData(null)} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
+import React, { lazy } from "react";
 import { ShieldCheck, Package } from "lucide-react";
-import { CaptchaMinigame } from "./CaptchaMinigame";
-import { MusorDropMinigame } from "./MusorDropMinigame";
+
+const CaptchaMinigame = lazy(() => import("./CaptchaMinigame").then((m) => ({ default: m.CaptchaMinigame })));
+const MusorDropMinigame = lazy(() => import("./MusorDropMinigame").then((m) => ({ default: m.MusorDropMinigame })));
 
 /**
  * Registry of all available Mini-Games.

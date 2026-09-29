@@ -30,18 +30,27 @@ import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format, truncateNick } from "./lib/formatters";
 import { getEventEndsAt, getEventRemainingMs, calcPlayerLevelProgress, getInitials } from "./utils";
-import { GameTableDialog } from "./components/GameTableDialog";
-import { HistoryModal } from "./components/HistoryModal";
-import { ProfileModal } from "./components/ProfileModal";
-import { InfoModal } from "./components/InfoModal";
-import { TosPage } from "./components/TosPage";
-import { TosAcceptModal } from "./components/TosAcceptModal";
-import { MinigamesModal, MINIGAMES } from "./minigames";
-import { MoneyRain } from "./events";
+import { MINIGAMES } from "./minigames";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
-import confetti from "canvas-confetti";
+
+const GameTableDialog = React.lazy(() => import("./components/GameTableDialog").then((m) => ({ default: m.GameTableDialog })));
+const HistoryModal = React.lazy(() => import("./components/HistoryModal").then((m) => ({ default: m.HistoryModal })));
+const ProfileModal = React.lazy(() => import("./components/ProfileModal").then((m) => ({ default: m.ProfileModal })));
+const InfoModal = React.lazy(() => import("./components/InfoModal").then((m) => ({ default: m.InfoModal })));
+const TosPage = React.lazy(() => import("./components/TosPage").then((m) => ({ default: m.TosPage })));
+const TosAcceptModal = React.lazy(() => import("./components/TosAcceptModal").then((m) => ({ default: m.TosAcceptModal })));
+const MinigamesModal = React.lazy(() => import("./minigames").then((m) => ({ default: m.MinigamesModal })));
+const MoneyRain = React.lazy(() => import("./events").then((m) => ({ default: m.MoneyRain })));
+
+const fireConfetti = async (opts) => {
+  try {
+    const confettiModule = await import("canvas-confetti");
+    const confetti = confettiModule.default || confettiModule;
+    confetti(opts);
+  } catch {}
+};
 
 function EventCountdown({ activeEvent, onExpire }) {
   const [timeLeft, setTimeLeft] = useState(() => getEventRemainingMs(activeEvent));
@@ -382,9 +391,9 @@ export default function App() {
       if (!document.hidden && !isAnimatingRef.current) {
         void load(true);
       }
-    }, 5000);
+    }, connected ? 20000 : 8000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, connected]);
 
   const prevConnectedRef = useRef(connected);
   useEffect(() => {
@@ -501,14 +510,12 @@ export default function App() {
         );
         if (!isSilent) setLoading(false);
         if (j.leveledUp && j.levelUpBonus) {
-          try {
-            confetti({
-              particleCount: 90,
-              spread: 80,
-              origin: { y: 0.6 },
-              colors: ["#f59e0b", "#fbbf24", "#10b981", "#ffffff"],
-            });
-          } catch { }
+          fireConfetti({
+            particleCount: 90,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ["#f59e0b", "#fbbf24", "#10b981", "#ffffff"],
+          });
           toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
             description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
             duration: 2000,
@@ -840,11 +847,20 @@ export default function App() {
 
             {/* View Tab: Dedicated Terms of Service Page */}
             {activeTab === "tos" && (
-              <TosPage
-                onBack={() => setActiveTab("games")}
-                onAccept={handleAcceptTos}
-                accepted={tosAccepted}
-              />
+              <React.Suspense
+                fallback={
+                  <div className="loading-box">
+                    <div className="spinner" />
+                    <span>Ładowanie regulaminu...</span>
+                  </div>
+                }
+              >
+                <TosPage
+                  onBack={() => setActiveTab("games")}
+                  onAccept={handleAcceptTos}
+                  accepted={tosAccepted}
+                />
+              </React.Suspense>
             )}
 
             {/* View Tab 1: Games Grid */}
@@ -866,7 +882,16 @@ export default function App() {
                       }}
                     >
                       <div className="game-card-media">
-                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
+                        <img
+                          src={g.img}
+                          alt=""
+                          className="game-card-img"
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async"
+                          width="360"
+                          height="225"
+                        />
                         <div className="game-card-gradient" />
                       </div>
                       <div className="game-card-info">
@@ -908,7 +933,16 @@ export default function App() {
                       }}
                     >
                       <div className="game-card-media">
-                        <img src={g.img} alt="" className="game-card-img" aria-hidden="true" />
+                        <img
+                          src={g.img}
+                          alt=""
+                          className="game-card-img"
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async"
+                          width="360"
+                          height="225"
+                        />
                         <div className="game-card-gradient" />
                       </div>
                       <div className="game-card-info">
@@ -1338,84 +1372,105 @@ export default function App() {
 
       {/* Active Game Table Dialog */}
       {activeGame && (
-        <GameTableDialog
-          game={activeGame}
-          onClose={() => setActiveGame(null)}
-          data={data}
-          bet={activeBet}
-          setBet={setActiveBet}
-          choice={choice}
-          setChoice={setChoice}
-          mineCount={mineCount}
-          setMineCount={setMineCount}
-          post={post}
-          load={load}
-          syncBalance={syncBalance}
-          animatingRef={isAnimatingRef}
-          last={lastRound}
-          setLast={setLastRound}
-          loading={loading}
-          turbo={turbo}
-          setTurbo={handleSetTurbo}
-          tosAccepted={tosAccepted}
-          onOpenTosModal={() => setTosModalOpen(true)}
-          activeEvent={activeEvent}
-        />
+        <React.Suspense
+          fallback={
+            <div className="modal-backdrop game-modal-backdrop">
+              <div className="modal-dialog game-dialog-box flex items-center justify-center p-12">
+                <div className="loading-box">
+                  <div className="spinner" />
+                  <span>Ładowanie stolika...</span>
+                </div>
+              </div>
+            </div>
+          }
+        >
+          <GameTableDialog
+            game={activeGame}
+            onClose={() => setActiveGame(null)}
+            data={data}
+            bet={activeBet}
+            setBet={setActiveBet}
+            choice={choice}
+            setChoice={setChoice}
+            mineCount={mineCount}
+            setMineCount={setMineCount}
+            post={post}
+            load={load}
+            syncBalance={syncBalance}
+            animatingRef={isAnimatingRef}
+            last={lastRound}
+            setLast={setLastRound}
+            loading={loading}
+            turbo={turbo}
+            setTurbo={handleSetTurbo}
+            tosAccepted={tosAccepted}
+            onOpenTosModal={() => setTosModalOpen(true)}
+            activeEvent={activeEvent}
+          />
+        </React.Suspense>
       )}
 
       {/* Modals */}
-      <HistoryModal
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        history={data?.history || []}
-        hasMore={hasMoreHistory}
-        loadingMore={loadingMoreHistory}
-        onLoadMore={loadMoreHistory}
-      />
+      <React.Suspense fallback={null}>
+        {historyOpen && (
+          <HistoryModal
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            history={data?.history || []}
+            hasMore={hasMoreHistory}
+            loadingMore={loadingMoreHistory}
+            onLoadMore={loadMoreHistory}
+          />
+        )}
 
-      <ProfileModal
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        player={data?.player}
-        stats={data?.stats}
-        userNick={userNick}
-        onOpenHistory={() => {
-          setProfileOpen(false);
-          setActiveTab("history");
-        }}
-      />
+        {profileOpen && (
+          <ProfileModal
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            player={data?.player}
+            stats={data?.stats}
+            userNick={userNick}
+            onOpenHistory={() => {
+              setProfileOpen(false);
+              setActiveTab("history");
+            }}
+          />
+        )}
 
+        {infoOpen && (
+          <InfoModal
+            open={infoOpen}
+            onClose={() => setInfoOpen(false)}
+            onOpenTos={() => {
+              setInfoOpen(false);
+              setActiveTab("tos");
+            }}
+          />
+        )}
 
-      <InfoModal
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-        onOpenTos={() => {
-          setInfoOpen(false);
-          setActiveTab("tos");
-        }}
-      />
+        {tosModalOpen && (
+          <TosAcceptModal
+            open={tosModalOpen}
+            onAccept={handleAcceptTos}
+            onReadMore={() => {
+              setTosModalOpen(false);
+              setActiveTab("tos");
+            }}
+          />
+        )}
 
-      {/* Entry ToS Consent Modal */}
-      <TosAcceptModal
-        open={tosModalOpen}
-        onAccept={handleAcceptTos}
-        onReadMore={() => {
-          setTosModalOpen(false);
-          setActiveTab("tos");
-        }}
-      />
+        {captchaOpen && (
+          <MinigamesModal
+            isOpen={captchaOpen}
+            initialGame={selectedMinigameId}
+            onClose={() => setCaptchaOpen(false)}
+            syncBalance={syncBalance}
+            currentBalance={data?.player?.balance}
+          />
+        )}
 
-      {/* Mini-Games Hub Modal */}
-      <MinigamesModal
-        isOpen={captchaOpen}
-        initialGame={selectedMinigameId}
-        onClose={() => setCaptchaOpen(false)}
-        syncBalance={syncBalance}
-        currentBalance={data?.player?.balance}
-      />
-
-      {/* Live Money Rain Event Overlay */}
-      <MoneyRain activeEvent={activeEvent} />
+        {isLiveEvent && <MoneyRain activeEvent={activeEvent} />}
+      </React.Suspense>
 
       {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (

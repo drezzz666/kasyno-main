@@ -5,7 +5,7 @@ import { sounds } from "../lib/sounds";
 import { money } from "../lib/formatters";
 
 const GoldIcon = ({ size = 24, className }) => (
-  <img src="/images/gold.png" alt="" width={size} height={size} className={className} />
+  <img src="/images/gold.webp" alt="" width={size} height={size} className={className} loading="lazy" decoding="async" />
 );
 
 // Tier colors and icons configuration

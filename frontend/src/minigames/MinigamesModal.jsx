@@ -88,12 +88,21 @@ export function MinigamesModal({ isOpen, onClose, syncBalance, currentBalance, i
 
         {/* Active Mini-Game View */}
         {ActiveComponent ? (
-          <ActiveComponent
-            syncBalance={syncBalance}
-            currentBalance={currentBalance}
-            onClose={handleSafeClose}
-            setModalLocked={setIsLocked}
-          />
+          <React.Suspense
+            fallback={
+              <div className="flex flex-col items-center justify-center p-8 gap-3 text-slate-400">
+                <div className="spinner" />
+                <span className="text-xs font-semibold">Ładowanie minigry...</span>
+              </div>
+            }
+          >
+            <ActiveComponent
+              syncBalance={syncBalance}
+              currentBalance={currentBalance}
+              onClose={handleSafeClose}
+              setModalLocked={setIsLocked}
+            />
+          </React.Suspense>
         ) : (
           <div className="p-6 text-center text-slate-400 text-sm">
             Wybierz minigrę z listy powyżej.
