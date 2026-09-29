@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/drezzz666/kasyno/backend/internal/db"
@@ -37,12 +38,98 @@ var (
 	ErrRevisionConflict    = errors.New("REVISION_CONFLICT")
 )
 
+type LiveEventInfo struct {
+	Name       string    `json:"name"`
+	Multiplier float64   `json:"multiplier"`
+	StartedAt  time.Time `json:"started_at"`
+	EndsAt     time.Time `json:"ends_at"`
+	StartedBy  string    `json:"started_by"`
+}
+
 type Service struct {
-	db *db.DB
+	db          *db.DB
+	eventMu     sync.RWMutex
+	activeEvent *LiveEventInfo
 }
 
 func NewService(database *db.DB) *Service {
-	return &Service{db: database}
+	s := &Service{db: database}
+	s.restoreActiveEventFromDB()
+	return s
+}
+
+func (s *Service) restoreActiveEventFromDB() {
+	if s.db == nil || s.db.Pool == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var ev LiveEventInfo
+	err := s.db.Pool.QueryRow(ctx, `
+		SELECT name, multiplier, started_at, ends_at, started_by
+		FROM live_events
+		WHERE is_active = true AND ends_at > NOW()
+		ORDER BY id DESC LIMIT 1
+	`).Scan(&ev.Name, &ev.Multiplier, &ev.StartedAt, &ev.EndsAt, &ev.StartedBy)
+	if err == nil {
+		s.eventMu.Lock()
+		s.activeEvent = &ev
+		s.eventMu.Unlock()
+		log.Printf("🌧️ [LiveEvent] Przywrócono aktywne wydarzenie: %s (×%.2f) do %v", ev.Name, ev.Multiplier, ev.EndsAt)
+	}
+}
+
+func (s *Service) SetActiveEvent(ev *LiveEventInfo) {
+	s.eventMu.Lock()
+	s.activeEvent = ev
+	s.eventMu.Unlock()
+
+	if s.db != nil && s.db.Pool != nil && ev != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = s.db.Pool.Exec(ctx, `UPDATE live_events SET is_active = false WHERE is_active = true`)
+			_, _ = s.db.Pool.Exec(ctx, `
+				INSERT INTO live_events (name, multiplier, started_at, ends_at, started_by, is_active)
+				VALUES ($1, $2, $3, $4, $5, true)
+			`, ev.Name, ev.Multiplier, ev.StartedAt, ev.EndsAt, ev.StartedBy)
+		}()
+	}
+}
+
+func (s *Service) GetActiveEvent() *LiveEventInfo {
+	s.eventMu.RLock()
+	ev := s.activeEvent
+	s.eventMu.RUnlock()
+
+	if ev == nil {
+		return nil
+	}
+	if time.Now().After(ev.EndsAt) {
+		s.eventMu.Lock()
+		if s.activeEvent != nil && time.Now().After(s.activeEvent.EndsAt) {
+			s.activeEvent = nil
+		}
+		s.eventMu.Unlock()
+		return nil
+	}
+	cpy := *ev
+	return &cpy
+}
+
+func (s *Service) ClearActiveEvent() {
+	s.eventMu.Lock()
+	s.activeEvent = nil
+	s.eventMu.Unlock()
+
+	if s.db != nil && s.db.Pool != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, _ = s.db.Pool.Exec(ctx, `UPDATE live_events SET is_active = false WHERE is_active = true`)
+		}()
+	}
 }
 
 func NowMs() int64 {
@@ -1190,7 +1277,7 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1404,7 +1491,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1474,17 +1561,29 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	var prevLevel int
 	_ = tx.QueryRow(ctx, `SELECT level FROM players WHERE user_id = $1`, userID).Scan(&prevLevel)
 
-	// Settle round and fetch bet amount
+	// Fetch active round bet amount
 	var betAmount int64
-	err = tx.QueryRow(ctx, `
-		UPDATE game_rounds
-		SET state = 'settled', payout = $1, result = $2, payload = $3, settled_at = $4
-		WHERE id = $5 AND user_id = $6 AND state = 'active'
-		RETURNING bet
-	`, payout, resultText, finalPayloadJSON, t, roundID, userID).Scan(&betAmount)
+	err = tx.QueryRow(ctx, `SELECT bet FROM game_rounds WHERE id = $1 AND user_id = $2 AND state = 'active'`, roundID, userID).Scan(&betAmount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrRoundAlreadySettled
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply event multiplier strictly to net profit (prevents hedging and push exploits)
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > betAmount {
+		netProfit := payout - betAmount
+		eventBonus := int64(math.Round(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout += eventBonus
+	}
+
+	// Settle round in database
+	_, err = tx.Exec(ctx, `
+		UPDATE game_rounds
+		SET state = 'settled', payout = $1, result = $2, payload = $3, settled_at = $4
+		WHERE id = $5 AND user_id = $6 AND state = 'active'
+	`, payout, resultText, finalPayloadJSON, t, roundID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -1496,7 +1595,7 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1563,6 +1662,12 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 		return nil, ErrInvalidBet
 	}
 
+	if ev := s.GetActiveEvent(); ev != nil && ev.Multiplier > 1.0 && payout > bet {
+		netProfit := payout - bet
+		eventBonus := int64(math.Round(float64(netProfit) * (ev.Multiplier - 1.0)))
+		payout += eventBonus
+	}
+
 	roundID := uuid.NewString()
 	t := NowMs()
 	net := payout - bet
@@ -1599,7 +1704,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = 1 + ((xp + $1) / 500),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level

@@ -1,5 +1,4 @@
 import { getBreadcrumbs, getClientDiagnostics } from "./telemetry.js";
-import { encryptTelemetry } from "./telemetryCrypto.js";
 
 const recentErrors = new Map();
 
@@ -101,20 +100,11 @@ export function reportClientError({
       timestamp: env.timestamp,
     };
 
-    // Asymmetrically encrypt payload so user cannot inspect diagnostics in DevTools
-    encryptTelemetry(payload).then((payloadStr) => {
-      if (typeof navigator !== "undefined" && navigator.sendBeacon) {
-        const blob = new Blob([payloadStr], { type: "application/json" });
-        const sent = navigator.sendBeacon("/api/report-error", blob);
-        if (!sent) {
-          fetch("/api/report-error", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: payloadStr,
-            keepalive: true,
-          }).catch(() => {});
-        }
-      } else {
+    const payloadStr = JSON.stringify(payload);
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([payloadStr], { type: "application/json" });
+      const sent = navigator.sendBeacon("/api/report-error", blob);
+      if (!sent) {
         fetch("/api/report-error", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -122,7 +112,14 @@ export function reportClientError({
           keepalive: true,
         }).catch(() => {});
       }
-    }).catch(() => {});
+    } else {
+      fetch("/api/report-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payloadStr,
+        keepalive: true,
+      }).catch(() => {});
+    }
   } catch (err) {
     console.warn("[Reporter] Failed to send error report:", err);
   }

@@ -65,6 +65,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️ [Server] Nie udało się zainicjalizować bota Discord: %v", err)
 		} else {
+			bot.SetWSHub(wsHub)
 			if err := bot.Start(); err != nil {
 				log.Printf("⚠️ [Server] Błąd uruchamiania bota Discord: %v", err)
 			} else {

@@ -166,6 +166,10 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if freshPlayer, err := h.ledger.GetPlayer(r.Context(), p.UserID); err == nil && freshPlayer != nil {
+		p = freshPlayer
+	}
+
 	// Anti-bot: register identity and check state-read rate
 	h.rateLimiter.SetIdentity(p.UserID, p.Nick, r.RemoteAddr)
 	if !h.rateLimiter.AllowStateRead(p.UserID) {
@@ -215,6 +219,7 @@ func (h *CasinoHandler) GetState(w http.ResponseWriter, r *http.Request) {
 		"today":            today,
 		"recentWins":       recentWins,
 		"musorDrop":        musorDropState,
+		"activeEvent":      h.ledger.GetActiveEvent(),
 		"autoMuted":        IsMutedSubnet(GetClientIP(r)),
 		"autoMutedReason":  "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
 	}
@@ -227,6 +232,17 @@ func (h *CasinoHandler) GetCaptcha(w http.ResponseWriter, r *http.Request) {
 	p := auth.GetPlayerFromContext(r.Context())
 	if p == nil {
 		JSONError(w, http.StatusUnauthorized, "Wymagane logowanie")
+		return
+	}
+
+	if h.ledger != nil {
+		if freshPlayer, err := h.ledger.GetPlayer(r.Context(), p.UserID); err == nil && freshPlayer != nil {
+			p = freshPlayer
+		}
+	}
+
+	if p.Balance >= 2000 {
+		JSONError(w, http.StatusForbidden, "Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽")
 		return
 	}
 
@@ -424,6 +440,8 @@ func (h *CasinoHandler) handleMusorDropOpen(w http.ResponseWriter, r *http.Reque
 		"success":   true,
 		"outcome":   outcome,
 		"balance":   outcome.Balance,
+		"xp":        p.XP,
+		"level":     p.Level,
 	})
 }
 
@@ -432,6 +450,14 @@ func (h *CasinoHandler) handleGetCaptcha(w http.ResponseWriter, r *http.Request,
 }
 
 func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Request, p *ledger.Player, body map[string]interface{}) {
+	if p.Balance >= 2000 {
+		JSON(w, http.StatusBadRequest, map[string]interface{}{
+			"ok":    false,
+			"error": "Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽",
+		})
+		return
+	}
+
 	id, _ := body["id"].(string)
 	answer, _ := body["answer"].(string)
 	sig, _ := body["signature"].(string)
@@ -478,6 +504,8 @@ func (h *CasinoHandler) handleSolveCaptcha(w http.ResponseWriter, r *http.Reques
 		"ok":             true,
 		"amount":         rewardAmount,
 		"balance":        newBal,
+		"xp":             p.XP,
+		"level":          p.Level,
 	})
 }
 
@@ -506,6 +534,8 @@ func (h *CasinoHandler) handleBonus(w http.ResponseWriter, r *http.Request, p *l
 		"amount":         amount,
 		"balance":        newBal,
 		"streak":         streak,
+		"xp":             p.XP,
+		"level":          p.Level,
 	})
 }
 
@@ -544,7 +574,8 @@ func (h *CasinoHandler) handleMission(w http.ResponseWriter, r *http.Request, p 
 		"ok":               true,
 		"mission_id":       missionID,
 		"amount":           reward,
-		"xp":               xpReward,
+		"xp_reward":        xpReward,
+		"xp":               newXP,
 		"balance":          newBal,
 		"level":            newLevel,
 		"missions":         missions,

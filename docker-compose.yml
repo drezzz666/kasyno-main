@@ -18,6 +18,7 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+    command: postgres -c max_connections=200 -c shared_buffers=512MB
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-kasyno}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kasyno_pass}

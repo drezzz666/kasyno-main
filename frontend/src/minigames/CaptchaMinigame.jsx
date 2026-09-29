@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { postCasinoAction } from "../lib/api";
 
 export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
+  const isBalanceLocked = typeof currentBalance === "number" && currentBalance >= 2000;
   const [captchaData, setCaptchaData] = useState(null);
   const [inputVal, setInputVal] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   // Fetch server-generated pure binary PNG captcha image
   const fetchCaptcha = async (preserveError = false) => {
+    if (isBalanceLocked) return;
     setLoading(true);
     if (!preserveError) {
       setErrorMsg("");
@@ -62,10 +64,12 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
   };
 
   useEffect(() => {
-    fetchCaptcha(false);
-    const t = setTimeout(() => inputRef.current?.focus(), 150);
-    return () => clearTimeout(t);
-  }, []);
+    if (!isBalanceLocked) {
+      fetchCaptcha(false);
+      const t = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [isBalanceLocked]);
 
   useEffect(() => {
     return () => {
@@ -78,7 +82,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!inputVal.trim() || loading || !captchaData) return;
+    if (!inputVal.trim() || loading || !captchaData || isBalanceLocked) return;
 
     setLoading(true);
     setErrorMsg("");
@@ -105,7 +109,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
         });
 
         if (typeof res.balance === "number" && syncBalance) {
-          syncBalance(res.balance);
+          syncBalance(res.balance, res.xp, res.level);
         }
 
         setSessionCount((prev) => prev + 1);
@@ -142,9 +146,13 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
   return (
     <div className="captcha-minigame-container">
-      {/* Server-Side Rendered Distorted PNG Image */}
+      {/* Server-Side Rendered Distorted PNG Image or Balance Lock Info */}
       <div className="captcha-canvas-wrap">
-        {captchaData?.image ? (
+        {isBalanceLocked ? (
+          <div className="h-[75px] w-[280px] flex items-center justify-center text-center px-4 text-xs text-slate-300 font-medium leading-relaxed select-none">
+            Captcha jest dostępna tylko, gdy Twoje saldo wynosi poniżej 2 000 ₽
+          </div>
+        ) : captchaData?.image ? (
           <img
             src={captchaData.image}
             alt="Captcha"
@@ -156,16 +164,18 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => fetchCaptcha(false)}
-          disabled={loading}
-          className="captcha-refresh-btn"
-          title="Odśwież kod"
-          aria-label="Odśwież kod"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin text-amber-400" : "text-slate-300"} />
-        </button>
+        {!isBalanceLocked && (
+          <button
+            type="button"
+            onClick={() => fetchCaptcha(false)}
+            disabled={loading}
+            className="captcha-refresh-btn"
+            title="Odśwież kod"
+            aria-label="Odśwież kod"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin text-amber-400" : "text-slate-300"} />
+          </button>
+        )}
       </div>
 
       {/* Form & Input */}
@@ -180,7 +190,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
             spellCheck="false"
             placeholder={captchaData?.type === "math" ? "Wynik działania" : "Wpisz kod"}
             value={inputVal}
-            disabled={loading}
+            disabled={loading || isBalanceLocked}
             onChange={(e) => {
               setInputVal(e.target.value.toUpperCase());
               if (errorMsg) setErrorMsg("");
@@ -189,7 +199,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
           />
         </div>
 
-        {errorMsg && (
+        {!isBalanceLocked && errorMsg && (
           <div className="captcha-status-msg error">
             <AlertCircle size={15} className="shrink-0" />
             <span>{errorMsg}</span>
@@ -205,7 +215,7 @@ export function CaptchaMinigame({ syncBalance, currentBalance, onClose }) {
 
         <button
           type="submit"
-          disabled={loading || !inputVal.trim()}
+          disabled={loading || isBalanceLocked || !inputVal.trim()}
           className="captcha-submit-btn"
         >
           {loading ? (

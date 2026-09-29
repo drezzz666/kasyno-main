@@ -14,6 +14,7 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/config"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
 	"github.com/drezzz666/kasyno/backend/internal/scheduler"
+	"github.com/drezzz666/kasyno/backend/internal/ws"
 )
 
 const (
@@ -24,6 +25,14 @@ const (
 	ColorPurple  = 0x8B5CF6
 	ColorDark    = 0x1E293B
 )
+
+type ActiveEventInfo struct {
+	Name      string
+	Duration  time.Duration
+	StartedAt time.Time
+	EndsAt    time.Time
+	StartedBy string
+}
 
 type playerCacheItem struct {
 	Nick    string
@@ -37,11 +46,44 @@ type Bot struct {
 	cfg       *config.Config
 	ledger    *ledger.Service
 	scheduler *scheduler.Scheduler
+	wsHub     *ws.Hub
 	appURL    string
 
 	playerCacheMu sync.RWMutex
 	playerCache   []playerCacheItem
 	playerCacheAt time.Time
+
+	activeEventMu sync.RWMutex
+	activeEvent   *ActiveEventInfo
+}
+
+func (b *Bot) SetWSHub(hub *ws.Hub) {
+	b.wsHub = hub
+}
+
+func (b *Bot) GetActiveEvent() *ActiveEventInfo {
+	b.activeEventMu.RLock()
+	defer b.activeEventMu.RUnlock()
+	if b.activeEvent == nil {
+		return nil
+	}
+	if time.Now().After(b.activeEvent.EndsAt) {
+		return nil
+	}
+	cpy := *b.activeEvent
+	return &cpy
+}
+
+func (b *Bot) SetActiveEvent(info *ActiveEventInfo) {
+	b.activeEventMu.Lock()
+	defer b.activeEventMu.Unlock()
+	b.activeEvent = info
+}
+
+func (b *Bot) ClearActiveEvent() {
+	b.activeEventMu.Lock()
+	defer b.activeEventMu.Unlock()
+	b.activeEvent = nil
 }
 
 func (b *Bot) invalidatePlayerCache() {

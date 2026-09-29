@@ -3,6 +3,7 @@ import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } fr
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
+import { calcEventPayout, adjustBet } from "../utils";
 import {
   BlackjackTable,
   ChickenTable,
@@ -45,6 +46,7 @@ export function GameTableDialog({
   setTurbo,
   tosAccepted = true,
   onOpenTosModal,
+  activeEvent: propActiveEvent,
 }) {
   const dialogRef = useRef(null);
   const lastActionTimeRef = useRef(0);
@@ -52,6 +54,8 @@ export function GameTableDialog({
   const outcomeTimerRef = useRef(null);
   const plinkoRef = useRef(null);
   const chickenRef = useRef(null);
+
+  const currentEvent = propActiveEvent || data?.activeEvent || null;
 
   const round = data?.active?.game === game ? data.active : null;
 
@@ -182,7 +186,7 @@ export function GameTableDialog({
           setLast(d.round);
           triggerOutcome(d.round);
         }
-        if (typeof d.balance === "number") syncBalance(d.balance);
+        if (typeof d.balance === "number") syncBalance(d.balance, d.xp, d.level);
         if (animatingRef) animatingRef.current = false;
         void load();
       }
@@ -228,7 +232,7 @@ export function GameTableDialog({
       const apply = () => {
         setBlackjackPreview(null);
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
@@ -258,7 +262,7 @@ export function GameTableDialog({
           setCrashMult(j.round.payload?.crash_point || targetMult);
         }
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         if (animatingRef) animatingRef.current = false;
         triggerOutcome(j.round);
         void load();
@@ -289,7 +293,7 @@ export function GameTableDialog({
       const res = await post({ action: "mines", roundId: round.id, move: "cashout" });
       if (res?.round) {
         setLast(res.round);
-        if (typeof res.balance === "number") syncBalance(res.balance);
+        if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
         triggerOutcome(res.round);
         void load();
       }
@@ -307,7 +311,9 @@ export function GameTableDialog({
       setTimeout(() => {
         if (animatingRef) animatingRef.current = false;
         setChickenBusy(false);
+        if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
         triggerOutcome(res.round, 0);
+        void load();
       }, turbo ? 100 : 500);
     }
   };
@@ -319,7 +325,7 @@ export function GameTableDialog({
   };
 
   const handlePlinkoBallFinish = (ball) => {
-    if (typeof ball.balance === "number") syncBalance(ball.balance);
+    if (typeof ball.balance === "number") syncBalance(ball.balance, ball.xp, ball.level);
     setLast(ball.round);
   };
 
@@ -353,6 +359,8 @@ export function GameTableDialog({
           payout: j.round.payout,
           round: j.round,
           balance: j.balance,
+          xp: j.xp,
+          level: j.level,
         });
       }
       return;
@@ -368,7 +376,7 @@ export function GameTableDialog({
           setLimboDisplayMult(finalMult);
           setLimboAnimating(false);
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
           void load();
@@ -403,7 +411,7 @@ export function GameTableDialog({
       const j = await post({ game: "upgrader", bet, target_multiplier: upgraderTarget, roll_type: upgraderRollType }, { deferBalance: true, deferRefresh: true, deductBet: bet });
       if (j?.round) {
         setLast(j.round);
-        if (typeof j.balance === "number") syncBalance(j.balance);
+        if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
         void load();
       } else {
         setUpgraderBusy(false);
@@ -435,7 +443,7 @@ export function GameTableDialog({
                 const res = await post({ game: "crash", action: "cashout_crash", mult: targetCashout }, { deferBalance: true, deferRefresh: true });
                 if (res?.round) {
                   setLast(res.round);
-                  if (typeof res.balance === "number") syncBalance(res.balance);
+                  if (typeof res.balance === "number") syncBalance(res.balance, res.xp, res.level);
                   const won = Boolean(res.round.payload?.won);
                   if (won) {
                     setCrashCashedOut(true);
@@ -482,7 +490,7 @@ export function GameTableDialog({
         }
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setSlotsSpinning(false);
           setPendingSlotsRound(null);
           if (animatingRef) animatingRef.current = false;
@@ -508,7 +516,7 @@ export function GameTableDialog({
         setCoinflipTarget(j.round.payload?.outcome || "heads");
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setIsFlipping(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
@@ -533,7 +541,7 @@ export function GameTableDialog({
       if (j) {
         const finalize = () => {
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           setIsShootingRPS(false);
           if (animatingRef) animatingRef.current = false;
           triggerOutcome(j.round);
@@ -554,7 +562,7 @@ export function GameTableDialog({
         const finalize = () => {
           setBlackjackPreview(null);
           setLast(j.round);
-          if (typeof j.balance === "number") syncBalance(j.balance);
+          if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
           triggerOutcome(j.round);
           void load();
         };
@@ -578,7 +586,7 @@ export function GameTableDialog({
       const j = await post({ game, bet: rouletteTotalBet, bets: betsMap }, { deferBalance: true, deferRefresh: true, deductBet: rouletteTotalBet });
       if (j) {
         setSpinResult(j.round);
-        setPendingSpin({ round: j.round, balance: j.balance });
+        setPendingSpin({ round: j.round, balance: j.balance, xp: j.xp, level: j.level });
         setRouletteWaiting(false);
         setSpinning(true);
       } else {
@@ -678,7 +686,7 @@ export function GameTableDialog({
                       setSpinning(false);
                       if (pendingSpin) {
                         setLast(pendingSpin.round);
-                        if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance);
+                        if (typeof pendingSpin.balance === "number") syncBalance(pendingSpin.balance, pendingSpin.xp, pendingSpin.level);
                         triggerOutcome(pendingSpin.round);
                         setPendingSpin(null);
                         void load();
@@ -813,10 +821,10 @@ export function GameTableDialog({
 
                 {/* Quick Multipliers Grid: equal 4 columns on mobile */}
                 <div className="grid grid-cols-4 gap-1.5 sm:flex sm:items-center">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Max</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "min"))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "half"))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "double", data?.player?.balance))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "max", data?.player?.balance))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Max</button>
                 </div>
 
                 <div className="hidden lg:flex items-center gap-1.5">
@@ -1120,14 +1128,17 @@ export function GameTableDialog({
                   }
 
                   if (game === "crash" && crashPlaying && !crashCrashed && !crashCashedOut) {
+                    const currentMultiplier = Number(crashMult) || 1.0;
+                    const { finalPayout } = calcEventPayout(bet, currentMultiplier, currentEvent?.multiplier);
+
                     return (
                       <button
                         type="button"
-                        className="w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
+                        className="w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] transition-all cursor-pointer"
                         onClick={handleManualCrashCashout}
                       >
                         <CheckCircle2 size={18} />
-                        <span>WYPŁAĆ ({(Number(crashMult) || 1.0).toFixed(2)}×)</span>
+                        <span>WYPŁAĆ {money(finalPayout)} ({currentMultiplier.toFixed(2)}×)</span>
                       </button>
                     );
                   }
@@ -1136,7 +1147,7 @@ export function GameTableDialog({
                     const p = round.payload || {};
                     const revealed = p.revealed || [];
                     const currentMult = p.multiplier !== undefined ? p.multiplier : 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
+                    const { finalPayout } = calcEventPayout(bet, currentMult, currentEvent?.multiplier);
                     const canCashout = revealed.length > 0 && !loading;
 
                     return (
@@ -1144,7 +1155,7 @@ export function GameTableDialog({
                         type="button"
                         disabled={!canCashout}
                         onClick={handleMinesCashout}
-                        className={`w-full py-2.5 sm:py-3 px-5 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
+                        className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg font-mono font-black text-sm sm:text-base tracking-wider uppercase flex items-center justify-center gap-2 transition-all ${
                           canCashout
                             ? "bg-[#10b981] hover:bg-[#34d399] text-slate-950 border border-[#059669] shadow-[0_4px_0_#047857,0_6px_12px_rgba(0,0,0,0.4)] active:translate-y-1 active:shadow-[0_0_0_#047857] cursor-pointer"
                             : "bg-[#151a24] text-slate-500 border border-slate-800 cursor-not-allowed shadow-none"
@@ -1154,7 +1165,7 @@ export function GameTableDialog({
                         <span>
                           {revealed.length === 0
                             ? "Wybierz pole na planszy"
-                            : `WYPŁAĆ ${money(currentProfit)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
+                            : `WYPŁAĆ ${money(finalPayout)} (×${(Number(currentMult) || 1.0).toFixed(2)})`}
                         </span>
                       </button>
                     );
@@ -1163,7 +1174,7 @@ export function GameTableDialog({
                   if (round?.game === "chicken") {
                     const currentLane = round.payload?.currentLane || 0;
                     const currentMult = round.payload?.multiplier ?? 1.00;
-                    const currentProfit = Math.floor(bet * currentMult);
+                    const { finalPayout } = calcEventPayout(bet, currentMult, currentEvent?.multiplier);
                     const isCashoutDisabled = currentLane < 1 || loading || chickenBusy;
                     const isStepDisabled = loading || chickenBusy || currentLane >= 17;
 
@@ -1209,7 +1220,7 @@ export function GameTableDialog({
                         >
                           <CheckCircle2 size={16} />
                           <span className="truncate">
-                            WYPŁAĆ {money(currentProfit)}
+                            WYPŁAĆ {money(finalPayout)} (×{(Number(currentMult) || 1.0).toFixed(2)})
                           </span>
                         </button>
                       </div>

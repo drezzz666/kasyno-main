@@ -9,6 +9,7 @@ import {
   Target,
   History,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   Zap,
   Dices,
@@ -28,6 +29,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format, truncateNick } from "./lib/formatters";
+import { getEventEndsAt, getEventRemainingMs, calcPlayerLevelProgress, getInitials } from "./utils";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -35,10 +37,53 @@ import { InfoModal } from "./components/InfoModal";
 import { TosPage } from "./components/TosPage";
 import { TosAcceptModal } from "./components/TosAcceptModal";
 import { MinigamesModal, MINIGAMES } from "./minigames";
+import { MoneyRain } from "./events";
 import { LiveTicker } from "./components/LiveTicker";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useAudio } from "./hooks/useAudio";
 import confetti from "canvas-confetti";
+
+function EventCountdown({ activeEvent, onExpire }) {
+  const [timeLeft, setTimeLeft] = useState(() => getEventRemainingMs(activeEvent));
+
+  useEffect(() => {
+    const endsAtMs = getEventEndsAt(activeEvent);
+    if (!endsAtMs) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const update = () => {
+      const remaining = Math.max(0, endsAtMs - Date.now());
+      setTimeLeft(remaining);
+      if (remaining <= 0 && onExpire) {
+        onExpire();
+      }
+    };
+
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [activeEvent?.ends_at, activeEvent?.endsAt, onExpire]);
+
+  if (timeLeft === null) return null;
+
+  const totalSec = Math.max(0, Math.ceil(timeLeft / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+
+  let formatted = "";
+  if (h > 0) {
+    formatted = `${h}h ${m}m ${s}s`;
+  } else if (m > 0) {
+    formatted = `${m}m ${s}s`;
+  } else {
+    formatted = `${s}s`;
+  }
+
+  return <span className="event-time font-mono">{formatted}</span>;
+}
 
 export default function App() {
 
@@ -69,8 +114,50 @@ export default function App() {
   });
 
   const [tosModalOpen, setTosModalOpen] = useState(false);
-
   const [captchaOpen, setCaptchaOpen] = useState(false);
+
+  // Live Casino Event State (e.g. Money Rain + Multiplier)
+  const [activeEvent, setActiveEvent] = useState(() => data?.activeEvent || null);
+  const [eventRibbonOpen, setEventRibbonOpen] = useState(false);
+
+  const isLiveEvent = Boolean(activeEvent && (Number(activeEvent.multiplier) > 1.0 || activeEvent.name));
+
+  useEffect(() => {
+    const ev = data?.activeEvent || null;
+    if (!ev) {
+      setActiveEvent(null);
+      return;
+    }
+    const endsAtMs = getEventEndsAt(ev);
+    if (endsAtMs && Date.now() >= endsAtMs) {
+      setActiveEvent(null);
+      return;
+    }
+    setActiveEvent(ev);
+  }, [data?.activeEvent]);
+
+  useEffect(() => {
+    const handleStart = (e) => {
+      const payload = e.detail || {};
+      const dur = Number(payload.duration) || 60;
+      setActiveEvent({
+        name: payload.name || payload.event || "live-event",
+        multiplier: Number(payload.multiplier) || 1.0,
+        duration: dur,
+        ends_at: payload.ends_at || new Date(Date.now() + dur * 1000).toISOString(),
+      });
+    };
+    const handleStop = () => {
+      setActiveEvent(null);
+    };
+
+    window.addEventListener("casino:start_money_rain", handleStart);
+    window.addEventListener("casino:stop_money_rain", handleStop);
+    return () => {
+      window.removeEventListener("casino:start_money_rain", handleStart);
+      window.removeEventListener("casino:stop_money_rain", handleStop);
+    };
+  }, []);
 
   const handleAcceptTos = useCallback(async () => {
     const uid = data?.player?.user_id;
@@ -165,15 +252,19 @@ export default function App() {
   const autoMuteNotifiedRef = useRef(false);
   const { muted, toggleMute, setMuted } = useAudio();
 
-  const syncBalance = useCallback((newBal) => {
-    setData((prev) =>
-      prev
-        ? {
-          ...prev,
-          player: { ...prev.player, balance: newBal },
-        }
-        : prev
-    );
+  const syncBalance = useCallback((newBal, newXP, newLevel) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        player: {
+          ...prev.player,
+          balance: typeof newBal === "number" ? newBal : prev.player.balance,
+          xp: typeof newXP === "number" ? newXP : prev.player.xp,
+          level: typeof newLevel === "number" ? newLevel : prev.player.level,
+        },
+      };
+    });
   }, []);
 
   const handleGlobalWin = useCallback((winEvent) => {
@@ -187,8 +278,8 @@ export default function App() {
 
   const { connected } = useWebSocket({
     onBalanceUpdate: (payload) => {
-      if (typeof payload.balance === "number") {
-        syncBalance(payload.balance);
+      if (typeof payload.balance === "number" || typeof payload.xp === "number") {
+        syncBalance(payload.balance, payload.xp, payload.level);
       }
     },
     onGlobalWin: handleGlobalWin,
@@ -213,7 +304,7 @@ export default function App() {
           toast.info("🔇 Wyciszono dźwięki", {
             id: "subnet-auto-mute-toast",
             description: j.autoMutedReason || "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
-            duration: 9000,
+            duration: 2000,
           });
         }
       }
@@ -308,7 +399,7 @@ export default function App() {
       const detail = e.detail;
       if (detail) {
         if (typeof detail.balance === "number") {
-          syncBalance(detail.balance);
+          syncBalance(detail.balance, detail.xp, detail.level);
         }
         setData((prev) =>
           prev
@@ -318,6 +409,8 @@ export default function App() {
               player: {
                 ...prev.player,
                 balance: typeof detail.balance === "number" ? detail.balance : prev.player.balance,
+                xp: typeof detail.xp === "number" ? detail.xp : prev.player.xp,
+                level: typeof detail.level === "number" ? detail.level : prev.player.level,
               },
             }
             : prev
@@ -387,6 +480,16 @@ export default function App() {
                   : typeof j.balance === "number"
                     ? j.balance
                     : prev.player.balance,
+                xp: opts?.deferBalance
+                  ? prev.player.xp
+                  : typeof j.xp === "number"
+                    ? j.xp
+                    : prev.player.xp,
+                level: opts?.deferBalance
+                  ? prev.player.level
+                  : typeof j.level === "number"
+                    ? j.level
+                    : prev.player.level,
               },
               roundsToday:
                 typeof j.roundsToday === "number"
@@ -408,7 +511,7 @@ export default function App() {
           } catch { }
           toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
             description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
-            duration: 6000,
+            duration: 2000,
           });
         }
         if (j.round.state !== "active" && !opts?.deferRefresh && !opts?.deferBalance) {
@@ -429,8 +532,7 @@ export default function App() {
 
   const userNick = data?.player?.nick || "Gracz";
   const bonusAvailable = Boolean(data && data.player.last_bonus_day !== data.today);
-  const xpCurrent = (data?.player?.xp || 0) % 500;
-  const xpProgress = Math.min(100, (xpCurrent / 500) * 100);
+  const { userLevel, xpTotal, xpCurrent, xpNeeded, xpProgress } = calcPlayerLevelProgress(data?.player);
 
   const missions = data?.missions || [];
   const readyMissionsCount = missions.filter((m) => m.ready).length;
@@ -587,7 +689,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Toaster theme="dark" position="bottom-right" richColors />
+      <Toaster duration={2000} theme="dark" position="bottom-right" richColors />
 
       {/* Clean Top Header */}
       <header className="topbar">
@@ -595,9 +697,23 @@ export default function App() {
           <img src="/logo.svg" alt="2fgt Kasyno" className="brand-logo-img" />
         </button>
 
+        {/* Live Event Indicator */}
+        {isLiveEvent && (
+          <div className="topbar-event-bar" title="Aktywne wydarzenie">
+            <Sparkles size={14} className="event-icon" />
+            {Number(activeEvent.multiplier) > 1.0 && (
+              <span className="event-label">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+            )}
+            {!(Number(activeEvent.multiplier) > 1.0) && activeEvent.name && (
+              <span className="event-label">{activeEvent.name.toUpperCase()}</span>
+            )}
+            <span className="event-divider">•</span>
+            <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
+          </div>
+        )}
+
         {/* Right Actions: Audio, Balance, Avatar */}
         <div className="topbar-actions">
-
           <button
             type="button"
             className="icon-btn"
@@ -622,11 +738,46 @@ export default function App() {
             {data?.player?.avatar ? (
               <img src={data.player.avatar} alt={userNick} className="user-btn-avatar" />
             ) : (
-              userNick.slice(0, 2).toUpperCase()
+              getInitials(userNick)
             )}
           </button>
         </div>
       </header>
+
+      {/* Mobile Sliding Event Ribbon (wstążka z boku ekranu) */}
+      {isLiveEvent && (
+        <div className="mobile-event-ribbon-wrap">
+          <button
+            type="button"
+            className={`mobile-event-ribbon ${eventRibbonOpen ? "expanded" : "collapsed"}`}
+            onClick={() => setEventRibbonOpen((prev) => !prev)}
+            aria-label={eventRibbonOpen ? "Zwiń event" : "Rozwiń event"}
+            title="Aktywne wydarzenie"
+          >
+            <div className={`ribbon-inner ${eventRibbonOpen ? "expanded-inner" : "collapsed-inner"}`}>
+              {eventRibbonOpen ? (
+                <>
+                  <Sparkles size={14} className="event-icon" />
+                  {Number(activeEvent.multiplier) > 1.0 && (
+                    <span className="ribbon-multiplier">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  )}
+                  {!(Number(activeEvent.multiplier) > 1.0) && activeEvent.name && (
+                    <span className="ribbon-name">{activeEvent.name.toUpperCase()}</span>
+                  )}
+                  <span className="ribbon-sep">•</span>
+                  <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
+                  <ChevronRight size={14} className="ribbon-chevron" />
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} className="event-icon" />
+                  <ChevronLeft size={13} className="ribbon-chevron" />
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Live Wins Ticker */}
       <LiveTicker wins={recentWins} />
@@ -647,19 +798,19 @@ export default function App() {
                   {data?.player?.avatar ? (
                     <img src={data.player.avatar} alt={userNick} className="player-strip-avatar" />
                   ) : (
-                    <div className="player-strip-avatar-fallback">{userNick.slice(0, 2).toUpperCase()}</div>
+                    <div className="player-strip-avatar-fallback">{getInitials(userNick)}</div>
                   )}
                 </div>
                 <div className="flex flex-col">
                   <div className="player-nick-row">
                     <span className="player-name">{userNick}</span>
-                    <span className="level-pill">POZIOM {data?.player?.level || 1}</span>
+                    <span className="player-level-text">· Poziom {userLevel}</span>
                   </div>
                   <div className="xp-wrap">
                     <div className="xp-meter">
                       <div className="xp-fill" style={{ width: `${xpProgress}%` }} />
                     </div>
-                    <span className="xp-text">{xpCurrent} / 500 XP</span>
+                    <span className="xp-text">{xpCurrent} / {xpNeeded} XP</span>
                   </div>
                 </div>
               </div>
@@ -671,7 +822,10 @@ export default function App() {
                   className={`streak-bonus-btn ${bonusAvailable ? "ready" : "done"}`}
                   onClick={async () => {
                     const j = await post({ action: "bonus" });
-                    if (j?.amount) toast.success(`Odebrano +${money(j.amount)} do salda!`);
+                    if (j?.amount) {
+                      if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
+                      toast.success(`Odebrano +${money(j.amount)} do salda!`);
+                    }
                   }}
                 >
                   <Flame size={14} className={bonusAvailable ? "text-amber-400" : "text-slate-500"} />
@@ -815,10 +969,12 @@ export default function App() {
                             {getMissionIcon(m.icon)}
                           </div>
                           <div className="mission-card-main-info">
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <span className="mission-category-pill">{m.category}</span>
-                              <span className="mission-reward-pill">+{format(m.reward)} ₽</span>
-                              <span className="mission-xp-pill">+{m.xp_reward} XP</span>
+                            <div className="mission-meta-row">
+                              <span className="mission-category">{m.category}</span>
+                              <span className="meta-sep">·</span>
+                              <span className="mission-reward">+{format(m.reward)} ₽</span>
+                              <span className="meta-sep">·</span>
+                              <span className="mission-xp">+{m.xp_reward} XP</span>
                             </div>
                             <h3 className="mission-title">{m.title}</h3>
                             <p className="mission-desc">{m.description}</p>
@@ -859,7 +1015,8 @@ export default function App() {
                               onClick={async () => {
                                 const j = await post({ action: "claim_mission", mission_id: m.id });
                                 if (j?.ok) {
-                                  toast.success(`Odebrano nagrodę +${money(j.amount)} & +${j.xp} XP!`);
+                                  if (typeof j.balance === "number") syncBalance(j.balance, j.xp, j.level);
+                                  toast.success(`Odebrano nagrodę +${money(j.amount)} & +${j.xp_reward || j.xp} XP!`);
                                 }
                               }}
                             >
@@ -942,7 +1099,7 @@ export default function App() {
                           {data?.player?.avatar ? (
                             <img src={data.player.avatar} alt={userNick} className="ranking-avatar-img" />
                           ) : (
-                            userNick.slice(0, 2).toUpperCase()
+                            getInitials(userNick)
                           )}
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -950,20 +1107,20 @@ export default function App() {
                             <span className="rank-name font-bold text-slate-100 truncate" title={userNick}>
                               {truncateNick(userNick, 20)}
                             </span>
-                            <span className="rank-you-badge flex-shrink-0">Ty</span>
+                            <span className="rank-you-tag flex-shrink-0">(Ty)</span>
                           </div>
                           <span className="text-[11px] text-slate-400 font-mono truncate">
                             {rankingType === "level"
                               ? `Stan konta: ${money(data.player.balance)}`
-                              : `Poziom ${data.player.level || 1} • ${data.player.xp || 0} XP`}
+                              : `Poziom ${userLevel} • ${data.player.xp || 0} XP`}
                           </span>
                         </div>
                       </div>
                       <div className="ranking-right">
                         {rankingType === "level" ? (
                           <div className="flex flex-col items-end">
-                            <span className="rank-level-badge pinned">
-                              LVL {data.player.level || 1}
+                            <span className="rank-level-val pinned">
+                              LVL {userLevel}
                             </span>
                             <span className="text-[11px] text-slate-400 font-mono font-bold mt-0.5">
                               {data.player.xp || 0} XP
@@ -1010,7 +1167,7 @@ export default function App() {
                                 {l.avatar ? (
                                   <img src={l.avatar} alt={l.nick} className="ranking-avatar-img" />
                                 ) : (
-                                  (l.nick || "G").slice(0, 2).toUpperCase()
+                                  getInitials(l.nick)
                                 )}
                               </div>
                               <div className="flex flex-col min-w-0">
@@ -1018,7 +1175,7 @@ export default function App() {
                                   <span className="rank-name truncate" title={l.nick}>
                                     {truncateNick(l.nick || "Gracz", 20)}
                                   </span>
-                                  {isMe && <span className="rank-you-pill flex-shrink-0">Ty</span>}
+                                  {isMe && <span className="rank-you-tag flex-shrink-0">(Ty)</span>}
                                 </div>
                                 <span className="text-[10px] text-slate-500 font-mono truncate">
                                   {rankingType === "level"
@@ -1029,7 +1186,7 @@ export default function App() {
                             </div>
                             {rankingType === "level" ? (
                               <div className="flex flex-col items-end flex-shrink-0 ml-2">
-                                <span className="rank-level-badge">LVL {l.level || 1}</span>
+                                <span className="rank-level-val">LVL {l.level || 1}</span>
                                 <span className="text-[10px] text-slate-400 font-mono">
                                   {l.xp || 0} XP
                                 </span>
@@ -1202,6 +1359,7 @@ export default function App() {
           setTurbo={handleSetTurbo}
           tosAccepted={tosAccepted}
           onOpenTosModal={() => setTosModalOpen(true)}
+          activeEvent={activeEvent}
         />
       )}
 
@@ -1255,6 +1413,9 @@ export default function App() {
         syncBalance={syncBalance}
         currentBalance={data?.player?.balance}
       />
+
+      {/* Live Money Rain Event Overlay */}
+      <MoneyRain activeEvent={activeEvent} />
 
       {/* Full-Screen Centered Reconnecting / Loading Blur Overlay */}
       {!connected && (

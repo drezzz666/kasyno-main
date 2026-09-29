@@ -1,6 +1,7 @@
 import React from "react";
 import { History, LogOut, X, Trophy } from "lucide-react";
 import { format, money } from "../lib/formatters";
+import { calcPlayerLevel, getInitials } from "../utils";
 
 export function ProfileModal({
   open,
@@ -12,6 +13,8 @@ export function ProfileModal({
 }) {
   if (!open) return null;
 
+  const level = calcPlayerLevel(player);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-dialog profile-dialog" onClick={(e) => e.stopPropagation()}>
@@ -21,12 +24,12 @@ export function ProfileModal({
               {player?.avatar ? (
                 <img src={player.avatar} alt={userNick} className="profile-modal-avatar-img" />
               ) : (
-                <div className="profile-modal-avatar-fallback">{userNick.slice(0, 2).toUpperCase()}</div>
+                <div className="profile-modal-avatar-fallback">{getInitials(userNick)}</div>
               )}
             </div>
             <div>
               <h3>Konto gracza</h3>
-              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 ₽)</p>
+              <p>Poziom {level} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 ₽)</p>
             </div>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij">

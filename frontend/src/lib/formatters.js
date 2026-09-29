@@ -118,3 +118,9 @@ export function truncateNick(nick, maxLen = 20) {
   if (str.length <= maxLen) return str;
   return `${str.slice(0, maxLen)}...`;
 }
+
+export function getInitials(nick) {
+  if (!nick) return "GR";
+  const str = String(nick).trim();
+  return (str.slice(0, 2) || "GR").toUpperCase();
+}

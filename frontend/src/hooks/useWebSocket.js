@@ -22,6 +22,10 @@ export function useWebSocket({ onBalanceUpdate, onGlobalWin }) {
         callbacksRef.current.onGlobalWin(data.payload);
       } else if (data.type === "round_settled") {
         window.dispatchEvent(new CustomEvent("casino:round_settled", { detail: data.payload }));
+      } else if (data.type === "money_rain" || data.type === "live_event" || data.type === "start_event") {
+        window.dispatchEvent(new CustomEvent("casino:start_money_rain", { detail: data.payload }));
+      } else if (data.type === "stop_money_rain" || data.type === "stop_event") {
+        window.dispatchEvent(new CustomEvent("casino:stop_money_rain", { detail: data.payload }));
       }
     });
 

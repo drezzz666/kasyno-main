@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"runtime/debug"
@@ -38,7 +39,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	// Standard middlewares
 	r.Use(middleware.RequestID)
-	r.Use(RealIPMiddleware)
+	r.Use(middleware.RealIP)
 	r.Use(telemetry.HTTPMiddleware(tel))
 	r.Use(middleware.Logger)
 
@@ -76,12 +77,11 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		MaxAge:           300,
 	}))
 
-	telCrypto, _ := telemetry.NewCryptoManager(cfg.SessionSecret)
 	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
 	wsHub.SetMessageHandler(casinoHandler.HandleWSMessage)
 	wsHub.SetOnUserDisconnect(casinoHandler.HandleUserDisconnect)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
-	errorHandler := NewErrorHandler(rep, telCrypto, tel)
+	errorHandler := NewErrorHandler(rep, tel)
 
 	// Healthcheck & Metrics Telemetry
 	healthHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -90,13 +90,88 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/health", healthHandler)
 	r.Head("/health", healthHandler)
 
-	// Prometheus, JSON Telemetry and Encryption Key Endpoints
+	// Prometheus & JSON Telemetry Endpoints
 	r.Get("/metrics", telemetry.PrometheusHandler(tel))
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
-	r.Get("/api/telemetry/key", errorHandler.GetPublicKey)
 
 	// Client Error Reporting endpoint
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)
+
+	// Internal Event Dispatcher (for Discord Bot or external trigger)
+	r.Post("/api/internal/events", func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		expected := "Bearer " + cfg.SessionSecret
+		if cfg.SessionSecret == "" || authHeader != expected {
+			http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			Event      string  `json:"event"`
+			Action     string  `json:"action"`
+			Duration   int     `json:"duration"`
+			Multiplier float64 `json:"multiplier"`
+			StartedBy  string  `json:"started_by"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"Invalid payload"}`, http.StatusBadRequest)
+			return
+		}
+
+		mult := req.Multiplier
+		if mult <= 1.0 {
+			mult = 1.25 // Default +25% bonus (1.25x) during Money Rain
+		}
+
+		evType := ws.EventMoneyRain
+		if req.Action == "stop" {
+			evType = ws.EventStopMoneyRain
+			ledgerService.ClearActiveEvent()
+		} else {
+			dur := time.Duration(req.Duration) * time.Second
+			if req.Duration <= 0 {
+				dur = 60 * time.Second
+			}
+			now := time.Now()
+			endsAt := now.Add(dur)
+			ev := &ledger.LiveEventInfo{
+				Name:       req.Event,
+				Multiplier: mult,
+				StartedAt:  now,
+				EndsAt:     endsAt,
+				StartedBy:  req.StartedBy,
+			}
+			ledgerService.SetActiveEvent(ev)
+			time.AfterFunc(dur, func() {
+				cur := ledgerService.GetActiveEvent()
+				if cur != nil && cur.EndsAt.Equal(endsAt) {
+					ledgerService.ClearActiveEvent()
+					if wsHub != nil {
+						wsHub.Broadcast(ws.Event{
+							Type: ws.EventStopMoneyRain,
+							Payload: map[string]interface{}{
+								"event":  req.Event,
+								"action": "stop",
+							},
+						})
+					}
+				}
+			})
+		}
+
+		wsHub.Broadcast(ws.Event{
+			Type: evType,
+			Payload: map[string]interface{}{
+				"event":      req.Event,
+				"action":     req.Action,
+				"duration":   req.Duration,
+				"multiplier": mult,
+				"started_by": req.StartedBy,
+			},
+		})
+
+		JSON(w, http.StatusOK, map[string]interface{}{"status": "ok", "event": req.Event, "action": req.Action, "multiplier": mult})
+	})
 
 	// Auth routes (public)
 	r.Route("/api/auth", func(r chi.Router) {

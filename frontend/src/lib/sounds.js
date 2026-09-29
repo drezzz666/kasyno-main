@@ -57,10 +57,18 @@ class CasinoSoundEngine {
     try {
       localStorage.setItem("fgt_muted", String(this.muted));
     } catch {}
+    if (this.moneyRainAudio) {
+      this.moneyRainAudio.volume = this.muted ? 0 : Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+      if (this.muted) {
+        try { this.moneyRainAudio.pause(); } catch {}
+      } else if (this.moneyRainActive && typeof document !== "undefined" && !document.hidden) {
+        this.moneyRainAudio.play().catch(() => {});
+      }
+    }
     if (this.muted) {
       this.pauseBgm();
     } else {
-      if (this.bgmIsPlaying || !this.bgmSource) {
+      if (this.bgmIsPlaying || !this.bgmSource || this.moneyRainActive) {
         this.resumeBgm();
       }
     }
@@ -98,6 +106,15 @@ class CasinoSoundEngine {
     this.bgmIsPlaying = true;
     this.bgmVolume = volume;
     if (this.muted || volume <= 0) return;
+    if (this.moneyRainActive) {
+      // Event is active: ONLY event music should play!
+      if (this.moneyRainAudio && this.moneyRainAudio.paused && (typeof document === "undefined" || !document.hidden)) {
+        const vol = Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+        this.moneyRainAudio.volume = vol;
+        this.moneyRainAudio.play().catch(() => {});
+      }
+      return;
+    }
 
     if (this.bgmSource || this.bgmStarting) return;
     this.bgmStarting = true;
@@ -113,7 +130,7 @@ class CasinoSoundEngine {
       }
 
       const buffer = await this.loadBgm();
-      if (!buffer || !this.bgmIsPlaying || this.muted || this.bgmVolume <= 0 || this.bgmSource) return;
+      if (!buffer || !this.bgmIsPlaying || this.muted || this.bgmVolume <= 0 || this.bgmSource || this.moneyRainActive) return;
 
       if (!this.bgmGain) {
         this.bgmGain = ctx.createGain();
@@ -150,10 +167,37 @@ class CasinoSoundEngine {
       } catch {}
       this.bgmSource = null;
     }
+    if (this.moneyRainAudio && !this.moneyRainActive) {
+      try {
+        this.moneyRainAudio.pause();
+      } catch {}
+    }
     this.cleanupMediaSession();
   }
 
   resumeBgm() {
+    if (this.moneyRainActive) {
+      // Stop normal BGM source if running
+      if (this.bgmSource && this.ctx) {
+        try {
+          this.bgmSource.stop();
+          this.bgmSource.disconnect();
+        } catch {}
+        this.bgmSource = null;
+      }
+      if (!this.muted && (this.bgmVolume === undefined || this.bgmVolume > 0)) {
+        if (!this.moneyRainAudio) {
+          this.playMoneyRainMusic();
+        } else if (typeof document === "undefined" || !document.hidden) {
+          const vol = Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+          this.moneyRainAudio.volume = vol;
+          if (this.moneyRainAudio.paused) {
+            this.moneyRainAudio.play().catch(() => {});
+          }
+        }
+      }
+      return;
+    }
     if (!this.muted && this.bgmVolume > 0 && !this.bgmSource) {
       this.playBgm(this.bgmVolume);
     }
@@ -167,9 +211,18 @@ class CasinoSoundEngine {
         this.bgmGain.gain.setValueAtTime(this.muted ? 0 : this.bgmVolume, this.ctx.currentTime);
       } catch {}
     }
+    if (this.moneyRainAudio) {
+      const vol = this.muted ? 0 : Math.min(1, this.bgmVolume * 0.9);
+      this.moneyRainAudio.volume = vol;
+      if (this.bgmVolume === 0 || this.muted) {
+        try { this.moneyRainAudio.pause(); } catch {}
+      } else if (this.moneyRainActive && this.moneyRainAudio.paused && (typeof document === "undefined" || !document.hidden)) {
+        this.moneyRainAudio.play().catch(() => {});
+      }
+    }
     if (this.bgmVolume === 0) {
       this.pauseBgm();
-    } else if (!this.muted && !this.bgmSource && this.bgmIsPlaying) {
+    } else if (!this.muted && !this.moneyRainActive && !this.bgmSource && this.bgmIsPlaying) {
       this.resumeBgm();
     }
   }
@@ -178,6 +231,65 @@ class CasinoSoundEngine {
     this.bgmIsPlaying = false;
     this.pauseBgm();
     this.bgmPausedAt = 0;
+  }
+
+  playMoneyRainMusic() {
+    this.moneyRainActive = true;
+    
+    // Stop standard BGM completely so it doesn't clash
+    if (this.bgmSource && this.ctx) {
+      try {
+        this.bgmSource.stop();
+        this.bgmSource.disconnect();
+      } catch {}
+      this.bgmSource = null;
+    }
+
+    if (!this.moneyRainAudio) {
+      this.moneyRainAudio = new Audio("/audio/money.m4a");
+      this.moneyRainAudio.loop = true;
+      this.moneyRainAudio.addEventListener("ended", () => {
+        if (this.moneyRainActive && !this.muted) {
+          this.moneyRainAudio.currentTime = 0;
+          this.moneyRainAudio.play().catch(() => {});
+        }
+      });
+    }
+
+    const currentVol = this.muted ? 0 : Math.min(1, (this.bgmVolume || 0.25) * 0.9);
+    this.moneyRainAudio.volume = currentVol;
+
+    // Do not play if muted
+    if (this.muted || currentVol <= 0) {
+      return;
+    }
+
+    const promise = this.moneyRainAudio.play();
+    if (promise !== undefined) {
+      promise.catch(() => {
+        // If browser autoplay policy blocked, auto-play on next user gesture
+        const unlock = () => {
+          if (this.moneyRainActive && this.moneyRainAudio && !this.muted && (typeof document === "undefined" || !document.hidden)) {
+            this.moneyRainAudio.play().catch(() => {});
+          }
+        };
+        const events = ["click", "keydown", "touchstart", "pointerdown"];
+        events.forEach((evt) => window.addEventListener(evt, unlock, { once: true }));
+      });
+    }
+  }
+
+  stopMoneyRainMusic() {
+    this.moneyRainActive = false;
+    if (this.moneyRainAudio) {
+      try {
+        this.moneyRainAudio.pause();
+        this.moneyRainAudio.currentTime = 0;
+      } catch {}
+    }
+    if (!this.muted && this.bgmIsPlaying) {
+      this.resumeBgm();
+    }
   }
 
   playWin(multiplier = 2) {
@@ -329,26 +441,103 @@ class CasinoSoundEngine {
     } catch (e) {}
   }
 
-  playPegTick() {
+  playPegTick(row = 0, totalRows = 14) {
     if (this.muted) return;
     try {
       this.init();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
+
+      // Realistic physical plinko pin bounce:
+      // Transient strike impulse + tuned resonant body that subtly deepens with row
+      const progress = Math.max(0, Math.min(1, row / (totalRows || 14)));
+      const baseFreq = 540 + progress * 420 + (Math.random() - 0.5) * 50;
+
+      // 1. Resonant triangle body
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.75, now + 0.045);
 
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(1200 + Math.random() * 400, now);
-
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
-
       osc.start(now);
       osc.stop(now + 0.05);
+
+      // 2. High-frequency click transient
+      const clickOsc = this.ctx.createOscillator();
+      const clickGain = this.ctx.createGain();
+      clickOsc.type = "sine";
+      clickOsc.frequency.setValueAtTime(2400 + Math.random() * 400, now);
+      clickGain.gain.setValueAtTime(0.08, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
+
+      clickOsc.connect(clickGain);
+      clickGain.connect(this.ctx.destination);
+      clickOsc.start(now);
+      clickOsc.stop(now + 0.02);
+    } catch (e) {}
+  }
+
+  playPlinkoBin(multiplier = 1.0) {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      if (multiplier < 1.0) {
+        // Soft organic thud for low returns (< 1.0x)
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.12);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (multiplier < 3.0) {
+        // Rewarding crisp bell for 1x - 3x
+        const freqs = [587.33, 880];
+        freqs.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.03);
+          gain.gain.setValueAtTime(0.13, now + idx * 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.03);
+          osc.stop(now + idx * 0.03 + 0.25);
+        });
+      } else if (multiplier < 10.0) {
+        // Rich high-tier chime for 3x - 10x
+        const chord = [523.25, 659.25, 783.99, 1046.5];
+        chord.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.04);
+          osc.stop(now + idx * 0.04 + 0.38);
+        });
+      } else {
+        // Huge Jackpot (>= 10x)
+        this.playWin(multiplier);
+        setTimeout(() => this.playCoins(), 180);
+      }
     } catch (e) {}
   }
 

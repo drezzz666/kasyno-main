@@ -133,3 +133,19 @@ ALTER TABLE scheduled_grants ADD COLUMN IF NOT EXISTS grant_type TEXT NOT NULL D
 
 CREATE INDEX IF NOT EXISTS idx_scheduled_grants_enabled ON scheduled_grants (enabled);
 
+CREATE TABLE IF NOT EXISTS live_events (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(64) NOT NULL,
+    multiplier NUMERIC(5,2) NOT NULL DEFAULT 1.25,
+    started_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    started_by VARCHAR(64) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true
+);
+CREATE INDEX IF NOT EXISTS idx_live_events_active ON live_events (is_active, ends_at);
+
+-- Synchronize existing players' levels with quadratic XP formula: level = 1 + floor(sqrt(xp / 200))
+UPDATE players SET level = GREATEST(1, 1 + FLOOR(SQRT(xp::numeric / 200))::int);
+
+
+

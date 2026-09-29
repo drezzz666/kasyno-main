@@ -1,0 +1,139 @@
+/* Money Rain Event Styles - Luxury Casino Aesthetics */
+
+.money-rain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none !important;
+  z-index: 9999;
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+/* Subtle ambient emerald-gold aurora breathing at the top of the screen */
+.money-rain-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45vh;
+  background: radial-gradient(ellipse at 50% 0%, rgba(16, 185, 129, 0.18) 0%, rgba(234, 179, 8, 0.08) 40%, transparent 75%);
+  pointer-events: none;
+  animation: auroraBreathe 4s ease-in-out infinite alternate;
+}
+
+@keyframes auroraBreathe {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+}
+
+/* Base Falling Banknote */
+.falling-banknote {
+  position: absolute;
+  top: -150px;
+  pointer-events: none !important;
+  user-select: none;
+  will-change: transform;
+  transform-style: preserve-3d;
+}
+
+.falling-banknote-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none !important;
+}
+
+/* Realistic 3D Paper Flutter Keyframes */
+@keyframes flutterFallA {
+  0% {
+    top: -160px;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotateX(15deg) rotateY(0deg) rotateZ(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    opacity: 0;
+    transform: translate3d(40px, 0, 0) rotateX(65deg) rotateY(360deg) rotateZ(45deg);
+  }
+}
+
+@keyframes flutterFallB {
+  0% {
+    top: -160px;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotateX(-20deg) rotateY(0deg) rotateZ(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    opacity: 0;
+    transform: translate3d(-50px, 0, 0) rotateX(-50deg) rotateY(-360deg) rotateZ(-35deg);
+  }
+}
+
+@keyframes flutterFallC {
+  0% {
+    top: -160px;
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotateZ(-15deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 105vh;
+    opacity: 0;
+    transform: translate3d(25px, 0, 0) rotateX(180deg) rotateZ(180deg);
+  }
+}
+
+@keyframes swayPhysicsA {
+  0% {
+    transform: rotateY(-35deg) rotateZ(-20deg) translateX(-25px);
+  }
+  50% {
+    transform: rotateY(0deg) rotateZ(0deg) translateX(0px);
+  }
+  100% {
+    transform: rotateY(35deg) rotateZ(20deg) translateX(25px);
+  }
+}
+
+@keyframes swayPhysicsB {
+  0% {
+    transform: rotateX(-30deg) rotateZ(15deg) translateX(20px);
+  }
+  50% {
+    transform: rotateX(0deg) rotateZ(0deg) translateX(0px);
+  }
+  100% {
+    transform: rotateX(30deg) rotateZ(-15deg) translateX(-20px);
+  }
+}
+
+
+

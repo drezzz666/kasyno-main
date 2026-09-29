@@ -25,11 +25,11 @@ export const MINIGAMES = [
   },
   {
     id: "captcha",
-    name: "Captcha Faucet",
+    name: "Captcha",
     shortName: "Captcha",
     badge: "+80 ₽",
     reward: "+80 ₽",
-    desc: "Przepisz kod z obrazka i odbierz darmowe żetony.",
+    desc: "Przepisz kod z obrazka i odbierz darmowe żetony (<2 000 ₽).",
     img: "/captcha-hero.webp",
     icon: ShieldCheck,
     iconColor: "text-amber-400",
