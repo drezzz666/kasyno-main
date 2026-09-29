@@ -12,6 +12,11 @@ export function ProfileModal({
 }) {
   if (!open) return null;
 
+  const xpTotal = player?.xp || 0;
+  const calculatedLevel = Math.max(1, 1 + Math.floor(Math.sqrt(xpTotal / 200)));
+  const storedLevel = player?.level || 1;
+  const level = (storedLevel - 1) * (storedLevel - 1) * 200 <= xpTotal ? storedLevel : calculatedLevel;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-dialog profile-dialog" onClick={(e) => e.stopPropagation()}>
@@ -26,7 +31,7 @@ export function ProfileModal({
             </div>
             <div>
               <h3>Konto gracza</h3>
-              <p>Poziom {player?.level || 1} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 ₽)</p>
+              <p>Poziom {level} · {format(player?.xp || 0)} XP (Nagroda za poziom: +50 ₽)</p>
             </div>
           </div>
           <button className="btn-close" onClick={onClose} aria-label="Zamknij">

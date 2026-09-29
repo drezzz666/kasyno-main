@@ -144,4 +144,8 @@ CREATE TABLE IF NOT EXISTS live_events (
 );
 CREATE INDEX IF NOT EXISTS idx_live_events_active ON live_events (is_active, ends_at);
 
+-- Synchronize existing players' levels with quadratic XP formula: level = 1 + floor(sqrt(xp / 200))
+UPDATE players SET level = GREATEST(1, 1 + FLOOR(SQRT(xp::numeric / 200))::int);
+
+
 

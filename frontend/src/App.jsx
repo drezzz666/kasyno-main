@@ -543,8 +543,10 @@ export default function App() {
 
   const userNick = data?.player?.nick || "Gracz";
   const bonusAvailable = Boolean(data && data.player.last_bonus_day !== data.today);
-  const userLevel = data?.player?.level || 1;
   const xpTotal = data?.player?.xp || 0;
+  const calculatedLevel = Math.max(1, 1 + Math.floor(Math.sqrt(xpTotal / 200)));
+  const storedLevel = data?.player?.level || 1;
+  const userLevel = (storedLevel - 1) * (storedLevel - 1) * 200 <= xpTotal ? storedLevel : calculatedLevel;
   const xpForCurrent = (userLevel - 1) * (userLevel - 1) * 200;
   const xpForNext = userLevel * userLevel * 200;
   const xpCurrent = Math.max(0, xpTotal - xpForCurrent);
@@ -781,7 +783,7 @@ export default function App() {
                 <div className="flex flex-col">
                   <div className="player-nick-row">
                     <span className="player-name">{userNick}</span>
-                    <span className="player-level-text">· Poziom {data?.player?.level || 1}</span>
+                    <span className="player-level-text">· Poziom {userLevel}</span>
                   </div>
                   <div className="xp-wrap">
                     <div className="xp-meter">
@@ -1089,7 +1091,7 @@ export default function App() {
                           <span className="text-[11px] text-slate-400 font-mono truncate">
                             {rankingType === "level"
                               ? `Stan konta: ${money(data.player.balance)}`
-                              : `Poziom ${data.player.level || 1} • ${data.player.xp || 0} XP`}
+                              : `Poziom ${userLevel} • ${data.player.xp || 0} XP`}
                           </span>
                         </div>
                       </div>
@@ -1097,7 +1099,7 @@ export default function App() {
                         {rankingType === "level" ? (
                           <div className="flex flex-col items-end">
                             <span className="rank-level-val pinned">
-                              LVL {data.player.level || 1}
+                              LVL {userLevel}
                             </span>
                             <span className="text-[11px] text-slate-400 font-mono font-bold mt-0.5">
                               {data.player.xp || 0} XP

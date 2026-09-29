@@ -1277,7 +1277,7 @@ func (s *Service) ClaimDailyMission(ctx context.Context, userID string, missionI
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1491,7 +1491,7 @@ func (s *Service) DoubleAndSettleBlackjackRound(ctx context.Context, roundID, us
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1595,7 +1595,7 @@ func (s *Service) SettleActiveRound(ctx context.Context, roundID, userID string,
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
@@ -1704,7 +1704,7 @@ func (s *Service) SettleInstantRound(ctx context.Context, userID, game string, b
 	err = tx.QueryRow(ctx, `
 		UPDATE players
 		SET xp = xp + $1,
-		    level = GREATEST(level, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
+		    level = GREATEST(1, 1 + FLOOR(SQRT((xp + $1)::numeric / 200))::int),
 		    updated_at = $2
 		WHERE user_id = $3
 		RETURNING xp, level
