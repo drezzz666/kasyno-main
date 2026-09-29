@@ -39,7 +39,7 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 
 	// Standard middlewares
 	r.Use(middleware.RequestID)
-	r.Use(RealIPMiddleware)
+	r.Use(middleware.RealIP)
 	r.Use(telemetry.HTTPMiddleware(tel))
 	r.Use(middleware.Logger)
 
@@ -77,12 +77,11 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 		MaxAge:           300,
 	}))
 
-	telCrypto, _ := telemetry.NewCryptoManager(cfg.SessionSecret)
 	casinoHandler := NewCasinoHandler(ledgerService, wsHub, rep, cfg.SessionSecret, tel)
 	wsHub.SetMessageHandler(casinoHandler.HandleWSMessage)
 	wsHub.SetOnUserDisconnect(casinoHandler.HandleUserDisconnect)
 	authHandler := NewAuthHandler(cfg, ledgerService, oidcClient)
-	errorHandler := NewErrorHandler(rep, telCrypto, tel)
+	errorHandler := NewErrorHandler(rep, tel)
 
 	// Healthcheck & Metrics Telemetry
 	healthHandler := func(w http.ResponseWriter, r *http.Request) {
@@ -91,10 +90,9 @@ func NewRouter(cfg *config.Config, ledgerService *ledger.Service, oidcClient *au
 	r.Get("/health", healthHandler)
 	r.Head("/health", healthHandler)
 
-	// Prometheus, JSON Telemetry and Encryption Key Endpoints
+	// Prometheus & JSON Telemetry Endpoints
 	r.Get("/metrics", telemetry.PrometheusHandler(tel))
 	r.Get("/api/telemetry", telemetry.JSONHandler(tel))
-	r.Get("/api/telemetry/key", errorHandler.GetPublicKey)
 
 	// Client Error Reporting endpoint
 	r.With(auth.OptionalAuth(ledgerService, cfg.SessionSecret)).Post("/api/report-error", errorHandler.ReportClientError)

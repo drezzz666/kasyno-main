@@ -3,14 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/ecdh"
-	"crypto/rand"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,7 +15,6 @@ import (
 	"github.com/drezzz666/kasyno/backend/internal/games/blackjack"
 	"github.com/drezzz666/kasyno/backend/internal/games/mines"
 	"github.com/drezzz666/kasyno/backend/internal/ledger"
-	"github.com/drezzz666/kasyno/backend/internal/telemetry"
 )
 
 func TestJSONHelpers(t *testing.T) {
@@ -247,67 +239,15 @@ func TestCaptchaEndpointSecurityAndNoLeakage(t *testing.T) {
 	}
 }
 
-func TestEncryptedClientErrorReporting(t *testing.T) {
-	secret := "test-secret-key-12345"
-	telCrypto, err := telemetry.NewCryptoManager(secret)
-	if err != nil {
-		t.Fatalf("failed to init crypto manager: %v", err)
-	}
-
-	serverPubBytes, _ := hex.DecodeString(telCrypto.PublicKeyHex())
-	serverPub, err := ecdh.P256().NewPublicKey(serverPubBytes)
-	if err != nil {
-		t.Fatalf("failed to parse server pubkey: %v", err)
-	}
-
-	// 1. Client encrypts an error report using P-256 ECDH + AES-GCM
-	clientPriv, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("failed to generate client key: %v", err)
-	}
-	sharedSecret, err := clientPriv.ECDH(serverPub)
-	if err != nil {
-		t.Fatalf("ECDH failed: %v", err)
-	}
-
-	block, _ := aes.NewCipher(sharedSecret)
-	gcm, _ := cipher.NewGCM(block)
-	iv := make([]byte, 12)
-	_, _ = io.ReadFull(rand.Reader, iv)
-
+func TestClientErrorReporting(t *testing.T) {
 	reportJSON := `{"error_type":"REACT_RENDER_ERROR","message":"Cannot render element","context":"Game Table Render"}`
-	ciphertext := gcm.Seal(nil, iv, []byte(reportJSON), nil)
-
-	env := telemetry.EncryptedPayload{
-		Version:   1,
-		EpkBase64: base64.StdEncoding.EncodeToString(clientPriv.PublicKey().Bytes()),
-		IVBase64:  base64.StdEncoding.EncodeToString(iv),
-		Data:      base64.StdEncoding.EncodeToString(ciphertext),
-	}
-	envBytes, _ := json.Marshal(env)
-
-	// 2. Send to /api/report-error
-	handler := NewErrorHandler(nil, telCrypto)
-	req := httptest.NewRequest("POST", "/api/report-error", bytes.NewReader(envBytes))
+	handler := NewErrorHandler(nil)
+	req := httptest.NewRequest("POST", "/api/report-error", bytes.NewReader([]byte(reportJSON)))
 	rec := httptest.NewRecorder()
 	handler.ReportClientError(rec, req)
 
 	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK from ReportClientError with encrypted body, got %d", rec.Code)
-	}
-
-	// 3. Test /api/telemetry/key endpoint
-	keyRec := httptest.NewRecorder()
-	keyReq := httptest.NewRequest("GET", "/api/telemetry/key", nil)
-	handler.GetPublicKey(keyRec, keyReq)
-
-	if keyRec.Code != http.StatusOK {
-		t.Fatalf("expected 200 OK from GetPublicKey, got %d", keyRec.Code)
-	}
-	var keyResp map[string]string
-	_ = json.Unmarshal(keyRec.Body.Bytes(), &keyResp)
-	if keyResp["pubkey"] != telCrypto.PublicKeyHex() {
-		t.Fatalf("unexpected pubkey in response: got %s, want %s", keyResp["pubkey"], telCrypto.PublicKeyHex())
+		t.Fatalf("expected 200 OK from ReportClientError, got %d", rec.Code)
 	}
 }
 
