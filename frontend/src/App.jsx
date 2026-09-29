@@ -29,7 +29,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { fetchCasinoState, postCasinoAction, fetchHistoryEntries } from "./lib/api";
 import { money, dailyBonus, formatHistoryTime, getHistoryDetails, format, truncateNick } from "./lib/formatters";
-import { getEventEndsAt, getEventRemainingMs, calcPlayerLevelProgress } from "./utils";
+import { getEventEndsAt, getEventRemainingMs, calcPlayerLevelProgress, getInitials } from "./utils";
 import { GameTableDialog } from "./components/GameTableDialog";
 import { HistoryModal } from "./components/HistoryModal";
 import { ProfileModal } from "./components/ProfileModal";
@@ -738,7 +738,7 @@ export default function App() {
             {data?.player?.avatar ? (
               <img src={data.player.avatar} alt={userNick} className="user-btn-avatar" />
             ) : (
-              userNick.slice(0, 2).toUpperCase()
+              getInitials(userNick)
             )}
           </button>
         </div>
@@ -798,7 +798,7 @@ export default function App() {
                   {data?.player?.avatar ? (
                     <img src={data.player.avatar} alt={userNick} className="player-strip-avatar" />
                   ) : (
-                    <div className="player-strip-avatar-fallback">{userNick.slice(0, 2).toUpperCase()}</div>
+                    <div className="player-strip-avatar-fallback">{getInitials(userNick)}</div>
                   )}
                 </div>
                 <div className="flex flex-col">
@@ -1099,7 +1099,7 @@ export default function App() {
                           {data?.player?.avatar ? (
                             <img src={data.player.avatar} alt={userNick} className="ranking-avatar-img" />
                           ) : (
-                            userNick.slice(0, 2).toUpperCase()
+                            getInitials(userNick)
                           )}
                         </div>
                         <div className="flex flex-col min-w-0">
@@ -1167,7 +1167,7 @@ export default function App() {
                                 {l.avatar ? (
                                   <img src={l.avatar} alt={l.nick} className="ranking-avatar-img" />
                                 ) : (
-                                  (l.nick || "G").slice(0, 2).toUpperCase()
+                                  getInitials(l.nick)
                                 )}
                               </div>
                               <div className="flex flex-col min-w-0">

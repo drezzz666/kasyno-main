@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { getEventEndsAt, getEventRemainingMs, calcEventPayout } from "./eventUtils";
 import { calcPlayerLevel, calcPlayerLevelProgress } from "./levelUtils";
+import { adjustBet } from "./betUtils";
+import { getInitials } from "../lib/formatters";
 
 describe("eventUtils", () => {
   it("extracts endsAt timestamp correctly", () => {
@@ -30,5 +32,23 @@ describe("levelUtils", () => {
     expect(progress.xpForCurrent).toBe(800);
     expect(progress.xpForNext).toBe(1800);
     expect(progress.xpProgress).toBe(0);
+  });
+});
+
+describe("betUtils", () => {
+  it("adjusts bet correctly", () => {
+    expect(adjustBet(100, "min")).toBe(10);
+    expect(adjustBet(100, "half")).toBe(50);
+    expect(adjustBet(100, "double", 500)).toBe(200);
+    expect(adjustBet(100, "double", 150)).toBe(150);
+    expect(adjustBet(100, "max", 1000)).toBe(1000);
+  });
+});
+
+describe("formatters - getInitials", () => {
+  it("formats initials correctly", () => {
+    expect(getInitials("PlayerOne")).toBe("PL");
+    expect(getInitials("a")).toBe("A");
+    expect(getInitials("")).toBe("GR");
   });
 });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { money } from "../../lib/formatters";
 import { sounds } from "../../lib/sounds";
+import { adjustBet } from "../../utils";
 import { ArrowDown, ArrowUp, Zap, RotateCw } from "lucide-react";
 
 const MULTIPLIER_PRESETS = [
@@ -430,7 +431,7 @@ export function UpgraderTable({
             <button
               type="button"
               disabled={loading || spinning}
-              onClick={() => setBet(10)}
+              onClick={() => setBet((b) => adjustBet(b, "min"))}
               className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
               Min
@@ -438,7 +439,7 @@ export function UpgraderTable({
             <button
               type="button"
               disabled={loading || spinning}
-              onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))}
+              onClick={() => setBet((b) => adjustBet(b, "half"))}
               className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
               ½
@@ -446,11 +447,7 @@ export function UpgraderTable({
             <button
               type="button"
               disabled={loading || spinning}
-              onClick={() =>
-                setBet((b) =>
-                  Math.min(maxBalance || 1000000, Math.floor(b * 2))
-                )
-              }
+              onClick={() => setBet((b) => adjustBet(b, "double", maxBalance))}
               className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
               2×
@@ -458,7 +455,7 @@ export function UpgraderTable({
             <button
               type="button"
               disabled={loading || spinning}
-              onClick={() => setBet(maxBalance || 100)}
+              onClick={() => setBet((b) => adjustBet(b, "max", maxBalance))}
               className="py-1.5 rounded-lg sm:rounded-xl bg-[#172336] hover:bg-slate-700 text-xs sm:text-sm font-black text-slate-300 transition-all cursor-pointer active:scale-95 shadow-sm"
             >
               Max

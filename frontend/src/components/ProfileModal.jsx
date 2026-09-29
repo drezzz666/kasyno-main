@@ -1,7 +1,7 @@
 import React from "react";
 import { History, LogOut, X, Trophy } from "lucide-react";
 import { format, money } from "../lib/formatters";
-import { calcPlayerLevel } from "../utils";
+import { calcPlayerLevel, getInitials } from "../utils";
 
 export function ProfileModal({
   open,
@@ -24,7 +24,7 @@ export function ProfileModal({
               {player?.avatar ? (
                 <img src={player.avatar} alt={userNick} className="profile-modal-avatar-img" />
               ) : (
-                <div className="profile-modal-avatar-fallback">{userNick.slice(0, 2).toUpperCase()}</div>
+                <div className="profile-modal-avatar-fallback">{getInitials(userNick)}</div>
               )}
             </div>
             <div>

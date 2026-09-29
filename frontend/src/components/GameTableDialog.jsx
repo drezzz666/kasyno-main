@@ -3,7 +3,7 @@ import { X, Target, Zap, RotateCw, Trash2, CheckCircle2, ArrowDown, ArrowUp } fr
 import { sounds } from "../lib/sounds";
 import { toast } from "sonner";
 import { gameNames, money } from "../lib/formatters";
-import { calcEventPayout } from "../utils";
+import { calcEventPayout, adjustBet } from "../utils";
 import {
   BlackjackTable,
   ChickenTable,
@@ -821,10 +821,10 @@ export function GameTableDialog({
 
                 {/* Quick Multipliers Grid: equal 4 columns on mobile */}
                 <div className="grid grid-cols-4 gap-1.5 sm:flex sm:items-center">
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(10)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Min</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.max(1, Math.floor(b / 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">½</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => Math.min(data?.player?.balance || 1000000, Math.floor(b * 2)))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">2×</button>
-                  <button type="button" disabled={loading || isBusy} onClick={() => setBet(data?.player?.balance || 100)} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Max</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "min"))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Min</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "half"))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">½</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "double", data?.player?.balance))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">2×</button>
+                  <button type="button" disabled={loading || isBusy} onClick={() => setBet((b) => adjustBet(b, "max", data?.player?.balance))} className="h-11 sm:h-10 px-3 rounded-lg bg-[#141b27] hover:bg-[#1e293b] text-xs font-mono font-bold text-slate-200 border border-slate-700/80 shadow-[0_2px_0_#090d15] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center">Max</button>
                 </div>
 
                 <div className="hidden lg:flex items-center gap-1.5">
