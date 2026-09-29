@@ -1906,11 +1906,14 @@ func (b *Bot) handleMessageCreate(s *discordgo.Session, m *discordgo.MessageCrea
 				_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ %v", err))
 				return
 			}
-			mult := 1.25
+			mult := 1.20
 			if len(args) > 3 {
 				if mVal, err := strconv.ParseFloat(args[3], 64); err == nil && mVal > 1.0 {
 					mult = mVal
 				}
+			}
+			if mult > 1.50 {
+				mult = 1.50
 			}
 			if current := b.GetActiveEvent(); current != nil {
 				remaining := time.Until(current.EndsAt)
@@ -2053,7 +2056,10 @@ func (b *Bot) handleEventCommand(s *discordgo.Session, i *discordgo.InteractionC
 			}
 		}
 		if mult <= 1.0 {
-			mult = 1.25
+			mult = 1.20
+		}
+		if mult > 1.50 {
+			mult = 1.50
 		}
 
 		dur, friendly, err := parseEventDuration(durStr)
