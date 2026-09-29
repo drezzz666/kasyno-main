@@ -98,21 +98,49 @@ const getPinPos = (r, c, totalRows) => {
 };
 
 // Physical sizing helpers (larger, bold balls that are clearly visible across the entire board)
-const getPinRadius = (r) => Math.max(3.2, 4.8 - r * 0.10);
-const getBallRadius = (r) => Math.max(8.0, 11.2 - r * 0.20);
+const getPinRadius = (r) => Math.max(3.8, 5.2 - r * 0.08);
+const getBallRadius = (r) => Math.max(10.5, 14.8 - r * 0.22);
 
-// Render 3D solid sphere ball with shadow and lighting
+// Render 3D solid sphere ball with shadow, glow, trail and lighting
 function drawBall(ctx, b) {
   ctx.save();
   ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
 
-  // 1. Subtle drop shadow beneath the ball on the backboard
-  ctx.fillStyle = "rgba(0, 0, 0, 0.42)";
+  // 1. Motion Trail (fading ghost trail of past positions)
+  if (b.trail && b.trail.length > 1) {
+    for (let i = 0; i < b.trail.length; i++) {
+      const pt = b.trail[i];
+      const trailAlpha = ((i + 1) / b.trail.length) * 0.28 * (b.alpha !== undefined ? b.alpha : 1);
+      const trailRadius = b.radius * (0.6 + 0.4 * ((i + 1) / b.trail.length));
+      ctx.fillStyle = b.color;
+      ctx.globalAlpha = trailAlpha;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, trailRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
+
+  // 2. Drop shadow beneath the ball on the backboard
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
   ctx.beginPath();
-  ctx.ellipse(b.x, b.y + b.radius * 0.88, b.radius * 0.78, b.radius * 0.28, 0, 0, Math.PI * 2);
+  ctx.ellipse(b.x, b.y + b.radius * 0.95, b.radius * 0.85, b.radius * 0.32, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. Ball body with rich 3D sphere gradient
+  // 3. Ambient ball outer glow
+  const glowGrad = ctx.createRadialGradient(b.x, b.y, b.radius * 0.6, b.x, b.y, b.radius * 1.5);
+  glowGrad.addColorStop(0, b.color);
+  glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glowGrad;
+  ctx.globalAlpha = (b.alpha !== undefined ? b.alpha : 1) * 0.35;
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, b.radius * 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = b.alpha !== undefined ? b.alpha : 1;
+
+  // 4. Ball body with rich 3D sphere gradient
   ctx.translate(b.x, b.y);
 
   const grad = ctx.createRadialGradient(
@@ -124,24 +152,24 @@ function drawBall(ctx, b) {
     b.radius
   );
   grad.addColorStop(0, "#ffffff");
-  grad.addColorStop(0.25, b.color);
+  grad.addColorStop(0.22, b.color);
   grad.addColorStop(0.85, b.color);
-  grad.addColorStop(1, "#0a0e17");
+  grad.addColorStop(1, "#070a12");
 
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.fill();
 
-  // 3. Crisp outer rim
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.40)";
-  ctx.lineWidth = 1.0;
+  // 5. Crisp outer rim
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
   ctx.stroke();
 
-  // 4. Specular gloss highlight
-  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+  // 6. Specular gloss highlight
+  ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
   ctx.beginPath();
   ctx.arc(-b.radius * 0.32, -b.radius * 0.32, b.radius * 0.28, 0, Math.PI * 2);
   ctx.fill();
@@ -157,6 +185,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
   const viewportRef = useRef(null);
   const activeBallsRef = useRef([]);
   const pinHitsRef = useRef(new Map());
+  const particlesRef = useRef([]);
   const animFrameIdRef = useRef(null);
   const isLoopRunningRef = useRef(false);
 
@@ -188,7 +217,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         }
         return { ...prev, [slot]: count - 1 };
       });
-    }, 280);
+    }, 320);
   }, []);
 
   // 1. Pre-render static background, top dropper chute, and all metallic pins onto offscreen canvas
@@ -224,28 +253,28 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     // Funnel shadow
     ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
     ctx.beginPath();
-    ctx.ellipse(chuteX, 16, 18, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(chuteX, 16, 20, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Funnel metallic body
-    const funnelGrad = ctx.createLinearGradient(chuteX - 22, 0, chuteX + 22, 14);
+    const funnelGrad = ctx.createLinearGradient(chuteX - 24, 0, chuteX + 24, 16);
     funnelGrad.addColorStop(0, "#1e293b");
     funnelGrad.addColorStop(0.5, "#475569");
     funnelGrad.addColorStop(1, "#1e293b");
     ctx.fillStyle = funnelGrad;
     ctx.beginPath();
-    ctx.moveTo(chuteX - 22, 0);
-    ctx.lineTo(chuteX + 22, 0);
-    ctx.lineTo(chuteX + 11, 14);
-    ctx.lineTo(chuteX - 11, 14);
+    ctx.moveTo(chuteX - 24, 0);
+    ctx.lineTo(chuteX + 24, 0);
+    ctx.lineTo(chuteX + 12, 16);
+    ctx.lineTo(chuteX - 12, 16);
     ctx.closePath();
     ctx.fill();
 
     // Funnel glowing nozzle ring
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.4)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.ellipse(chuteX, 14, 11, 3.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(chuteX, 16, 12, 4, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
 
@@ -258,9 +287,9 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         const pin = getPinPos(r, c, rows);
 
         // Pin shadow
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
         ctx.beginPath();
-        ctx.arc(pin.x, pin.y + 2.2, pinRadius, 0, Math.PI * 2);
+        ctx.arc(pin.x, pin.y + 2.5, pinRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // Metallic pin gradient
@@ -273,13 +302,20 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           pinRadius
         );
         pinGrad.addColorStop(0, "#ffffff");
-        pinGrad.addColorStop(0.55, "#cbd5e1");
-        pinGrad.addColorStop(1, "#475569");
+        pinGrad.addColorStop(0.5, "#cbd5e1");
+        pinGrad.addColorStop(1, "#334155");
 
         ctx.fillStyle = pinGrad;
         ctx.beginPath();
         ctx.arc(pin.x, pin.y, pinRadius, 0, Math.PI * 2);
         ctx.fill();
+
+        // Pin highlight rim
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y, pinRadius, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
 
@@ -313,10 +349,10 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
     if (pinHitsRef.current.size > 0) {
       pinHitsRef.current.forEach((hitInfo, pinKey) => {
         const elapsed = now - hitInfo.startTime;
-        if (elapsed < 200) {
-          const p = elapsed / 200;
+        if (elapsed < 240) {
+          const p = elapsed / 240;
           const hitAlpha = 1 - p;
-          const currentRadius = pinRadius * (1 + (1 - p) * 0.6);
+          const currentRadius = pinRadius * (1 + (1 - p) * 0.7);
           const hitColor = hitInfo.color || "#ffffff";
           const [rStr, cStr] = pinKey.split("_");
           const pin = getPinPos(parseInt(rStr, 10), parseInt(cStr, 10), rows);
@@ -324,13 +360,13 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
           // Fast concentric ripple
           ctx.save();
           ctx.strokeStyle = hitColor;
-          ctx.globalAlpha = hitAlpha * 0.85;
-          ctx.lineWidth = 2.2;
+          ctx.globalAlpha = hitAlpha * 0.9;
+          ctx.lineWidth = 2.4;
           ctx.beginPath();
-          ctx.arc(pin.x, pin.y, pinRadius + p * 16, 0, Math.PI * 2);
+          ctx.arc(pin.x, pin.y, pinRadius + p * 18, 0, Math.PI * 2);
           ctx.stroke();
 
-          // Highlighted Pin Head
+          // Highlighted Pin Head Glow
           ctx.globalAlpha = hitAlpha;
           ctx.fillStyle = hitColor;
           ctx.beginPath();
@@ -348,23 +384,49 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       });
     }
 
-    // 3. Update and Draw Active Balls
+    // 3. Draw & update collision spark particles
+    if (particlesRef.current.length > 0) {
+      const aliveParticles = [];
+      for (let i = 0; i < particlesRef.current.length; i++) {
+        const p = particlesRef.current[i];
+        p.x += p.vx * (dt / 16);
+        p.y += p.vy * (dt / 16);
+        p.vy += 0.22 * (dt / 16); // Particle gravity
+        p.life -= dt / p.maxLife;
+
+        if (p.life > 0) {
+          aliveParticles.push(p);
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      particlesRef.current = aliveParticles;
+    }
+
+    // 4. Update and Draw Active Balls
     const aliveBalls = [];
     const activeBalls = activeBallsRef.current;
 
     for (let i = 0; i < activeBalls.length; i++) {
       const b = activeBalls[i];
 
-      // Handle landing settle phase (soft settle bounce in container)
+      // Handle landing settle phase (soft natural double bounce in container)
       if (b.settling) {
-        b.settleProgress += dt / 220;
+        b.settleProgress += dt / 340;
         if (b.settleProgress >= 1) {
           // Ball has finished settling into the hopper
           continue;
         }
         const p = b.settleProgress;
-        b.y = b.finalY - Math.sin(p * Math.PI) * 4;
-        b.alpha = 1 - p * 0.75;
+        // Damped physical bouncing in container (bounce 1: 7px, bounce 2: 2.5px)
+        const bounceHeight = Math.sin(p * Math.PI * 2) * Math.exp(-p * 3.2) * 7.5;
+        b.y = b.finalY - Math.max(0, bounceHeight);
+        b.alpha = 1 - Math.max(0, (p - 0.5) * 2.0); // Smooth fade-out in second half
         aliveBalls.push(b);
         drawBall(ctx, b);
         continue;
@@ -387,6 +449,23 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
             startTime: now,
             color: b.color,
           });
+
+          // Spawn 5 physical spark particles
+          const pin = getPinPos(seg.hitPin.r, seg.hitPin.c, rows);
+          for (let k = 0; k < 5; k++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.2 + Math.random() * 2.5;
+            particlesRef.current.push({
+              x: pin.x,
+              y: pin.y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 1.0,
+              size: 2.0 + Math.random() * 1.5,
+              color: b.color,
+              life: 1.0,
+              maxLife: 200 + Math.random() * 100,
+            });
+          }
         }
 
         // Landing in multiplier container
@@ -432,10 +511,17 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const curSeg = b.segments[b.curSegIndex];
       if (curSeg) {
         const t = Math.min(1, Math.max(0, b.segProgress));
-        const pos = cubicBezier(t, curSeg.p0, curSeg.p1, curSeg.p2, curSeg.p3);
+        // Physics time-warping (lingers slightly at apex, accelerates into peg)
+        const tWarp = t < 0.4 ? t * 0.95 : 0.4 * 0.95 + (t - 0.4) * (1 - 0.4 * 0.95) / 0.6;
+        const pos = cubicBezier(tWarp, curSeg.p0, curSeg.p1, curSeg.p2, curSeg.p3);
         b.x = pos.x;
         b.y = pos.y;
         b.alpha = 1;
+
+        // Maintain short smooth trail buffer
+        if (!b.trail) b.trail = [];
+        b.trail.push({ x: pos.x, y: pos.y });
+        if (b.trail.length > 4) b.trail.shift();
 
         aliveBalls.push(b);
         drawBall(ctx, b);
@@ -461,8 +547,8 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
 
       drawFrame(now, dt);
 
-      // Keep running if there are active balls OR active pin ripples
-      if (activeBallsRef.current.length > 0 || pinHitsRef.current.size > 0) {
+      // Keep running if there are active balls, active pin ripples, or sparks
+      if (activeBallsRef.current.length > 0 || pinHitsRef.current.size > 0 || particlesRef.current.length > 0) {
         animFrameIdRef.current = requestAnimationFrame(loop);
       } else {
         // Idle: draw final clean static frame and sleep
@@ -529,7 +615,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         p1: { x: startX, y: startY + (contact0.y - startY) * 0.4 },
         p2: { x: contact0.x, y: contact0.y - (contact0.y - startY) * 0.25 },
         p3: contact0,
-        duration: turbo ? 90 : 260,
+        duration: turbo ? 80 : 200,
         hitPin: { r: 0, c: 1 },
       });
 
@@ -545,33 +631,33 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         const nextPin = getPinPos(r + 1, nextCol, numRows);
 
         // Contact point on current pin shoulder (launching off)
-        const launchAngle = dir * 0.42;
+        const launchAngle = dir * 0.38;
         const launchPoint = {
           x: currentPin.x + Math.sin(launchAngle) * collRadius,
           y: currentPin.y - Math.cos(launchAngle) * collRadius,
         };
 
         // Contact point on next pin shoulder (incoming strike)
-        const strikeAngle = -dir * 0.46;
+        const strikeAngle = -dir * 0.48;
         const strikePoint = {
           x: nextPin.x + Math.sin(strikeAngle) * collRadius,
           y: nextPin.y - Math.cos(strikeAngle) * collRadius,
         };
 
         // Parabolic arc with apex hang time and downward acceleration
-        const apexHeight = Math.max(5.0, rowHeight * 0.24);
+        const apexHeight = Math.max(7.0, rowHeight * 0.32);
         const p1 = {
-          x: launchPoint.x + dir * (pinDistX * 0.22),
-          y: launchPoint.y - apexHeight * 0.90,
+          x: launchPoint.x + dir * (pinDistX * 0.28),
+          y: launchPoint.y - apexHeight,
         };
         const p2 = {
-          x: strikePoint.x - dir * (pinDistX * 0.08),
-          y: strikePoint.y - rowHeight * 0.38,
+          x: strikePoint.x - dir * (pinDistX * 0.06),
+          y: strikePoint.y - rowHeight * 0.42,
         };
 
-        // Depth-dependent duration: gravitational acceleration as the ball falls
+        // Depth-dependent duration: natural pacing
         const rowProgress = r / (numRows - 1);
-        const duration = turbo ? (65 + (1 - rowProgress) * 25) : (220 + (1 - rowProgress) * 90);
+        const duration = turbo ? (65 + (1 - rowProgress) * 18) : (165 + (1 - rowProgress) * 55);
 
         segments.push({
           p0: launchPoint,
@@ -590,7 +676,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const finalDir = finalStep === 1 ? 1 : -1;
       const lastPin = getPinPos(numRows - 1, curCol, numRows);
 
-      const launchAngle = finalDir * 0.42;
+      const launchAngle = finalDir * 0.38;
       const launchPoint = {
         x: lastPin.x + Math.sin(launchAngle) * collRadius,
         y: lastPin.y - Math.cos(launchAngle) * collRadius,
@@ -600,14 +686,14 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
       const binCenterX = PADDING_X + (targetSlot + 0.5) * pinDistX;
       const binCenterY = HEIGHT - PADDING_BOTTOM + 21;
 
-      const exitApexHeight = Math.max(5.0, rowHeight * 0.22);
+      const exitApexHeight = Math.max(6.0, rowHeight * 0.28);
       const exitApex = {
-        x: launchPoint.x + finalDir * (pinDistX * 0.20),
-        y: launchPoint.y - exitApexHeight * 0.75,
+        x: launchPoint.x + finalDir * (pinDistX * 0.25),
+        y: launchPoint.y - exitApexHeight,
       };
       const binEntry = {
         x: binCenterX,
-        y: binCenterY - 14,
+        y: binCenterY - 16,
       };
 
       segments.push({
@@ -615,7 +701,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         p1: exitApex,
         p2: binEntry,
         p3: { x: binCenterX, y: binCenterY },
-        duration: turbo ? 85 : 240,
+        duration: turbo ? 75 : 190,
         isFinal: true,
       });
 
@@ -640,6 +726,7 @@ export const PlinkoTable = forwardRef(function PlinkoTable(
         settling: false,
         settleProgress: 0,
         finalY: binCenterY,
+        trail: [],
       };
 
       activeBallsRef.current.push(newBall);
