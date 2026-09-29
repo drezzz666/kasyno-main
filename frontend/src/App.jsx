@@ -131,9 +131,11 @@ export default function App() {
   const [activeEvent, setActiveEvent] = useState(() => data?.activeEvent || null);
   const [eventRibbonOpen, setEventRibbonOpen] = useState(false);
 
+  const isLiveEvent = Boolean(activeEvent && (Number(activeEvent.multiplier) > 1.0 || activeEvent.name));
+
   useEffect(() => {
     const ev = data?.activeEvent || null;
-    if (!ev || !ev.multiplier || ev.multiplier <= 1.0) {
+    if (!ev) {
       setActiveEvent(null);
       return;
     }
@@ -154,8 +156,8 @@ export default function App() {
       const payload = e.detail || {};
       const dur = Number(payload.duration) || 60;
       setActiveEvent({
-        name: payload.event || "money-rain",
-        multiplier: payload.multiplier || 1.25,
+        name: payload.name || payload.event || "live-event",
+        multiplier: Number(payload.multiplier) || 1.0,
         duration: dur,
         ends_at: payload.ends_at || new Date(Date.now() + dur * 1000).toISOString(),
       });
@@ -719,9 +721,15 @@ export default function App() {
         </button>
 
         {/* Live Event Indicator */}
-        {activeEvent && activeEvent.multiplier > 1.0 && (
-          <div className="topbar-event-bar" title="Aktywny mnożnik Event">
-            <span className="event-label">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+        {isLiveEvent && (
+          <div className="topbar-event-bar" title="Aktywne wydarzenie">
+            <Sparkles size={14} className="event-icon" />
+            {Number(activeEvent.multiplier) > 1.0 && (
+              <span className="event-label">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+            )}
+            {!(Number(activeEvent.multiplier) > 1.0) && activeEvent.name && (
+              <span className="event-label">{activeEvent.name.toUpperCase()}</span>
+            )}
             <span className="event-divider">•</span>
             <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
           </div>
@@ -760,27 +768,33 @@ export default function App() {
       </header>
 
       {/* Mobile Sliding Event Ribbon (wstążka z boku ekranu) */}
-      {activeEvent && activeEvent.multiplier > 1.0 && (
+      {isLiveEvent && (
         <div className="mobile-event-ribbon-wrap">
           <button
             type="button"
             className={`mobile-event-ribbon ${eventRibbonOpen ? "expanded" : "collapsed"}`}
             onClick={() => setEventRibbonOpen((prev) => !prev)}
-            aria-label={eventRibbonOpen ? "Zwiń Event" : "Rozwiń Event"}
-            title="Mnożnik Event"
+            aria-label={eventRibbonOpen ? "Zwiń event" : "Rozwiń event"}
+            title="Aktywne wydarzenie"
           >
-            <div className="ribbon-inner">
+            <div className={`ribbon-inner ${eventRibbonOpen ? "expanded-inner" : "collapsed-inner"}`}>
               {eventRibbonOpen ? (
                 <>
-                  <span className="ribbon-title">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  <Sparkles size={14} className="event-icon" />
+                  {Number(activeEvent.multiplier) > 1.0 && (
+                    <span className="ribbon-multiplier">×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  )}
+                  {!(Number(activeEvent.multiplier) > 1.0) && activeEvent.name && (
+                    <span className="ribbon-name">{activeEvent.name.toUpperCase()}</span>
+                  )}
                   <span className="ribbon-sep">•</span>
                   <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
                   <ChevronRight size={14} className="ribbon-chevron" />
                 </>
               ) : (
                 <>
-                  <span className="ribbon-short">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
-                  <ChevronLeft size={14} className="ribbon-chevron" />
+                  <Sparkles size={16} className="event-icon" />
+                  <ChevronLeft size={13} className="ribbon-chevron" />
                 </>
               )}
             </div>
