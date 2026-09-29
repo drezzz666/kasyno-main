@@ -720,9 +720,8 @@ export default function App() {
 
         {/* Live Event Indicator */}
         {activeEvent && activeEvent.multiplier > 1.0 && (
-          <div className="topbar-event-bar" title="Aktywny mnożnik Cash Rain">
-            <span className="event-dot" />
-            <span className="event-label">CASH RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+          <div className="topbar-event-bar" title="Aktywny mnożnik Event">
+            <span className="event-label">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
             <span className="event-divider">•</span>
             <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
           </div>
@@ -767,21 +766,20 @@ export default function App() {
             type="button"
             className={`mobile-event-ribbon ${eventRibbonOpen ? "expanded" : "collapsed"}`}
             onClick={() => setEventRibbonOpen((prev) => !prev)}
-            aria-label={eventRibbonOpen ? "Zwiń Cash Rain" : "Rozwiń Cash Rain"}
-            title="Mnożnik Cash Rain"
+            aria-label={eventRibbonOpen ? "Zwiń Event" : "Rozwiń Event"}
+            title="Mnożnik Event"
           >
             <div className="ribbon-inner">
-              <span className="ribbon-pulse-dot" />
               {eventRibbonOpen ? (
                 <>
-                  <span className="ribbon-title">CASH RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  <span className="ribbon-title">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
                   <span className="ribbon-sep">•</span>
                   <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
                   <ChevronRight size={14} className="ribbon-chevron" />
                 </>
               ) : (
                 <>
-                  <span className="ribbon-short">RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  <span className="ribbon-short">EVENT ×{Number(activeEvent.multiplier).toFixed(2)}</span>
                   <ChevronLeft size={14} className="ribbon-chevron" />
                 </>
               )}
