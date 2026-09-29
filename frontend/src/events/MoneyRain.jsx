@@ -17,44 +17,52 @@ export function MoneyRain({
 
   const nextIdRef = useRef(1);
   const spawnTimerRef = useRef(null);
+  const notifiedEventKeyRef = useRef(null);
 
   const stopRain = useCallback(() => {
     setRunning(false);
     clearInterval(spawnTimerRef.current);
     setBanknotes([]);
     sounds.stopMoneyRainMusic();
+    notifiedEventKeyRef.current = null;
     if (onClose) onClose();
   }, [onClose]);
 
-  const startRain = useCallback(() => {
+  const startRain = useCallback((event) => {
     setRunning(true);
 
     // Start event music via sounds engine immediately and loop continuously
     sounds.playMoneyRainMusic();
 
-    // Notify player that Cash Rain is active
-    const mult = activeEvent?.multiplier || 1.25;
-    toast.success("🌧️ Cash Rain jest aktywny!", {
-      id: "cash-rain-active-toast",
-      description: `Mnożnik wygranych ×${Number(mult).toFixed(2)} jest teraz włączony!`,
-      duration: 6000,
-    });
+    const ev = event || activeEvent;
+    const mult = ev?.multiplier || 1.25;
+    const eventKey = ev?.id || ev?.ends_at || ev?.endsAt || (ev ? `${ev.multiplier}-${ev.ends_at || ev.endsAt}` : "rain");
 
-    // Golden celebratory burst at event onset
-    try {
-      confetti({
-        particleCount: 35,
-        spread: 80,
-        origin: { y: 0.1 },
-        colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
+    // Only notify once per event
+    if (notifiedEventKeyRef.current !== eventKey) {
+      notifiedEventKeyRef.current = eventKey;
+      toast.success("🌧️ Cash Rain jest aktywny!", {
+        id: "cash-rain-active-toast",
+        description: `Mnożnik wygranych ×${Number(mult).toFixed(2)} jest teraz włączony!`,
+        duration: 2000,
       });
-    } catch {}
+
+      // Golden celebratory burst at event onset
+      try {
+        confetti({
+          particleCount: 35,
+          spread: 80,
+          origin: { y: 0.1 },
+          colors: ["#fef08a", "#eab308", "#10b981", "#34d399", "#86efac"],
+        });
+      } catch {}
+    }
   }, [activeEvent]);
 
   // Continuous rain and music as long as activeEvent is active and not expired
   useEffect(() => {
     if (!activeEvent || !activeEvent.multiplier || activeEvent.multiplier <= 1.0) {
-      stopRain();
+      if (running) stopRain();
       return;
     }
 
@@ -65,11 +73,13 @@ export function MoneyRain({
       : null;
 
     if (endsAtMs && Date.now() >= endsAtMs) {
-      stopRain();
+      if (running) stopRain();
       return;
     }
 
-    startRain();
+    if (!running) {
+      startRain(activeEvent);
+    }
 
     let endTimer = null;
     if (endsAtMs) {
@@ -86,7 +96,7 @@ export function MoneyRain({
     return () => {
       if (endTimer) clearTimeout(endTimer);
     };
-  }, [activeEvent, startRain, stopRain]);
+  }, [activeEvent, running, startRain, stopRain]);
 
   // Liveness heartbeat to kill rain & music the second event expiration time is reached
   useEffect(() => {

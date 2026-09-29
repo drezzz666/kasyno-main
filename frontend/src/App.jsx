@@ -257,7 +257,7 @@ export default function App() {
           toast.info("🔇 Wyciszono dźwięki", {
             id: "subnet-auto-mute-toast",
             description: j.autoMutedReason || "Hej hej :) Widzę, że logujesz się ze szkolnej sieci. Wyciszyłem dla ciebie wszystkie efekty dźwiękowe i muzykę, sprawdź czy nie masz odciszonego komputera!",
-            duration: 9000,
+            duration: 2000,
           });
         }
       }
@@ -452,7 +452,7 @@ export default function App() {
           } catch { }
           toast.success(`🎉 AWANS NA POZIOM ${j.level}!`, {
             description: `Otrzymujesz nagrodę +${money(j.levelUpBonus)} w darmowych żetonach!`,
-            duration: 6000,
+            duration: 2000,
           });
         }
         if (j.round.state !== "active" && !opts?.deferRefresh && !opts?.deferBalance) {
@@ -636,7 +636,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Toaster theme="dark" position="bottom-right" richColors />
+      <Toaster duration={2000} theme="dark" position="bottom-right" richColors />
 
       {/* Clean Top Header */}
       <header className="topbar">
