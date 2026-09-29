@@ -86,17 +86,23 @@ body {
   }
 }
 
-/* Live Cash Rain Event Topbar Indicator (Clean, non-AI) */
+/* Live Cash Rain Event Topbar Indicator (Desktop only) */
 .topbar-event-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 6px;
-  user-select: none;
-  font-size: 0.75rem;
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .topbar-event-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 6px;
+    user-select: none;
+    font-size: 0.75rem;
+  }
 }
 
 .event-dot {
@@ -121,6 +127,98 @@ body {
 .event-time {
   font-weight: 600;
   color: #cbd5e1;
+}
+
+/* Mobile Sliding Event Ribbon (Wstążka wysuwana z boku ekranu) */
+.mobile-event-ribbon-wrap {
+  position: fixed;
+  right: 0;
+  top: 66px;
+  z-index: 45;
+  display: block;
+  pointer-events: auto;
+}
+
+@media (min-width: 769px) {
+  .mobile-event-ribbon-wrap {
+    display: none !important;
+  }
+}
+
+.mobile-event-ribbon {
+  display: flex;
+  align-items: center;
+  background: rgba(6, 78, 59, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-right: none;
+  border-radius: 20px 0 0 20px;
+  box-shadow: -3px 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(16, 185, 129, 0.25);
+  cursor: pointer;
+  padding: 6px 8px 6px 12px;
+  color: #ffffff;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  user-select: none;
+}
+
+.mobile-event-ribbon:active {
+  transform: scale(0.97);
+}
+
+.mobile-event-ribbon.collapsed {
+  opacity: 0.92;
+  box-shadow: -2px 3px 10px rgba(0, 0, 0, 0.35), 0 0 8px rgba(16, 185, 129, 0.2);
+}
+
+.mobile-event-ribbon.expanded {
+  background: rgba(6, 78, 59, 0.98);
+  border-color: rgba(52, 211, 153, 0.65);
+  box-shadow: -4px 6px 22px rgba(0, 0, 0, 0.55), 0 0 16px rgba(16, 185, 129, 0.4);
+}
+
+.ribbon-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.ribbon-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 6px #34d399;
+  flex-shrink: 0;
+  animation: pulseDot 2s infinite;
+}
+
+.ribbon-title {
+  font-weight: 700;
+  color: #34d399;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.ribbon-short {
+  font-weight: 700;
+  color: #34d399;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.ribbon-sep {
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.ribbon-chevron {
+  color: #94a3b8;
+  margin-left: 2px;
+  flex-shrink: 0;
 }
 
 .brand {

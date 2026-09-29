@@ -9,6 +9,7 @@ import {
   Target,
   History,
   ChevronRight,
+  ChevronLeft,
   Sparkles,
   Zap,
   Dices,
@@ -128,6 +129,7 @@ export default function App() {
 
   // Live Casino Event State (e.g. Money Rain + Multiplier)
   const [activeEvent, setActiveEvent] = useState(() => data?.activeEvent || null);
+  const [eventRibbonOpen, setEventRibbonOpen] = useState(false);
 
   useEffect(() => {
     const ev = data?.activeEvent || null;
@@ -757,6 +759,36 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* Mobile Sliding Event Ribbon (wstążka z boku ekranu) */}
+      {activeEvent && activeEvent.multiplier > 1.0 && (
+        <div className="mobile-event-ribbon-wrap">
+          <button
+            type="button"
+            className={`mobile-event-ribbon ${eventRibbonOpen ? "expanded" : "collapsed"}`}
+            onClick={() => setEventRibbonOpen((prev) => !prev)}
+            aria-label={eventRibbonOpen ? "Zwiń Cash Rain" : "Rozwiń Cash Rain"}
+            title="Mnożnik Cash Rain"
+          >
+            <div className="ribbon-inner">
+              <span className="ribbon-pulse-dot" />
+              {eventRibbonOpen ? (
+                <>
+                  <span className="ribbon-title">CASH RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  <span className="ribbon-sep">•</span>
+                  <EventCountdown activeEvent={activeEvent} onExpire={() => setActiveEvent(null)} />
+                  <ChevronRight size={14} className="ribbon-chevron" />
+                </>
+              ) : (
+                <>
+                  <span className="ribbon-short">RAIN ×{Number(activeEvent.multiplier).toFixed(2)}</span>
+                  <ChevronLeft size={14} className="ribbon-chevron" />
+                </>
+              )}
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Live Wins Ticker */}
       <LiveTicker wins={recentWins} />
