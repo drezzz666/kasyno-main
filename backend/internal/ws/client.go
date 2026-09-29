@@ -76,6 +76,7 @@ func (c *Client) readPump() {
 			}
 			break
 		}
+		_ = c.Conn.SetReadDeadline(time.Now().Add(pongWait))
 
 		handler := c.Hub.GetMessageHandler()
 		if handler != nil && len(message) > 0 {
