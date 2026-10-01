@@ -663,10 +663,6 @@ func (h *CasinoHandler) handleInstantGame(w http.ResponseWriter, r *http.Request
 				if amt <= 0 {
 					continue
 				}
-				if amt > 10_000_000 {
-					JSONError(w, http.StatusBadRequest, "Stawka na pojedyncze pole przekracza limit 10,000,000 $FGT.")
-					return
-				}
 				if math.MaxInt64-calculatedTotal < amt {
 					JSONError(w, http.StatusBadRequest, "Łączna stawka przekracza dopuszczalny limit.")
 					return

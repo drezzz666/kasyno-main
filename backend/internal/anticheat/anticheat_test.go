@@ -17,6 +17,9 @@ func TestValidateBet(t *testing.T) {
 	if err := ValidateBet(10_000_000, 20_000_000); err != nil {
 		t.Errorf("expected bet 10M to be valid, got %v", err)
 	}
+	if err := ValidateBet(50_000_000, 100_000_000); err != nil {
+		t.Errorf("expected bet 50M to be valid, got %v", err)
+	}
 
 	// Invalid / exploit attempts
 	if err := ValidateBet(0, 100); err == nil {
@@ -27,9 +30,6 @@ func TestValidateBet(t *testing.T) {
 	}
 	if err := ValidateBet(100, 50); err == nil {
 		t.Errorf("expected bet exceeding balance to fail")
-	}
-	if err := ValidateBet(20_000_000, 100_000_000); err == nil {
-		t.Errorf("expected bet over 10M cap to fail")
 	}
 }
 

@@ -399,7 +399,7 @@ func countSince(ts []time.Time, now time.Time, window time.Duration) int {
 // ============================================================================
 
 func ValidateBet(bet int64, playerBalance int64) error {
-	if bet < 1 || bet > 10_000_000 {
+	if bet < 1 {
 		return ErrInvalidBetAmount
 	}
 	if bet > playerBalance {
