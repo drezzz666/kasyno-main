@@ -24,6 +24,8 @@ data/
 _data/
 _data.backup/
 *.db
-*.db-*
 *.sql
 !schema.sql
+
+# AI agent configs
+.agents/
